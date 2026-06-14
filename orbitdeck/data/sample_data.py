@@ -1,12 +1,16 @@
 """
 sample_data.py - a small bundled GP catalog + transponders so the desktop app
-runs immediately offline. Replace via File > Update (online) for live elements.
+runs immediately offline.
 
-Elements are representative recent amateur-satellite GP/OMM records. They are
-fine for demonstrating every screen; for on-the-air accuracy fetch fresh GP.
+IMPORTANT: bundled elements are for DEMONSTRATION only. Their epoch is stamped
+to "today" at import time so pass geometry and timing are self-consistent and
+physically sensible, but the absolute orbital phase will not match the real
+satellites. For on-the-air accuracy, use "Update GP (online)" to fetch live
+elements from AMSAT. SGP4 is only trustworthy within ~1-2 weeks of epoch.
 """
 
 import json
+import datetime as _dt
 
 SAMPLE_GP = [
     {
@@ -86,7 +90,24 @@ SAMPLE_TX = {
 
 
 def sample_gp_json():
-    return json.dumps(SAMPLE_GP)
+    """Return the bundled catalog as GP JSON, with each EPOCH re-stamped to
+    today (preserving each satellite's original time-of-day offset) so the
+    demo elements are never stale-dated. Orbital phase is still synthetic;
+    use the online update for real accuracy."""
+    today = _dt.datetime.now(_dt.timezone.utc).replace(microsecond=0)
+    out = []
+    for rec in SAMPLE_GP:
+        rec = dict(rec)
+        # keep the original HH:MM:SS, move the date to today
+        try:
+            orig = _dt.datetime.strptime(rec["EPOCH"][:19], "%Y-%m-%dT%H:%M:%S")
+            stamped = today.replace(hour=orig.hour, minute=orig.minute,
+                                    second=orig.second)
+        except Exception:
+            stamped = today
+        rec["EPOCH"] = stamped.strftime("%Y-%m-%dT%H:%M:%S.000000")
+        out.append(rec)
+    return json.dumps(out)
 
 
 def sample_tx_for(norad):

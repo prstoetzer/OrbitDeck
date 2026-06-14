@@ -130,9 +130,66 @@ class MplPanel:
         self.widget.pack(**kw)
 
 
+class KVPanel:
+    """A scrollable, grouped key/value readout with aligned columns.
+
+    Build content by calling section()/row()/note() between begin() and end().
+    Values can be colored (e.g. accent for headline figures, warn for cautions).
+    Renders as a clean card instead of a raw text dump.
+    """
+
+    def __init__(self, parent, label_width=15):
+        self.outer = tk.Frame(parent, bg=COL_PANEL, highlightthickness=0)
+        self.label_width = label_width
+        self._rows = []          # live tk widgets to clear on rebuild
+        self._body = tk.Frame(self.outer, bg=COL_PANEL)
+        self._body.pack(fill="both", expand=True, padx=4, pady=4)
+
+    def pack(self, **kw):
+        self.outer.pack(**kw)
+
+    def begin(self):
+        for w in self._rows:
+            w.destroy()
+        self._rows = []
+
+    def section(self, title):
+        f = tk.Frame(self._body, bg=COL_PANEL)
+        f.pack(fill="x", pady=(10, 2))
+        tk.Label(f, text=title.upper(), bg=COL_PANEL, fg=COL_ACCENT,
+                 font=("DejaVu Sans", 9, "bold"), anchor="w").pack(
+            side="left", padx=(8, 0))
+        line = tk.Frame(self._body, bg=COL_GRID, height=1)
+        line.pack(fill="x", padx=8, pady=(0, 4))
+        self._rows.append(f)
+        self._rows.append(line)
+
+    def row(self, label, value, color=None, big=False):
+        f = tk.Frame(self._body, bg=COL_PANEL)
+        f.pack(fill="x", padx=8, pady=1)
+        tk.Label(f, text=label, bg=COL_PANEL, fg=COL_MUTED,
+                 font=FONT_MONO, width=self.label_width, anchor="w").pack(
+            side="left")
+        tk.Label(f, text=value, bg=COL_PANEL, fg=color or COL_TEXT,
+                 font=("DejaVu Sans Mono", 15, "bold") if big else FONT_MONO,
+                 anchor="w").pack(side="left")
+        self._rows.append(f)
+
+    def note(self, text, color=None):
+        lbl = tk.Label(self._body, text=text, bg=COL_PANEL,
+                       fg=color or COL_MUTED, font=("DejaVu Sans", 9),
+                       anchor="w", justify="left", wraplength=560)
+        lbl.pack(fill="x", padx=8, pady=(6, 2))
+        self._rows.append(lbl)
+
+    def end(self):
+        pass
+
+
 def make_screen(key, parent, app):
     from . import (track, passes, passdetail, polar, worldmap, groundtrack,
-                   orbit, illum, sunmoon, mutual, tenday, satellites, location)
+                   orbit, illum, sunmoon, mutual, tenday, satellites, location,
+                   grids, spacewx)
     mapping = {
         "track": track.TrackScreen,
         "passes": passes.PassesScreen,
@@ -147,6 +204,8 @@ def make_screen(key, parent, app):
         "tenday": tenday.TenDayScreen,
         "satellites": satellites.SatellitesScreen,
         "location": location.LocationScreen,
+        "grids": grids.GridsScreen,
+        "spacewx": spacewx.SpaceWxScreen,
     }
     cls = mapping[key]
     return cls(parent, app)

@@ -40,6 +40,14 @@ CAS-4B, RS-44) so every screen works immediately offline. Click **Update GP
 (online)** to pull the live AMSAT catalog, and use the **Satellites** screen to
 fetch SatNOGS transponder data for the selected bird.
 
+> ⚠️ **Pass times from the bundled catalog are illustrative, not real.** The
+> demo elements are stamped to the current date so the geometry is sensible, but
+> their orbital *phase* is synthetic — they will not tell you when a satellite
+> is actually overhead. A yellow banner reminds you while demo (or stale) data
+> is loaded. **Click *Update GP (online)* for accurate, on-the-air pass times.**
+> SGP4 is only trustworthy within ~1–2 weeks of an element set's epoch, so
+> refresh periodically.
+
 ### Optional extras
 
 ```bash
@@ -64,10 +72,12 @@ pip install -e ".[full]"       # both
 | **Polar** | Full-size live polar sky view of the current/next pass with the Sun marked. |
 | **World Map** | Sub-point, coverage **footprint**, ground track, the day/night **terminator** and sub-solar point, and your station. |
 | **Ground Track** | Forward ground track over 1–8 upcoming orbits. |
-| **Orbital Analysis** | Nine pages mirroring the device: Info, Live, Pass, Track, Doppler curve, Nodal (period + ascending-node crossings), Sun/Beta angle (60-day plot), Pass Outlook, Orbit Position. |
+| **Orbital Analysis** | Nine pages matching the source device: **Info** (size/shape, footprint diameter now/apogee/perigee, B\* drag-decay estimate, element age), **Live** (look angles, dual-band Doppler, eclipse depth), **Next Pass** (slant ranges at AOS/TCA/LOS, one-way path delay), **Ground Track**, **Doppler** curve (peak shift + max range-rate), **Nodal** (J2 node/perigee drift, sun-sync flag, LTAN, repeat ground-track, longest possible pass), **Sun/Beta** (β now, β\* threshold, eclipse fraction, 60-day plot), **Pass Outlook** (7-day planning summary + best pass), **Orbit Position** (mean/true anomaly, argument of latitude, time to perigee/apogee). Presented as clean grouped data cards. |
 | **Illumination** | 10/30/60-day sunlit-vs-eclipse raster with mean eclipse fraction. |
 | **Sun / Moon** | Solar and lunar az/el for your site, plus Moon phase and illumination. |
 | **Mutual Windows** | Co-visibility windows between you and a DX station (entered as a grid or lat,lon). |
+| **Workable** | What's inside the footprint — **grids**, **US states**, or **DXCC entities** — live (now) or unioned across the next pass, for grid/state/DX chasing. |
+| **Space Wx** | Solar 10.7 cm flux, planetary Kp, and A index from NOAA SWPC, with plain-language levels and an operating outlook. Cached for offline viewing. |
 | **Multi-Day Pass Progression** | One satellite's passes across 10+ days as a scrollable stack of 24-hour timelines — each pass placed at its time of day, width = duration, shaded by max elevation. |
 | **Satellites** | The catalog: filter, select, favorite (★), and fetch transponders. |
 | **Location** | Set your observer site by lat/lon/altitude or Maidenhead grid. |
@@ -190,6 +200,29 @@ Yaesu, Kenwood, IcomNet, `rigctld`) or **rotator control** (`rotctld`) was
 ported. The engine still computes the Doppler-corrected frequencies and look
 angles those subsystems would consume, so a rig/rotator bridge could be added
 later — but it is not part of OrbitDeck.
+
+## Coverage vs CardSat (tracking & analysis)
+
+OrbitDeck implements the full tracking and orbital-analysis surface of the
+device:
+
+Satellites catalog; all nine Orbital-Analysis pages (Info, Live, Next Pass,
+Ground Track, Doppler, Nodal/J2, Sun-Beta, Pass Outlook, Orbit Position); Next
+Passes; Pass detail & polar; Mutual windows; multi-day pass progression; 60-day
+illumination; live Track; world map with footprint and terminator; Sun/Moon;
+**Workable grids, US states, and DXCC**; **Space Weather** (F10.7 / Kp / A from
+NOAA SWPC); Location; GP-age warnings; online GP (AMSAT) and transponder
+(SatNOGS) fetch.
+
+The only CardSat features intentionally excluded are **radio (CAT) and rotator
+control** — see above.
+
+**Notes on the workable overlays.** Grids are computed geometrically (no bundled
+data). US states use multi-point interior sampling per state, and DXCC uses
+per-entity reference points for a practical set of the commonly worked / spread
+entities (the point half of CardSat's hybrid model). Both are footprint-scale
+accurate and intentionally lightweight; a footprint grazing a border may briefly
+list a neighbour, which is correct at footprint scale (both are workable).
 
 ---
 

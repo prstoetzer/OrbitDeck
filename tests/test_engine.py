@@ -126,3 +126,134 @@ def test_maidenhead_roundtrip():
 def test_grid_known_values():
     # London ~ IO91
     assert latlon_to_grid(51.5, -0.1).upper().startswith("IO91")
+
+
+def test_sample_epochs_are_fresh():
+    """Bundled demo elements must be stamped near 'today' so pass geometry is
+    self-consistent rather than years stale."""
+    import datetime as _dt
+    import json as _json
+    from orbitdeck.data.sample_data import sample_gp_json
+    now = _dt.datetime.now(_dt.timezone.utc)
+    for rec in _json.loads(sample_gp_json()):
+        ep = _dt.datetime.strptime(rec["EPOCH"][:19], "%Y-%m-%dT%H:%M:%S")
+        ep = ep.replace(tzinfo=_dt.timezone.utc)
+        age_days = abs((now - ep).total_seconds()) / 86400.0
+        assert age_days < 2, "%s epoch is %.1f days from now" % (
+            rec.get("AMSAT_NAME"), age_days)
+
+
+def test_store_rejects_stale_cache(tmp_path=None):
+    """A stale on-disk cache should be discarded in favor of fresh sample data."""
+    import os
+    import json as _json
+    import tempfile
+    import orbitdeck.gui.store as store_mod
+    tmp = tempfile.mkdtemp()
+    store_mod.CONFIG_DIR = tmp
+    store_mod.CONFIG_PATH = os.path.join(tmp, "config.json")
+    store_mod.GP_CACHE = os.path.join(tmp, "gp.json")
+    stale = [{
+        "AMSAT_NAME": "OLD", "OBJECT_NAME": "OLD", "OBJECT_ID": "x",
+        "EPOCH": "2020-01-01T00:00:00.000000", "MEAN_MOTION": 15.5,
+        "ECCENTRICITY": 0.0004, "INCLINATION": 51.6, "RA_OF_ASC_NODE": 210,
+        "ARG_OF_PERICENTER": 80, "MEAN_ANOMALY": 280, "BSTAR": 0.00025,
+        "MEAN_MOTION_DOT": 0.0001, "MEAN_MOTION_DDOT": 0,
+        "NORAD_CAT_ID": 25544, "REV_AT_EPOCH": 45000, "ELEMENT_SET_NO": 1,
+    }]
+    with open(store_mod.GP_CACHE, "w") as f:
+        f.write(_json.dumps(stale))
+    s = store_mod.Store()
+    assert s.using_sample() is True       # stale cache rejected
+    assert s.catalog_age_days() < 2       # fresh sample loaded instead
+
+
+def test_analysis_j2_rates_iss():
+    from orbitdeck.engine import analysis as A
+    node, perig = A.j2_rates(15.50103472, 51.6393, 0.0004364)
+    # ISS node regresses ~5 deg/day westward; perigee advances a few deg/day
+    assert -6.0 < node < -4.0
+    assert 2.0 < perig < 5.0
+    assert A.is_sun_synchronous(node) is False
+
+
+def test_analysis_sun_sync_detection():
+    from orbitdeck.engine import analysis as A
+    # a ~98 deg, 14.8 rev/day SSO should come out sun-synchronous
+    node, _ = A.j2_rates(14.8, 97.9, 0.001)
+    assert A.is_sun_synchronous(node) is True
+
+
+def test_analysis_footprint_and_betastar():
+    from orbitdeck.engine import analysis as A
+    assert 4000 < A.footprint_diameter_km(420) < 5000
+    assert A.footprint_diameter_km(1500) > A.footprint_diameter_km(420)
+    assert 15 < A.beta_star_deg(420) < 25
+
+
+def test_analysis_anomaly_chain():
+    from orbitdeck.engine import analysis as A
+    ma = A.mean_anomaly_now_deg(280.0, 15.5, 1000.0, 0.0)
+    assert 0 <= ma < 360
+    nu = A.true_anomaly_deg(ma, 0.0004)
+    assert abs(nu - ma) < 1.0          # near-circular: true ~ mean
+    u = A.arg_of_latitude_deg(80.0, nu)
+    assert 0 <= u < 360
+
+
+def test_analysis_decay_iss_order_of_magnitude():
+    from orbitdeck.engine import analysis as A
+    # un-reboosted ISS-class at B*~2.5e-4 -> months-to-a-couple-years, not stable
+    d = A.estimate_decay_days(0.00025, 15.50103472, 0.0004364)
+    assert 30 < d < 3000
+
+
+def test_workable_grids_counts():
+    from orbitdeck.engine import analysis as A
+    g = A.workable_grids(40.0, -75.0, 420)
+    assert 400 < len(g) < 1200          # LEO footprint ~ several hundred grids
+    assert all(len(x) == 4 for x in g)
+    # a higher bird sees more
+    g2 = A.workable_grids(40.0, -75.0, 1500)
+    assert len(g2) > len(g)
+
+
+def test_workable_states_conus():
+    from orbitdeck.engine import analysis as A
+    from orbitdeck.data.us_states import workable_states
+    # a LEO footprint centred over Kansas should sweep most of the lower 48
+    inside = A.make_footprint_test(39.0, -95.0, 420)
+    states = workable_states(inside)
+    assert "KS" in states and "TX" in states and "CA" in states
+    assert 30 < len(states) <= 51
+    # a footprint over the mid-Pacific should reach no mainland states
+    inside2 = A.make_footprint_test(0.0, -150.0, 420)
+    assert workable_states(inside2) == [] or "HI" in workable_states(inside2)
+
+
+def test_workable_dxcc_basic():
+    from orbitdeck.engine import analysis as A
+    from orbitdeck.data.dxcc import workable_dxcc
+    inside = A.make_footprint_test(39.0, -95.0, 420)
+    ents = dict(workable_dxcc(inside))
+    assert "K" in ents                       # United States
+    # over central Europe, expect DL/F/etc., not the USA
+    inside2 = A.make_footprint_test(50.0, 9.0, 420)
+    prefixes = [p for p, n in workable_dxcc(inside2)]
+    assert "DL" in prefixes
+    assert "K" not in prefixes
+
+
+def test_spacewx_labels_and_ap():
+    from orbitdeck.gui import spacewx as W
+    assert W.flux_label(140)[1] == "good"
+    assert W.flux_label(80)[1] == "low"
+    assert W.kp_label(1)[0] == "quiet"
+    assert W.kp_label(6.5)[0] == "moderate storm"
+    assert W.kp_label(8)[0] == "major storm"
+    # Kp->ap monotonic and matches table anchors
+    assert W._kp_to_ap(0) == 0
+    assert W._kp_to_ap(4) == 27
+    assert W._kp_to_ap(9) == 400
+    out = W.outlook(140, 6)
+    assert "storm" in out.lower()

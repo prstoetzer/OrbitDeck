@@ -43,6 +43,8 @@ NAV_ITEMS = [
     ("Illumination", "illum"),
     ("Sun / Moon", "sunmoon"),
     ("Mutual Windows", "mutual"),
+    ("Workable", "grids"),
+    ("Space Wx", "spacewx"),
     ("Pass Progression", "tenday"),
     ("Satellites", "satellites"),
     ("Location", "location"),
@@ -97,6 +99,49 @@ class OrbitDeckApp:
                      font=FONT)
         st.map("Treeview", background=[("selected", COL_ACCENT)])
 
+        # --- text entry: explicit field colors so typed text is visible ---
+        st.configure("TEntry", fieldbackground=COL_PANEL, foreground=COL_TEXT,
+                     insertcolor=COL_TEXT, bordercolor=COL_GRID,
+                     lightcolor=COL_GRID, darkcolor=COL_GRID,
+                     selectbackground=COL_ACCENT, selectforeground="#ffffff",
+                     borderwidth=1, padding=4)
+        st.map("TEntry",
+               fieldbackground=[("focus", COL_PANEL), ("!focus", COL_PANEL)],
+               foreground=[("focus", COL_TEXT), ("!focus", COL_TEXT)],
+               bordercolor=[("focus", COL_ACCENT)])
+
+        st.configure("TCombobox", fieldbackground=COL_PANEL, background=COL_PANEL,
+                     foreground=COL_TEXT, arrowcolor=COL_TEXT,
+                     bordercolor=COL_GRID, borderwidth=1)
+        st.map("TCombobox",
+               fieldbackground=[("readonly", COL_PANEL)],
+               foreground=[("readonly", COL_TEXT)])
+
+        # --- radio / check: visible indicators on the dark background ---
+        st.configure("TRadiobutton", background=COL_BG, foreground=COL_TEXT,
+                     indicatorcolor=COL_PANEL, focuscolor=COL_ACCENT)
+        st.map("TRadiobutton",
+               background=[("active", COL_BG)],
+               foreground=[("active", COL_TEXT), ("selected", COL_TEXT)],
+               indicatorcolor=[("selected", COL_ACCENT),
+                               ("pressed", COL_ACCENT)])
+        st.configure("TCheckbutton", background=COL_BG, foreground=COL_TEXT,
+                     indicatorcolor=COL_PANEL, focuscolor=COL_ACCENT)
+        st.map("TCheckbutton",
+               background=[("active", COL_BG)],
+               foreground=[("active", COL_TEXT), ("selected", COL_TEXT)],
+               indicatorcolor=[("selected", COL_ACCENT),
+                               ("pressed", COL_ACCENT)])
+
+        # --- scrollbars: match the panels rather than OS default light gray ---
+        st.configure("Vertical.TScrollbar", background=COL_PANEL,
+                     troughcolor=COL_BG, bordercolor=COL_BG,
+                     arrowcolor=COL_TEXT)
+        st.configure("Horizontal.TScrollbar", background=COL_PANEL,
+                     troughcolor=COL_BG, bordercolor=COL_BG,
+                     arrowcolor=COL_TEXT)
+        st.configure("TSeparator", background=COL_GRID)
+
     def _build_layout(self):
         # top bar
         top = ttk.Frame(self.root, style="Panel.TFrame")
@@ -114,8 +159,24 @@ class OrbitDeckApp:
         ttk.Button(top, text="Select Satellite\u2026",
                    command=self._quick_select).pack(side="right", padx=6, pady=6)
 
+        # staleness / data-source banner (hidden unless there's something to say)
+        self.banner = tk.Frame(self.root, bg=COL_WARN)
+        self.banner_var = tk.StringVar(value="")
+        self.banner_lbl = tk.Label(self.banner, textvariable=self.banner_var,
+                                   bg=COL_WARN, fg="#1a1205",
+                                   font=("DejaVu Sans", 10, "bold"),
+                                   anchor="w", padx=12, pady=4)
+        self.banner_lbl.pack(side="left", fill="x", expand=True)
+        tk.Button(self.banner, text="Update GP (online)",
+                  command=self._update_online, bg="#1a1205", fg=COL_WARN,
+                  relief="flat", font=("DejaVu Sans", 9, "bold"),
+                  padx=10, pady=2, bd=0, highlightthickness=0).pack(
+            side="right", padx=8, pady=3)
+        self._banner_visible = False
+
         # body: nav + content
         body = ttk.Frame(self.root)
+        self._body_ref = body
         body.pack(side="top", fill="both", expand=True)
 
         nav = ttk.Frame(body, style="Panel.TFrame", width=180)
@@ -166,12 +227,37 @@ class OrbitDeckApp:
         self.grid_var.set("Grid %s  \u2022  %.3f, %.3f" %
                           (self.store.my_grid(), self.store.obs.lat,
                            self.store.obs.lon))
+        self._update_banner()
         if self.current is not None and getattr(self.current, "live", False):
             try:
                 self.current.on_tick(now)
             except Exception as e:
                 self.set_status("tick error: %s" % e)
         self.root.after(1000, self._tick)
+
+    def _update_banner(self):
+        """Show a warning banner when predictions can't be trusted: either the
+        bundled demo catalog is in use, or the loaded elements are stale."""
+        age = self.store.catalog_age_days()
+        msg = None
+        if self.store.using_sample():
+            msg = ("Demo elements in use \u2014 pass times are illustrative, "
+                   "not real. Click Update GP for live data.")
+        elif age > 14:
+            msg = ("Orbital elements are %.0f days old \u2014 pass times will be "
+                   "inaccurate. Update GP for fresh data." % age)
+        elif age > 7:
+            msg = ("Elements are %.0f days old; consider updating GP for best "
+                   "accuracy." % age)
+        if msg:
+            self.banner_var.set(msg)
+            if not self._banner_visible:
+                self.banner.pack(side="top", fill="x", before=self._body_ref)
+                self._banner_visible = True
+        else:
+            if self._banner_visible:
+                self.banner.pack_forget()
+                self._banner_visible = False
 
     def set_status(self, text):
         self.status_var.set(text)
