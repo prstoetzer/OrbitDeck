@@ -258,6 +258,5 @@ class Store:
 
 
 def _http_get(url, timeout=20):
-    req = urllib.request.Request(url, headers={"User-Agent": "OrbitDeck/1.0"})
-    with urllib.request.urlopen(req, timeout=timeout) as r:
-        return r.read().decode("utf-8", "replace")
+    from .net import http_get
+    return http_get(url, timeout=timeout)

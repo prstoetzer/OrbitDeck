@@ -4,6 +4,19 @@ All notable changes to OrbitDeck are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/), and the project aims to follow
 semantic versioning.
 
+## [0.8.1]
+
+### Fixed
+- **macOS SSL "certificate verify failed" error** when fetching GP, transponder,
+  or space-weather data from a PyInstaller build. OrbitDeck now depends on
+  `certifi`, builds its TLS context from certifi'''s CA bundle, sets
+  `SSL_CERT_FILE` at startup, and the spec bundles the certificate data — so
+  HTTPS works in the frozen app with no user action.
+
+### Changed
+- All network requests now go through a single `orbitdeck.gui.net.http_get`
+  helper with a robust, verifying SSL setup.
+
 ## [0.8.0]
 
 ### Changed

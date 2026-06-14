@@ -3,6 +3,7 @@
 # Required:
 matplotlib>=3.5
 numpy>=1.20
+certifi>=2023.7.22
 #
 # Optional but recommended — installed via extras in pyproject.toml:
 #   pip install -e ".[accurate]"   ->  sgp4>=2.20   (C-accelerated full SDP4)

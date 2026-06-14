@@ -412,7 +412,23 @@ class OrbitDeckApp:
         threading.Thread(target=work, daemon=True).start()
 
 
+def _ensure_ca_certs():
+    """Make HTTPS work in frozen builds (see run.py for the rationale)."""
+    import os
+    if os.environ.get("SSL_CERT_FILE"):
+        return
+    try:
+        import certifi
+        ca = certifi.where()
+        if os.path.exists(ca):
+            os.environ["SSL_CERT_FILE"] = ca
+            os.environ.setdefault("REQUESTS_CA_BUNDLE", ca)
+    except Exception:
+        pass
+
+
 def main():
+    _ensure_ca_certs()
     root = tk.Tk()
     OrbitDeckApp(root)
     root.mainloop()

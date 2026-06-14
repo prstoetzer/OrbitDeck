@@ -65,6 +65,15 @@ matplotlib/tkinter app.
   `collect_data_files("matplotlib")`.
 - **tkinter / Tcl-Tk** runtimes are bundled automatically; the hidden imports in
   the spec make the Tk backend resolve.
+- **HTTPS / SSL certificates.** Frozen builds — **especially on macOS** — can
+  fail network fetches (AMSAT GP, SatNOGS transponders, NOAA space weather) with
+  `CERTIFICATE_VERIFY_FAILED`, because Python's default CA certificate path isn't
+  present in the bundle. OrbitDeck handles this three ways: `certifi` is a
+  dependency, its CA bundle is collected into the build (`collect_data_files
+  ("certifi")`), and the app sets `SSL_CERT_FILE` to that bundle at startup. No
+  user action is needed. (If you ever see this error from a source checkout
+  rather than a bundle, run `pip install certifi` or, on macOS with a python.org
+  build, the bundled **Install Certificates.command**.)
 - **`~/.orbitdeck`** (config, GP cache, transponder cache, space-wx cache) is
   created in the user's home directory at runtime, so it works the same whether
   run from source or from a frozen bundle.

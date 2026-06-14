@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "orbitdeck"
-version = "0.8.0"
+version = "0.8.1"
 description = "Cross-platform desktop satellite tracking and orbital-analysis tool for amateur-radio operators"
 readme = "README.md"
 requires-python = ">=3.8"
@@ -27,6 +27,7 @@ classifiers = [
 dependencies = [
     "matplotlib>=3.5",
     "numpy>=1.20",
+    "certifi>=2023.7.22",
 ]
 
 [project.optional-dependencies]

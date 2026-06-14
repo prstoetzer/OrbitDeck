@@ -30,6 +30,10 @@ asset_datas = [
 # matplotlib ships data files (fonts, mpl-data) that must travel with the app.
 mpl_datas = collect_data_files("matplotlib")
 
+# certifi's CA bundle -- required so HTTPS (AMSAT / SatNOGS / NOAA) verifies in
+# the frozen app. Without this, macOS bundles fail with CERTIFICATE_VERIFY_FAILED.
+certifi_datas = collect_data_files("certifi")
+
 # Per-platform icon for the executable itself.
 if sys.platform == "win32":
     exe_icon = "orbitdeck/gui/assets/icon.ico"
@@ -42,8 +46,10 @@ a = Analysis(
     ["run.py"],
     pathex=[],
     binaries=[],
-    datas=asset_datas + mpl_datas,
+    datas=asset_datas + mpl_datas + certifi_datas,
     hiddenimports=[
+        # ssl / certificate handling for HTTPS data fetches:
+        "certifi", "ssl",
         # tkinter + ttk are usually auto-detected, but be explicit:
         "tkinter", "tkinter.ttk", "tkinter.messagebox",
         "tkinter.simpledialog", "tkinter.filedialog",
@@ -104,6 +110,6 @@ if sys.platform == "darwin":
         bundle_identifier="org.orbitdeck.app",
         info_plist={
             "NSHighResolutionCapable": True,
-            "CFBundleShortVersionString": "0.8.0",
+            "CFBundleShortVersionString": "0.8.1",
         },
     )

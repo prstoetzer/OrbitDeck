@@ -391,3 +391,12 @@ def test_transponder_kind_labels():
     tps = SatDb.parse_transmitters_json(json.dumps(arr))
     assert tps[0].kind() == "CW/Beacon"
     assert "Data" in tps[1].kind() and tps[1].baud == 1200
+
+
+def test_net_builds_verifying_ssl_context():
+    from orbitdeck.gui import net
+    ctx = net._context()
+    # a real, certificate-verifying context (not an unverified one)
+    import ssl
+    assert ctx is not None
+    assert ctx.verify_mode == ssl.CERT_REQUIRED
