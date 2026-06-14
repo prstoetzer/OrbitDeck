@@ -9,9 +9,11 @@ plots — **tracking and analysis only**. Radio (CAT) and rotator control are
 intentionally out of scope; excellent dedicated tools already cover that, and
 the original device handles it on the hardware side.
 
-It ships with a bundled pure-Python SGP4 propagator, so it runs with **no
-mandatory orbital libraries** — and automatically uses the C-accelerated `sgp4`
-package and full-resolution `cartopy` coastlines if you have them installed.
+It uses the reference [`sgp4`](https://pypi.org/project/sgp4/) propagator (a
+**required dependency**, installed automatically) for accurate SGP4/SDP4 across
+both low-Earth and deep-space orbits, and also picks up full-resolution
+`cartopy` coastlines if you have them installed. A pure-Python propagator is
+bundled as a fallback.
 
 <p align="center">
   <img src="docs/img/home.png" width="80%" alt="Home: all favorite satellites with footprints on the world map">
@@ -50,10 +52,12 @@ fetch SatNOGS transponder data for the selected bird.
 
 ### Optional extras
 
+`sgp4` (full SGP4/SDP4) is now a core dependency installed automatically by the
+commands above. The remaining extras are optional:
+
 ```bash
-pip install -e ".[accurate]"   # C-accelerated SGP4/SDP4 (best for deep-space orbits)
 pip install -e ".[maps]"       # full-resolution Natural Earth coastlines (cartopy)
-pip install -e ".[full]"       # both
+pip install -e ".[full]"       # maps + an explicit sgp4 pin (already included)
 ```
 
 > **tkinter note:** the python.org installers for Windows and macOS include
@@ -104,12 +108,14 @@ verbatim:
 * beta angle is the orbit-plane-to-Sun angle;
 * mutual windows are true two-station co-visibility.
 
-**Bundled propagator (default).** `orbitdeck/engine/sgp4_lite.py` is a
-dependency-free SGP4 implementation, verified against the canonical Vallado
-*AIAA-2006-6753* reference vector (catalog 88888): position matches to about
-**one centimetre** at epoch. It is accurate for **near-Earth LEO**, which is
-essentially every FM and linear amateur satellite (SO-50, the AO/FO/CAS birds,
-the ISS, RS-44, etc.).
+**Propagation backend.** OrbitDeck uses the reference
+[`sgp4`](https://pypi.org/project/sgp4/) package (full SGP4/SDP4) by default — it
+is a required dependency. A dependency-free pure-Python implementation,
+`orbitdeck/engine/sgp4_lite.py`, is bundled as a fallback; it is verified against
+the canonical Vallado *AIAA-2006-6753* reference vector (catalog 88888) to about
+**one centimetre** at epoch and is accurate for **near-Earth LEO** — essentially
+every FM and linear amateur satellite (SO-50, the AO/FO/CAS birds, the ISS,
+RS-44, etc.).
 
 **Deep-space orbits (GEO/HEO).** For deep-space orbits (orbital period ≥ 225 min
 — e.g. the geostationary QO-100 / Es'hail-2, AO-7's ~12-hour orbit, or
@@ -163,7 +169,7 @@ orbitdeck/
 └─ orbitdeck/
    ├─ engine/                  portable orbital core (no GUI)
    │  ├─ sgp4_lite.py          vendored pure-Python SGP4/SDP4 (WGS72)
-   │  ├─ propagator.py         backend selector (pip sgp4 if available)
+   │  ├─ propagator.py         backend selector (reference sgp4, lite fallback)
    │  ├─ satdb.py              GP/OMM + SatNOGS parsing, SatEntry/Transponder
    │  └─ predict.py            look angles, passes, Doppler, eclipse, beta,
    │                           footprint, mutual windows, Maidenhead grid
@@ -193,9 +199,10 @@ pip install -e ".[dev]"
 pytest -q
 ```
 
-CI runs the suite on Python 3.8/3.10/3.12, both **with** and **without** the
-optional `sgp4` backend, so the vendored propagator is guaranteed correct on its
-own.
+CI runs the suite on Python 3.8/3.10/3.12. Although `sgp4` is a required
+dependency, the suite also runs **without** it so the bundled fallback
+propagator is guaranteed correct on its own (with deep-space orbits flagged as
+approximate, as the app does at runtime).
 
 ---
 

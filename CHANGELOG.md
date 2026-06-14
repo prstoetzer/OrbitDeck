@@ -4,6 +4,30 @@ All notable changes to OrbitDeck are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/), and the project aims to follow
 semantic versioning.
 
+## [0.9.4]
+
+### Documentation
+- README now correctly states that the `sgp4` package is a **required
+  dependency** (since 0.9.2), not an optional extra. Updated the intro, the
+  optional-extras list, the accuracy/backend section, and the testing notes; the
+  bundled pure-Python propagator is described as the fallback rather than the
+  default.
+
+## [0.9.3]
+
+### Fixed
+- **CelesTrak GP fetches failed unhelpfully.** CelesTrak frequently returns an
+  HTTP 200 with a plain-text error body (rate-limit / bandwidth throttle, which
+  they enforce since Feb 2026, or “Invalid query”) rather than JSON. OrbitDeck
+  previously tried to parse that as JSON and failed with a cryptic error, and an
+  empty result could wipe the catalog. Now the GP update:
+  * detects non-JSON / error / empty responses and reports a clear, specific
+    message (rate-limited vs. bad group vs. empty), and
+  * loads into a temporary catalog first, so a failed or empty fetch never
+    clobbers the working satellite list.
+- Added a note in **Settings** that CelesTrak rate-limits requests and updates at
+  most every 2 hours.
+
 ## [0.9.2]
 
 ### Fixed

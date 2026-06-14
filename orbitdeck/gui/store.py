@@ -336,7 +336,42 @@ class Store:
         if progress:
             progress("Fetching GP catalog from %s..." % label)
         txt = _http_get(url, timeout=30)
-        n = self.db.load_gp_json(txt)
+
+        # CelesTrak (and some mirrors) return an HTTP 200 with a plain-text or
+        # HTML error body instead of JSON -- most often "Invalid query" or a
+        # rate-limit notice (their limit is strict, a few requests per couple of
+        # hours per IP). Detect that and report it clearly instead of failing
+        # with a cryptic JSON error or wiping the existing catalog.
+        stripped = txt.lstrip()
+        if not stripped or stripped[0] not in "[{":
+            snippet = " ".join(txt.split())[:120]
+            low = snippet.lower()
+            if "invalid query" in low or "no data" in low or not snippet:
+                hint = ("%s returned no data for this group. Check the group "
+                        "name or try another source." % label)
+            elif "rate" in low or "throttl" in low or "limit" in low:
+                hint = ("%s is rate-limiting requests. CelesTrak allows only a "
+                        "few queries per couple of hours per IP \u2014 wait a "
+                        "while and try again, or use AMSAT." % label)
+            else:
+                hint = ("%s did not return GP JSON (got: %s). The existing "
+                        "catalog was kept." % (label, snippet or "empty response"))
+            raise ValueError(hint)
+
+        # parse into a temporary db so a malformed/empty payload can't clobber
+        # the working catalog
+        try:
+            tmp = SatDb()
+            n = tmp.load_gp_json(txt)
+        except Exception:
+            raise ValueError("%s did not return valid GP JSON. The existing "
+                             "catalog was kept." % label)
+        if n == 0:
+            raise ValueError("%s returned an empty catalog (0 satellites). The "
+                             "existing catalog was kept." % label)
+
+        # success -- commit
+        self.db.sats = tmp.sats
         os.makedirs(CONFIG_DIR, exist_ok=True)
         with open(GP_CACHE, "w") as f:
             f.write(txt)

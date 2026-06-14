@@ -850,3 +850,54 @@ def test_geostationary_subpoint_stable_with_full_sdp4():
     # sub-longitude should not wander more than a few degrees for a GEO sat
     spread = max(lons) - min(lons)
     assert spread < 10.0
+
+
+def test_gp_update_handles_celestrak_errors():
+    """CelesTrak can return HTTP 200 with a non-JSON error/rate-limit body, or an
+    empty array. Neither should wipe the working catalog or raise a cryptic
+    JSON error -- update_gp_online should raise a clear ValueError and leave the
+    catalog intact."""
+    import os
+    import json
+    import tempfile
+    import orbitdeck.gui.store as ST
+    d = tempfile.mkdtemp()
+    saved = {a: getattr(ST, a) for a in
+             ("CONFIG_DIR", "CONFIG_PATH", "GP_CACHE", "TX_CACHE",
+              "SPACEWX_CACHE", "MANUAL_SATS", "MANUAL_TX")}
+    ST.CONFIG_DIR = d
+    for a, fn in (("CONFIG_PATH", "config.json"), ("GP_CACHE", "gp.json"),
+                  ("TX_CACHE", "tx.json"), ("SPACEWX_CACHE", "sw.json"),
+                  ("MANUAL_SATS", "ms.json"), ("MANUAL_TX", "mt.json")):
+        setattr(ST, a, os.path.join(d, fn))
+    orig_http = ST._http_get
+    try:
+        s = ST.Store()
+        s.gp_source = {"kind": "celestrak", "group": "amateur"}
+        base = s.db.count()
+        assert base > 0
+        for body in ("Rate limit exceeded. Try later.",
+                     "Invalid query: empty result.",
+                     "<html>503</html>", "[]"):
+            ST._http_get = lambda url, timeout=30, b=body: b
+            raised = False
+            try:
+                s.update_gp_online()
+            except ValueError:
+                raised = True
+            assert raised, "expected ValueError for body %r" % body[:20]
+            assert s.db.count() == base, "catalog was wiped by a bad fetch"
+        # a good payload still works
+        good = json.dumps([{"OBJECT_NAME": "T", "NORAD_CAT_ID": 88888,
+                            "EPOCH": "2026-06-14T12:00:00.000000",
+                            "MEAN_MOTION": 14.5, "ECCENTRICITY": 0.001,
+                            "INCLINATION": 51.6, "RA_OF_ASC_NODE": 10,
+                            "ARG_OF_PERICENTER": 90, "MEAN_ANOMALY": 180,
+                            "BSTAR": 0.0, "REV_AT_EPOCH": 1,
+                            "ELEMENT_SET_NO": 1}])
+        ST._http_get = lambda url, timeout=30: good
+        assert s.update_gp_online() == 1
+    finally:
+        ST._http_get = orig_http
+        for a, v in saved.items():
+            setattr(ST, a, v)

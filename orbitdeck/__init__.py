@@ -1,3 +1,3 @@
 """OrbitDeck - desktop satellite tracking and orbital analysis for amateur radio."""
 
-__version__ = "0.9.2"
+__version__ = "0.9.4"
