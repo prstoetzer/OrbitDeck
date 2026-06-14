@@ -4,6 +4,15 @@ All notable changes to OrbitDeck are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/), and the project aims to follow
 semantic versioning.
 
+## [0.8.3]
+
+### Fixed
+- **Orbital Analysis "Live" page still flashing on macOS.** Its section header
+  embedded the current time ("Look angles @ HH:MM:SS"), which changed every
+  second and made the key/value panel treat the layout as new each tick —
+  forcing a full relayout. The time moved to an in-place row and the section
+  title is now static, so the page updates smoothly. Added a regression test.
+
 ## [0.8.2]
 
 ### Fixed

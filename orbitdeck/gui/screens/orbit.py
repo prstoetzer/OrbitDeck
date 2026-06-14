@@ -186,7 +186,8 @@ class OrbitScreen(Screen):
         ma = A.mean_anomaly_now_deg(s.ma, s.mean_motion, t, s.epoch_unix)
 
         k.begin()
-        k.section("Look angles @ %s" % fmt_utc(t, "%H:%M:%S"))
+        k.section("Look angles")
+        k.row("Time (UTC)", fmt_utc(t, "%H:%M:%S"), COL_MUTED)
         k.row("Azimuth", "%.1f\u00b0 %s" % (L.az, compass(L.az)),
               COL_ACCENT, big=True)
         k.row("Elevation", "%+.1f\u00b0" % L.el,

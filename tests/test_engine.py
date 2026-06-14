@@ -489,3 +489,126 @@ def test_kvpanel_skips_repack_when_unchanged():
             else:
                 sys.modules.pop(name, None)
         sys.modules.pop("orbitdeck.gui.screens", None)
+
+
+def test_orbit_live_page_stable_structure_across_ticks():
+    """The Live page must not change its KVPanel structure every second (a
+    timestamp in a section title used to do that, forcing a full relayout and
+    visible flashing on macOS)."""
+    import sys
+    import types
+    import time
+
+    class FakeW:
+        def __init__(self, *a, **k):
+            self._cfg = dict(k)
+            self.forget_count = 0
+
+        def pack(self, *a, **k):
+            pass
+
+        def pack_forget(self):
+            self.forget_count += 1
+
+        def configure(self, **k):
+            self._cfg.update(k)
+
+        def cget(self, key):
+            return self._cfg.get(key, "")
+
+        def destroy(self):
+            pass
+
+        def bind(self, *a, **k):
+            pass
+
+        def winfo_ismapped(self):
+            return 1
+
+    saved = {n: sys.modules.get(n) for n in (
+        "tkinter", "tkinter.ttk", "tkinter.messagebox",
+        "matplotlib.backends.backend_tkagg")}
+    tk = types.ModuleType("tkinter")
+    for n in ("Frame", "Button", "Listbox", "Text", "Entry", "Toplevel",
+              "Tk", "Radiobutton", "Checkbutton", "Canvas", "Scrollbar",
+              "PhotoImage", "Label"):
+        setattr(tk, n, FakeW)
+
+    class _SV:
+        def __init__(self, value="", master=None):
+            self._v = value
+
+        def set(self, v):
+            self._v = v
+
+        def get(self):
+            return self._v
+
+        def trace_add(self, *a, **k):
+            pass
+    tk.StringVar = tk.IntVar = tk.BooleanVar = tk.DoubleVar = _SV
+    for c in ("END", "LEFT", "RIGHT", "TOP", "BOTH", "X", "Y", "W", "E"):
+        setattr(tk, c, c.lower())
+    ttk = types.ModuleType("tkinter.ttk")
+    for n in ("Frame", "Label", "Button", "Treeview", "Style", "Entry",
+              "Radiobutton", "Checkbutton", "Separator", "Notebook",
+              "Scrollbar", "Combobox"):
+        setattr(ttk, n, FakeW)
+    mb = types.ModuleType("tkinter.messagebox")
+    mb.showerror = mb.showinfo = mb.showwarning = lambda *a, **k: None
+    mbk = types.ModuleType("matplotlib.backends.backend_tkagg")
+
+    class _FC:
+        def __init__(self, *a, **k):
+            pass
+
+        def get_tk_widget(self):
+            return FakeW()
+
+        def draw_idle(self):
+            pass
+
+        def draw(self):
+            pass
+    mbk.FigureCanvasTkAgg = _FC
+    sys.modules.update({"tkinter": tk, "tkinter.ttk": ttk,
+                        "tkinter.messagebox": mb,
+                        "matplotlib.backends.backend_tkagg": mbk})
+    sys.modules.pop("orbitdeck.gui.screens", None)
+    sys.modules.pop("orbitdeck.gui.screens.orbit", None)
+    try:
+        from orbitdeck.gui import screens
+        from orbitdeck.gui.store import Store
+        store = Store()
+
+        class App:
+            class _R:
+                def after(self, ms, fn=None):
+                    return None
+
+            def __init__(self, st):
+                self.store = st
+                self.current = None
+                self._screen_cache = {}
+                self.root = App._R()
+
+            def set_status(self, t):
+                pass
+
+            def show(self, k):
+                pass
+        scr = screens.make_screen("orbit", FakeW(), App(store))
+        scr.page.set(1)        # Live page
+        scr._render(time.time())
+        before = sum(e["frame"].forget_count for e in scr.kv._cache.values())
+        scr._render(time.time() + 1)
+        after = sum(e["frame"].forget_count for e in scr.kv._cache.values())
+        assert after - before == 0, "Live page relayouts every tick (flashing)"
+    finally:
+        for n, m in saved.items():
+            if m is not None:
+                sys.modules[n] = m
+            else:
+                sys.modules.pop(n, None)
+        sys.modules.pop("orbitdeck.gui.screens", None)
+        sys.modules.pop("orbitdeck.gui.screens.orbit", None)
