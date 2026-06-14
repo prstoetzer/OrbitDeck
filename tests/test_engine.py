@@ -357,3 +357,37 @@ def test_fo29_illumination_not_all_dark():
               if st.pred.sunlit_at(t0 + (k / 96) * s.period_min * 60))
     # should be a healthy mix, not all-dark
     assert 10 < lit < 96
+
+
+def test_transponder_center_frequency():
+    import json
+    from orbitdeck.engine import SatDb
+    arr = [{"description": "Linear B", "type": "Transponder",
+            "downlink_low": 145925000, "downlink_high": 145975000,
+            "uplink_low": 432125000, "uplink_high": 432175000,
+            "mode": "LSB", "invert": True, "status": "active"},
+           {"description": "FM", "type": "Transceiver",
+            "downlink_low": 145800000, "uplink_low": 435100000,
+            "mode": "FM", "status": "active"}]
+    tps = SatDb.parse_transmitters_json(json.dumps(arr))
+    lin, fm = tps[0], tps[1]
+    # linear: center is the passband midpoint, not the low edge
+    assert lin.downlink_center() == 145950000
+    assert lin.uplink_center() == 432150000
+    assert lin.downlink_center() != lin.downlink
+    assert lin.kind() == "Linear (inverting)"
+    # single channel: center equals the channel frequency
+    assert fm.downlink_center() == fm.downlink == 145800000
+    assert fm.kind() == "FM"
+
+
+def test_transponder_kind_labels():
+    import json
+    from orbitdeck.engine import SatDb
+    arr = [{"description": "CW Beacon", "mode": "CW", "downlink_low": 1,
+            "status": "active"},
+           {"description": "BPSK1200", "mode": "BPSK", "baud": 1200,
+            "downlink_low": 1, "status": "active"}]
+    tps = SatDb.parse_transmitters_json(json.dumps(arr))
+    assert tps[0].kind() == "CW/Beacon"
+    assert "Data" in tps[1].kind() and tps[1].baud == 1200

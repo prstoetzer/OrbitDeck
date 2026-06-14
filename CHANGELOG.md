@@ -4,6 +4,17 @@ All notable changes to OrbitDeck are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/), and the project aims to follow
 semantic versioning.
 
+## [0.8.0]
+
+### Changed
+- **Linear transponders now display their center (passband midpoint) frequency**
+  rather than the low edge, in both the Track dropdown and the tuned RX/TX
+  read-outs, so the displayed and Doppler-corrected frequencies match where you
+  actually operate.
+- The **Track screen shows a transponder details panel**: type (FM / Linear /
+  Linear-inverting / CW-Beacon / Data), mode, passband range and bandwidth, baud
+  rate, service, and the descriptive notes for the selected transponder.
+
 ## [0.7.0]
 
 ### Changed

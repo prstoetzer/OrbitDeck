@@ -23,9 +23,43 @@ class Transponder:
     invert: bool = False
     is_linear: bool = False
     tone_hz: float = 0.0
+    tx_type: str = ""          # SatNOGS "type": Transmitter/Transceiver/Transponder
+    baud: float = 0.0          # data rate, if any
+    service: str = ""          # Amateur, etc.
 
     def bandwidth(self) -> int:
         return (self.downlink_high - self.downlink) if self.downlink_high > self.downlink else 0
+
+    def downlink_center(self) -> int:
+        """Center frequency of the downlink. For a linear transponder this is
+        the midpoint of the passband (not the low edge); for a single-channel
+        transmitter it's just the downlink frequency."""
+        if self.downlink_high and self.downlink_high > self.downlink:
+            return (self.downlink + self.downlink_high) // 2
+        return self.downlink
+
+    def uplink_center(self) -> int:
+        if self.uplink_high and self.uplink_high > self.uplink:
+            return (self.uplink + self.uplink_high) // 2
+        return self.uplink
+
+    def kind(self) -> str:
+        """A short human label for the transponder type."""
+        m = (self.mode or "").upper()
+        if self.is_linear:
+            return "Linear (inverting)" if self.invert else "Linear"
+        if "FM" in m:
+            return "FM"
+        if "CW" in m or "BEACON" in (self.desc or "").upper():
+            return "CW/Beacon"
+        # digital / data modes
+        for tag in ("BPSK", "GMSK", "FSK", "AFSK", "GFSK", "QPSK", "MSK",
+                    "LORA", "DUV", "APRS", "AX.25", "AX25"):
+            if tag in m or tag in (self.desc or "").upper():
+                return "Data (%s)" % tag
+        if self.tx_type:
+            return self.tx_type
+        return m or "Transmitter"
 
 
 @dataclass
@@ -157,6 +191,12 @@ class SatDb:
             tp.mode = (t.get('mode') or '')[:12]
             tp.invert = bool(t.get('invert'))
             tp.is_linear = tp.downlink_high and tp.downlink_high > tp.downlink
+            tp.tx_type = (t.get('type') or '')[:20]
+            try:
+                tp.baud = float(t.get('baud')) if t.get('baud') else 0.0
+            except (ValueError, TypeError):
+                tp.baud = 0.0
+            tp.service = (t.get('service') or '')[:20]
             out.append(tp)
         return out
 

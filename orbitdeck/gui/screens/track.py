@@ -79,12 +79,32 @@ class TrackScreen(Screen):
 
         # next event
         r = ttk.Frame(left, style="Panel.TFrame")
-        r.pack(fill="x", padx=14, pady=(8, 12))
+        r.pack(fill="x", padx=14, pady=(8, 6))
         ttk.Label(r, text="Next event", style="Muted.TLabel", width=12,
                   anchor="w").pack(side="left")
         self.vars["nextev"] = tk.StringVar(value="\u2014")
         ttk.Label(r, textvariable=self.vars["nextev"],
                   style="Mono.TLabel").pack(side="left")
+
+        # transponder details panel
+        sep2 = tk.Frame(left, bg=COL_GRID, height=1)
+        sep2.pack(fill="x", padx=14, pady=(8, 4))
+        ttk.Label(left, text="TRANSPONDER", style="Muted.TLabel").pack(
+            anchor="w", padx=14)
+        tpd = ttk.Frame(left, style="Panel.TFrame")
+        tpd.pack(fill="x", padx=14, pady=(2, 12))
+        self.tpd_vars = {}
+        for label, key in (("Type", "type"), ("Mode", "mode"),
+                           ("Passband", "band"), ("Baud", "baud"),
+                           ("Service", "svc"), ("Notes", "notes")):
+            row = ttk.Frame(tpd, style="Panel.TFrame")
+            row.pack(fill="x", pady=1)
+            ttk.Label(row, text=label, style="Muted.TLabel", width=10,
+                      anchor="w").pack(side="left")
+            v = tk.StringVar(value="\u2014")
+            self.tpd_vars[key] = v
+            ttk.Label(row, textvariable=v, style="Mono.TLabel",
+                      wraplength=300, justify="left").pack(side="left")
 
         right = ttk.Frame(body, style="Panel.TFrame")
         right.pack(side="left", fill="both", expand=True)
@@ -92,17 +112,36 @@ class TrackScreen(Screen):
         self.mpl.pack(fill="both", expand=True, padx=6, pady=6)
         self._sky_sat = None
 
+    def _update_tp_details(self, tp):
+        v = self.tpd_vars
+        if tp is None:
+            v["type"].set("default (145.800 MHz FM beacon)")
+            for k in ("mode", "band", "baud", "svc", "notes"):
+                v[k].set("\u2014")
+            return
+        v["type"].set(tp.kind())
+        v["mode"].set(tp.mode or "\u2014")
+        if tp.is_linear and tp.downlink_high:
+            bw = tp.bandwidth() / 1000.0
+            v["band"].set("%.3f\u2013%.3f MHz (%.0f kHz%s)" % (
+                tp.downlink / 1e6, tp.downlink_high / 1e6, bw,
+                ", inverting" if tp.invert else ""))
+        else:
+            v["band"].set("single channel")
+        v["baud"].set(("%g bps" % tp.baud) if tp.baud else "\u2014")
+        v["svc"].set(tp.service or "\u2014")
+        v["notes"].set(tp.desc or "\u2014")
+
     # ---- transponder list management ----
     def _sync_tp_list(self, s):
         self.store.ensure_transponders(s)
         names = []
         self._tp_list = list(s.transponders) if s.transponders else []
         for tp in self._tp_list:
-            tag = tp.mode or ""
-            if tp.is_linear:
-                tag += " linear"
-            dl = ("%.3f" % (tp.downlink / 1e6)) if tp.downlink else "?"
-            names.append("%s  DL %s MHz" % (tp.desc or tag or "transponder", dl))
+            # show the center frequency (midpoint for a linear passband)
+            dl = ("%.3f" % (tp.downlink_center() / 1e6)) if tp.downlink else "?"
+            label = tp.desc or tp.kind() or "transponder"
+            names.append("%s  [%s]  DL %s MHz" % (label, tp.kind(), dl))
         if not names:
             names = ["(no transponder data \u2014 145.800 MHz default)"]
             self._tp_list = []
@@ -151,8 +190,9 @@ class TrackScreen(Screen):
         # selected transponder (or 145.8 default)
         tp = self._tp_list[self._tp_index] if (
             self._tp_list and self._tp_index < len(self._tp_list)) else None
-        dl = tp.downlink if (tp and tp.downlink) else 145_800_000
-        ul = tp.uplink if (tp and tp.uplink) else 0
+        # use the passband CENTER for linear transponders, not the low edge
+        dl = tp.downlink_center() if (tp and tp.downlink) else 145_800_000
+        ul = tp.uplink_center() if (tp and tp.uplink) else 0
         rx, tx = self.pred().doppler_freqs(dl, ul, L.range_rate)
         self.vars["dn"].set("%.4f MHz" % (dl / 1e6))
         self.vars["rx"].set("%.4f MHz" % (rx / 1e6))
@@ -165,6 +205,7 @@ class TrackScreen(Screen):
             self.vars["up"].set("\u2014")
             self.vars["tx"].set("\u2014")
             self.vars["dup"].set("\u2014")
+        self._update_tp_details(tp)
 
         # next AOS or LOS
         if L.visible:

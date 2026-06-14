@@ -67,7 +67,7 @@ pip install -e ".[full]"       # both
 | Screen | What it shows |
 |---|---|
 | **Home** *(default)* | World map of all **favorited** satellites with their footprints, the day/night terminator and your station; click one to focus it with its ground track. A second tab lists the **next pass of every favorite with a live countdown**. |
-| **Track** | Live azimuth/elevation, slant range, range-rate, sub-point, altitude, transponder selector with downlink/uplink Doppler, sunlit/eclipse, next AOS/LOS, and a live sky polar plot. |
+| **Track** | Live azimuth/elevation, slant range, range-rate, sub-point, altitude, transponder selector (with details: FM/linear/beacon/data, passband, baud) and Doppler-corrected RX/TX using the passband **center** for linear transponders, sunlit/eclipse, next AOS/LOS, and a live sky polar plot. |
 | **Next Passes** | Pass table for the next 7 days with selectable minimum elevation; double-click a pass for its detail. |
 | **Pass Detail** | Polar sky-track plus an elevation-vs-time profile for a chosen pass. |
 | **Ground Track** | Forward ground track over 1–8 upcoming orbits. |
