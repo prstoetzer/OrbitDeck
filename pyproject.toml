@@ -1,0 +1,64 @@
+[build-system]
+requires = ["setuptools>=64", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "orbitdeck"
+version = "0.1.0"
+description = "Cross-platform desktop satellite tracking and orbital-analysis tool for amateur-radio operators"
+readme = "README.md"
+requires-python = ">=3.8"
+license = { text = "MIT" }
+authors = [{ name = "OrbitDeck contributors" }]
+keywords = ["satellite", "tracking", "orbital", "sgp4", "amateur-radio",
+            "ham-radio", "doppler", "tle", "pass-prediction"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Environment :: X11 Applications",
+    "Intended Audience :: Science/Research",
+    "Intended Audience :: End Users/Desktop",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Topic :: Communications :: Ham Radio",
+    "Topic :: Scientific/Engineering :: Astronomy",
+]
+
+dependencies = [
+    "matplotlib>=3.5",
+    "numpy>=1.20",
+]
+
+[project.optional-dependencies]
+# High-accuracy SGP4/SDP4 (C-accelerated) for deep-space orbits.
+accurate = ["sgp4>=2.20"]
+# Full-resolution Natural Earth coastlines on the world map.
+maps = ["cartopy>=0.21"]
+# Everything optional.
+full = ["sgp4>=2.20", "cartopy>=0.21"]
+# Development tooling.
+dev = ["pytest>=7", "ruff>=0.1"]
+
+[project.urls]
+Homepage = "https://github.com/USER/orbitdeck"
+Repository = "https://github.com/USER/orbitdeck"
+Issues = "https://github.com/USER/orbitdeck/issues"
+
+[project.scripts]
+orbitdeck = "orbitdeck.gui.app:main"
+
+[tool.setuptools]
+packages = [
+    "orbitdeck",
+    "orbitdeck.engine",
+    "orbitdeck.gui",
+    "orbitdeck.gui.screens",
+    "orbitdeck.data",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py38"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

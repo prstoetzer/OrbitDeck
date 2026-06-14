@@ -1,0 +1,14 @@
+# OrbitDeck runtime dependencies (the minimal set).
+#
+# Required:
+matplotlib>=3.5
+numpy>=1.20
+#
+# Optional but recommended — installed via extras in pyproject.toml:
+#   pip install -e ".[accurate]"   ->  sgp4>=2.20   (C-accelerated full SDP4)
+#   pip install -e ".[maps]"       ->  cartopy>=0.21 (Natural Earth coastlines)
+#   pip install -e ".[full]"       ->  both
+#
+# tkinter ships with the official python.org installers. On Linux:
+#   Debian/Ubuntu:  sudo apt install python3-tk
+#   Fedora:         sudo dnf install python3-tkinter

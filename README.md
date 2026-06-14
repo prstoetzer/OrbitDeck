@@ -1,0 +1,202 @@
+# OrbitDeck
+
+**Cross-platform desktop satellite tracking & orbital analysis for amateur-radio operators.**
+
+OrbitDeck is a desktop port of the tracking and orbital-analysis tools from the
+[CardSat](https://github.com/) M5Stack Cardputer satellite tracker. It keeps the
+analysis brain of that project and gives it a roomy desktop UI with embedded
+plots — **tracking and analysis only**. Radio (CAT) and rotator control are
+intentionally out of scope; excellent dedicated tools already cover that, and
+the original device handles it on the hardware side.
+
+It ships with a bundled pure-Python SGP4 propagator, so it runs with **no
+mandatory orbital libraries** — and automatically uses the C-accelerated `sgp4`
+package and full-resolution `cartopy` coastlines if you have them installed.
+
+<p align="center">
+  <img src="docs/img/worldmap.png" width="80%" alt="World map with ground track, footprint and terminator">
+</p>
+
+---
+
+## Quick start
+
+```bash
+git clone https://github.com/USER/orbitdeck
+cd orbitdeck
+pip install -e .
+orbitdeck
+```
+
+Or without installing:
+
+```bash
+pip install -r requirements.txt
+python run.py
+```
+
+On first launch OrbitDeck loads a small bundled catalog (ISS, SO-50, AO-91,
+CAS-4B, RS-44) so every screen works immediately offline. Click **Update GP
+(online)** to pull the live AMSAT catalog, and use the **Satellites** screen to
+fetch SatNOGS transponder data for the selected bird.
+
+### Optional extras
+
+```bash
+pip install -e ".[accurate]"   # C-accelerated SGP4/SDP4 (best for deep-space orbits)
+pip install -e ".[maps]"       # full-resolution Natural Earth coastlines (cartopy)
+pip install -e ".[full]"       # both
+```
+
+> **tkinter note:** the python.org installers for Windows and macOS include
+> tkinter. On Linux: `sudo apt install python3-tk` (Debian/Ubuntu) or
+> `sudo dnf install python3-tkinter` (Fedora).
+
+---
+
+## Features
+
+| Screen | What it shows |
+|---|---|
+| **Track** | Live azimuth/elevation, slant range, range-rate, sub-point, altitude, live Doppler on the selected downlink, sunlit/eclipse, next AOS/LOS, and a live sky polar plot. |
+| **Next Passes** | Pass table for the next 7 days with selectable minimum elevation; double-click a pass for its detail. |
+| **Pass Detail** | Polar sky-track plus an elevation-vs-time profile for a chosen pass. |
+| **Polar** | Full-size live polar sky view of the current/next pass with the Sun marked. |
+| **World Map** | Sub-point, coverage **footprint**, ground track, the day/night **terminator** and sub-solar point, and your station. |
+| **Ground Track** | Forward ground track over 1–8 upcoming orbits. |
+| **Orbital Analysis** | Nine pages mirroring the device: Info, Live, Pass, Track, Doppler curve, Nodal (period + ascending-node crossings), Sun/Beta angle (60-day plot), Pass Outlook, Orbit Position. |
+| **Illumination** | 10/30/60-day sunlit-vs-eclipse raster with mean eclipse fraction. |
+| **Sun / Moon** | Solar and lunar az/el for your site, plus Moon phase and illumination. |
+| **Mutual Windows** | Co-visibility windows between you and a DX station (entered as a grid or lat,lon). |
+| **Multi-Day Pass Progression** | One satellite's passes across 10+ days as a scrollable stack of 24-hour timelines — each pass placed at its time of day, width = duration, shaded by max elevation. |
+| **Satellites** | The catalog: filter, select, favorite (★), and fetch transponders. |
+| **Location** | Set your observer site by lat/lon/altitude or Maidenhead grid. |
+
+<p align="center">
+  <img src="docs/img/polar.png" width="42%" alt="Polar pass plot">
+  &nbsp;&nbsp;
+  <img src="docs/img/doppler.png" width="50%" alt="Doppler curve">
+</p>
+
+Settings, favorites, your site and the cached catalog persist under
+`~/.orbitdeck/`.
+
+---
+
+## Accuracy & the SGP4 backend
+
+The orbital core is a faithful port of the device's math, using the **WGS72**
+gravity model to match the GP/TLE mean elements. Conventions carried over
+verbatim:
+
+* range-rate (for Doppler) is taken from the **SGP4 velocity vector**, not by
+  differencing slant range;
+* eclipse uses the **cylindrical Earth-shadow** test;
+* beta angle is the orbit-plane-to-Sun angle;
+* mutual windows are true two-station co-visibility.
+
+**Bundled propagator (default).** `orbitdeck/engine/sgp4_lite.py` is a
+dependency-free SGP4 implementation, verified against the canonical Vallado
+*AIAA-2006-6753* reference vector (catalog 88888): position matches to about
+**one centimetre** at epoch. It is accurate for **near-Earth LEO**, which is
+essentially every FM and linear amateur satellite (SO-50, the AO/FO/CAS birds,
+the ISS, RS-44, etc.).
+
+**Deep-space caveat.** For deep-space orbits (orbital period ≥ 225 min — e.g.
+AO-7's ~12-hour orbit, or Molniya-type orbits), the bundled propagator's
+deep-space secular terms are approximate and will drift over many hours. Install
+the reference propagator and OrbitDeck uses it **automatically**:
+
+```bash
+pip install sgp4
+```
+
+`orbitdeck/engine/propagator.py` selects the C-accelerated full SDP4 backend at
+runtime when `sgp4` is importable — no configuration needed.
+
+---
+
+## Use the engine without the GUI
+
+`orbitdeck.engine` has no GUI dependency, so you can script with it:
+
+```python
+import time
+from orbitdeck.engine import SatDb, Predictor, Observer
+
+db = SatDb()
+db.load_gp_json(open("gp.json").read())
+
+pred = Predictor()
+pred.set_site(Observer(lat=39.93, lon=-74.89, alt_m=20, valid=True))
+pred.set_sat(db.get(25544))               # ISS
+
+for p in pred.predict_passes(time.time(), min_el=5.0, max_n=5):
+    print(p.aos, round(p.max_el, 1))
+```
+
+---
+
+## Project layout
+
+```
+orbitdeck/
+├─ run.py                      dev entry point (python run.py)
+├─ pyproject.toml              packaging + `orbitdeck` console script
+├─ tests/                      engine tests (Vallado vector, passes, Doppler…)
+└─ orbitdeck/
+   ├─ engine/                  portable orbital core (no GUI)
+   │  ├─ sgp4_lite.py          vendored pure-Python SGP4/SDP4 (WGS72)
+   │  ├─ propagator.py         backend selector (pip sgp4 if available)
+   │  ├─ satdb.py              GP/OMM + SatNOGS parsing, SatEntry/Transponder
+   │  └─ predict.py            look angles, passes, Doppler, eclipse, beta,
+   │                           footprint, mutual windows, Maidenhead grid
+   ├─ data/                    bundled offline catalog + simplified coastline
+   └─ gui/                     Tkinter app
+      ├─ app.py                main window, nav, theme, clock loop
+      ├─ store.py              state, persistence, online fetch (stdlib only)
+      ├─ mapdraw.py            world basemap (cartopy if present, else bundled)
+      └─ screens/              one module per screen
+```
+
+---
+
+## Data sources
+
+* **GP elements:** AMSAT daily bulletin (`newark192.amsat.org`).
+* **Transponders:** SatNOGS DB transmitters API.
+
+Both are fetched with the Python standard library only; no API key required.
+
+---
+
+## Testing
+
+```bash
+pip install -e ".[dev]"
+pytest -q
+```
+
+CI runs the suite on Python 3.8/3.10/3.12, both **with** and **without** the
+optional `sgp4` backend, so the vendored propagator is guaranteed correct on its
+own.
+
+---
+
+## What was intentionally left out
+
+Per the project's scope, none of CardSat's **radio/CAT control** (Icom CI-V,
+Yaesu, Kenwood, IcomNet, `rigctld`) or **rotator control** (`rotctld`) was
+ported. The engine still computes the Doppler-corrected frequencies and look
+angles those subsystems would consume, so a rig/rotator bridge could be added
+later — but it is not part of OrbitDeck.
+
+---
+
+## License
+
+MIT — see [LICENSE](LICENSE).
+
+OrbitDeck is an independent port; satellite tracking math follows the public
+Vallado SGP4 reference. "CardSat" refers to the original device project this was
+ported from.
