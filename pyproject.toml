@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "orbitdeck"
-version = "0.3.0"
+version = "0.7.0"
 description = "Cross-platform desktop satellite tracking and orbital-analysis tool for amateur-radio operators"
 readme = "README.md"
 requires-python = ">=3.8"
@@ -55,6 +55,10 @@ packages = [
     "orbitdeck.gui.screens",
     "orbitdeck.data",
 ]
+include-package-data = true
+
+[tool.setuptools.package-data]
+"orbitdeck.gui" = ["assets/*.png", "assets/*.ico", "assets/*.svg"]
 
 [tool.ruff]
 line-length = 100

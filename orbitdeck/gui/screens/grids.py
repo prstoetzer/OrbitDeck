@@ -20,7 +20,7 @@ class GridsScreen(Screen):
     live = True
 
     def build(self):
-        self.header("Workable \u2014 what's inside the footprint")
+        self.sat_header("Workable \u2014 what's inside the footprint")
         bar = ttk.Frame(self.frame, style="TFrame")
         bar.pack(fill="x", padx=16, pady=(0, 4))
         self.kind = tk.StringVar(value="grids")
@@ -42,10 +42,18 @@ class GridsScreen(Screen):
                  fg=COL_ACCENT, font=("DejaVu Sans", 11, "bold"),
                  anchor="w").pack(fill="x", padx=16)
 
-        self.text = tk.Text(self.frame, bg=COL_PANEL, fg=COL_TEXT,
-                            font=FONT_MONO, borderwidth=0, wrap="word",
-                            insertbackground=COL_TEXT)
-        self.text.pack(fill="both", expand=True, padx=16, pady=8)
+        # a grid of cells rendered as a multi-column Treeview
+        self.ncols = 8
+        cols = tuple("c%d" % i for i in range(self.ncols))
+        self.tree = ttk.Treeview(self.frame, columns=cols, show="",
+                                 height=18)
+        for c in cols:
+            self.tree.column(c, width=120, anchor="w")
+        self.tree.pack(fill="both", expand=True, padx=16, pady=8)
+        self.subhdr = tk.StringVar(value="")
+        tk.Label(self.frame, textvariable=self.subhdr, bg=COL_PANEL,
+                 fg=COL_MUTED, font=("DejaVu Sans", 9), anchor="w").pack(
+            fill="x", padx=16, pady=(0, 6))
         self._last_live = 0
         self._pass_cache = {}
 
@@ -61,7 +69,8 @@ class GridsScreen(Screen):
         s = self.sat()
         if not s:
             self.count_var.set("")
-            self._render([], "No satellite selected.", kind=self.kind.get())
+            self.subhdr.set("No satellite selected.")
+            self._fill([])
             return
         t = now_unix()
         kind = self.kind.get()
@@ -76,7 +85,32 @@ class GridsScreen(Screen):
         noun = {"grids": "grids", "states": "states",
                 "dxcc": "entities"}[kind]
         self.count_var.set("%d %s workable" % (len(items), noun))
-        self._render(items, "%s \u2014 %s" % (s.name, sub), kind=kind)
+        self.subhdr.set("%s \u2014 %s" % (s.name, sub))
+        # DXCC entries are wider; use fewer columns for them
+        self.ncols = 3 if kind == "dxcc" else 8
+        self._fill(items, kind)
+
+    def _fill(self, items, kind="grids"):
+        for i in self.tree.get_children():
+            self.tree.delete(i)
+        # rebuild columns to current ncols
+        cols = tuple("c%d" % i for i in range(self.ncols))
+        self.tree.configure(columns=cols)
+        width = 230 if kind == "dxcc" else 90
+        for c in cols:
+            self.tree.column(c, width=width, anchor="w")
+        if not items:
+            self.tree.insert("", "end", values=("(none under footprint)",))
+            return
+        row = []
+        for it in items:
+            row.append(it)
+            if len(row) == self.ncols:
+                self.tree.insert("", "end", values=tuple(row))
+                row = []
+        if row:
+            row += [""] * (self.ncols - len(row))
+            self.tree.insert("", "end", values=tuple(row))
 
     def _compute(self, kind, lat, lon, alt):
         if kind == "grids":
@@ -102,20 +136,3 @@ class GridsScreen(Screen):
         res = sorted(union)
         self._pass_cache[kind] = res
         return res
-
-    def _render(self, items, header, kind="grids"):
-        self.text.delete("1.0", "end")
-        self.text.insert("1.0", header + "\n\n")
-        per_row = 8 if kind in ("grids", "states") else 3
-        line = []
-        for it in items:
-            line.append(it if kind != "states" else "%-4s" % it)
-            if len(line) == per_row:
-                sep = "  " if kind != "dxcc" else "    "
-                self.text.insert("end", sep.join(line) + "\n")
-                line = []
-        if line:
-            sep = "  " if kind != "dxcc" else "    "
-            self.text.insert("end", sep.join(line) + "\n")
-        if not items:
-            self.text.insert("end", "(none under footprint)\n")

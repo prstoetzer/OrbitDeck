@@ -4,24 +4,23 @@ import math
 import tkinter as tk
 from tkinter import ttk
 
-from . import (Screen, MplPanel, COL_PANEL, COL_TEXT, COL_MUTED, COL_ACCENT,
-               COL_ACCENT2, COL_WARN, COL_GRID, FONT_MONO,
+from . import (Screen, MplPanel, KVPanel, COL_PANEL, COL_TEXT, COL_MUTED,
+               COL_ACCENT, COL_ACCENT2, COL_WARN, COL_GRID, FONT_MONO,
                fmt_hms, fmt_utc, now_unix, compass)
 
 
 class PassDetailScreen(Screen):
     def build(self):
-        self.header("Pass Detail")
+        self.sat_header("Pass Detail")
         self._pass = None
         body = ttk.Frame(self.frame, style="TFrame")
         body.pack(fill="both", expand=True, padx=12, pady=4)
 
         left = ttk.Frame(body, style="Panel.TFrame")
         left.pack(side="left", fill="y", padx=(0, 8))
-        self.info = tk.StringVar(value="Select a pass from Next Passes.")
-        ttk.Label(left, textvariable=self.info, style="Mono.TLabel",
-                  justify="left", wraplength=300).pack(
-            anchor="w", padx=14, pady=12)
+        self.kv = KVPanel(left, label_width=10)
+        self.kv.pack(fill="y", padx=6, pady=8)
+        self._empty = True
 
         right = ttk.Frame(body, style="Panel.TFrame")
         right.pack(side="left", fill="both", expand=True)
@@ -37,22 +36,34 @@ class PassDetailScreen(Screen):
     def on_show(self):
         if self._pass:
             self._render()
+        else:
+            self.kv.begin()
+            self.kv.section("Pass detail")
+            self.kv.note("Select a pass from Next Passes (double-click a row).")
+            self.kv.end()
 
     def _render(self):
         p = self._pass
         s = self.sat()
         if not p or not s:
             return
-        self.info.set(
-            "%s\n\nAOS  %s\n     az %.0f\u00b0 %s\n"
-            "TCA  %s\n     max el %.1f\u00b0\n"
-            "LOS  %s\n     az %.0f\u00b0 %s\n\n"
-            "Duration  %s" % (
-                s.name,
-                fmt_utc(p.aos), p.az_aos, compass(p.az_aos),
-                fmt_utc(p.tca, "%H:%M:%S"), p.max_el,
-                fmt_utc(p.los, "%H:%M:%S"), p.az_los, compass(p.az_los),
-                fmt_hms(p.los - p.aos)))
+        r_tca = self.pred().look(p.tca).range_km
+        k = self.kv
+        k.begin()
+        k.section(s.name)
+        k.row("Max el", "%.1f\u00b0" % p.max_el, COL_ACCENT, big=True)
+        k.row("Duration", fmt_hms(p.los - p.aos))
+        k.section("AOS")
+        k.row("Time", fmt_utc(p.aos, "%H:%M:%S"))
+        k.row("Azimuth", "%.0f\u00b0 %s" % (p.az_aos, compass(p.az_aos)))
+        k.section("TCA")
+        k.row("Time", fmt_utc(p.tca, "%H:%M:%S"))
+        k.row("Range", "%.0f km" % r_tca)
+        k.section("LOS")
+        k.row("Time", fmt_utc(p.los, "%H:%M:%S"))
+        k.row("Azimuth", "%.0f\u00b0 %s" % (p.az_los, compass(p.az_los)))
+        k.row("Date", fmt_utc(p.aos, "%Y-%m-%d"), COL_MUTED)
+        k.end()
 
         n = 80
         azs, els, ts = [], [], []

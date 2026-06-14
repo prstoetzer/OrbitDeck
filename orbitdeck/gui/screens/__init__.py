@@ -81,6 +81,32 @@ class Screen:
         h.pack(side="top", anchor="w", padx=16, pady=(14, 6))
         return h
 
+    def sat_header(self, text):
+        """Header for screens that act on the currently selected satellite.
+
+        Shows the screen title with a live badge naming the selected satellite,
+        so it's obvious which bird the page applies to. Call self.refresh_sat_
+        header() from on_show() to keep the name current."""
+        bar = ttk.Frame(self.frame, style="TFrame")
+        bar.pack(side="top", anchor="w", fill="x", padx=16, pady=(14, 6))
+        ttk.Label(bar, text=text, style="H.TLabel").pack(side="left")
+        self._sat_badge = tk.Label(
+            bar, text="", bg=COL_BG, fg=COL_ACCENT,
+            font=("DejaVu Sans", 12, "bold"))
+        self._sat_badge.pack(side="left", padx=(12, 0), pady=(2, 0))
+        self.refresh_sat_header()
+        return bar
+
+    def refresh_sat_header(self):
+        badge = getattr(self, "_sat_badge", None)
+        if badge is None:
+            return
+        s = self.sat()
+        if s:
+            badge.configure(text="\u25b8 %s" % s.name, fg=COL_ACCENT)
+        else:
+            badge.configure(text="\u25b8 no satellite selected", fg=COL_WARN)
+
     def pred(self):
         return self.store.pred
 
@@ -131,71 +157,135 @@ class MplPanel:
 
 
 class KVPanel:
-    """A scrollable, grouped key/value readout with aligned columns.
+    """A grouped key/value readout with aligned columns.
 
     Build content by calling section()/row()/note() between begin() and end().
-    Values can be colored (e.g. accent for headline figures, warn for cautions).
-    Renders as a clean card instead of a raw text dump.
+    Rows are matched by (label) within their section across refreshes, so live
+    pages update text/color IN PLACE instead of destroying and recreating
+    widgets every tick -- that's what eliminates the flicker/blink. When the set
+    of rows changes (e.g. switching pages), stale widgets are pruned at end().
     """
 
     def __init__(self, parent, label_width=15):
         self.outer = tk.Frame(parent, bg=COL_PANEL, highlightthickness=0)
         self.label_width = label_width
-        self._rows = []          # live tk widgets to clear on rebuild
         self._body = tk.Frame(self.outer, bg=COL_PANEL)
         self._body.pack(fill="both", expand=True, padx=4, pady=4)
+        # cache of built widgets keyed by a stable id; reused across rebuilds
+        self._cache = {}         # key -> dict(kind, frame, widgets...)
+        self._order = []         # keys touched this pass, in order
+        self._seq = 0            # disambiguates duplicate labels/sections
 
     def pack(self, **kw):
         self.outer.pack(**kw)
 
     def begin(self):
-        for w in self._rows:
-            w.destroy()
-        self._rows = []
+        self._order = []
+        self._seq = 0
+
+    def _key(self, kind, ident):
+        self._seq += 1
+        # include a running index so identical labels in different positions
+        # stay distinct and stable as long as call order is stable
+        return "%s::%s::%d" % (kind, ident, self._seq)
 
     def section(self, title):
-        f = tk.Frame(self._body, bg=COL_PANEL)
-        f.pack(fill="x", pady=(10, 2))
-        tk.Label(f, text=title.upper(), bg=COL_PANEL, fg=COL_ACCENT,
-                 font=("DejaVu Sans", 9, "bold"), anchor="w").pack(
-            side="left", padx=(8, 0))
-        line = tk.Frame(self._body, bg=COL_GRID, height=1)
-        line.pack(fill="x", padx=8, pady=(0, 4))
-        self._rows.append(f)
-        self._rows.append(line)
+        key = self._key("section", title)
+        self._order.append(key)
+        ent = self._cache.get(key)
+        if ent is None:
+            f = tk.Frame(self._body, bg=COL_PANEL)
+            lbl = tk.Label(f, text=title.upper(), bg=COL_PANEL, fg=COL_ACCENT,
+                           font=("DejaVu Sans", 9, "bold"), anchor="w")
+            lbl.pack(side="left", padx=(8, 0))
+            line = tk.Frame(self._body, bg=COL_GRID, height=1)
+            ent = {"kind": "section", "frame": f, "line": line, "label": lbl}
+            self._cache[key] = ent
+        else:
+            ent["label"].configure(text=title.upper())
+        return key
 
     def row(self, label, value, color=None, big=False):
-        f = tk.Frame(self._body, bg=COL_PANEL)
-        f.pack(fill="x", padx=8, pady=1)
-        tk.Label(f, text=label, bg=COL_PANEL, fg=COL_MUTED,
-                 font=FONT_MONO, width=self.label_width, anchor="w").pack(
-            side="left")
-        tk.Label(f, text=value, bg=COL_PANEL, fg=color or COL_TEXT,
-                 font=("DejaVu Sans Mono", 15, "bold") if big else FONT_MONO,
-                 anchor="w").pack(side="left")
-        self._rows.append(f)
+        key = self._key("row", label)
+        self._order.append(key)
+        ent = self._cache.get(key)
+        font = ("DejaVu Sans Mono", 15, "bold") if big else FONT_MONO
+        if ent is None:
+            f = tk.Frame(self._body, bg=COL_PANEL)
+            lab = tk.Label(f, text=label, bg=COL_PANEL, fg=COL_MUTED,
+                           font=FONT_MONO, width=self.label_width, anchor="w")
+            lab.pack(side="left")
+            val = tk.Label(f, text=value, bg=COL_PANEL, fg=color or COL_TEXT,
+                           font=font, anchor="w")
+            val.pack(side="left")
+            ent = {"kind": "row", "frame": f, "lab": lab, "val": val,
+                   "big": big}
+            self._cache[key] = ent
+        else:
+            # update in place; only touch attributes that changed
+            if ent["lab"].cget("text") != label:
+                ent["lab"].configure(text=label)
+            if ent["val"].cget("text") != str(value):
+                ent["val"].configure(text=value)
+            newfg = color or COL_TEXT
+            if ent["val"].cget("fg") != newfg:
+                ent["val"].configure(fg=newfg)
+            if ent.get("big") != big:
+                ent["val"].configure(font=font)
+                ent["big"] = big
+        return key
 
     def note(self, text, color=None):
-        lbl = tk.Label(self._body, text=text, bg=COL_PANEL,
-                       fg=color or COL_MUTED, font=("DejaVu Sans", 9),
-                       anchor="w", justify="left", wraplength=560)
-        lbl.pack(fill="x", padx=8, pady=(6, 2))
-        self._rows.append(lbl)
+        key = self._key("note", text[:40])
+        self._order.append(key)
+        ent = self._cache.get(key)
+        if ent is None:
+            lbl = tk.Label(self._body, text=text, bg=COL_PANEL,
+                           fg=color or COL_MUTED, font=("DejaVu Sans", 9),
+                           anchor="w", justify="left", wraplength=560)
+            ent = {"kind": "note", "frame": lbl}
+            self._cache[key] = ent
+        else:
+            ent["frame"].configure(text=text, fg=color or COL_MUTED)
+        return key
 
     def end(self):
-        pass
+        # prune widgets that weren't touched this pass
+        touched = set(self._order)
+        for key in list(self._cache.keys()):
+            if key not in touched:
+                ent = self._cache.pop(key)
+                ent["frame"].destroy()
+                if ent.get("line") is not None:
+                    ent["line"].destroy()
+        # (re)pack everything in the order it was declared, so additions and
+        # removals land in the right place without disturbing untouched rows
+        for ent in self._cache.values():
+            ent["frame"].pack_forget()
+            if ent.get("line") is not None:
+                ent["line"].pack_forget()
+        for key in self._order:
+            ent = self._cache.get(key)
+            if not ent:
+                continue
+            if ent["kind"] == "section":
+                ent["frame"].pack(fill="x", pady=(10, 2))
+                ent["line"].pack(fill="x", padx=8, pady=(0, 4))
+            elif ent["kind"] == "row":
+                ent["frame"].pack(fill="x", padx=8, pady=1)
+            else:
+                ent["frame"].pack(fill="x", padx=8, pady=(6, 2))
 
 
 def make_screen(key, parent, app):
-    from . import (track, passes, passdetail, polar, worldmap, groundtrack,
+    from . import (home, track, passes, passdetail, groundtrack,
                    orbit, illum, sunmoon, mutual, tenday, satellites, location,
                    grids, spacewx)
     mapping = {
+        "home": home.HomeScreen,
         "track": track.TrackScreen,
         "passes": passes.PassesScreen,
         "passdetail": passdetail.PassDetailScreen,
-        "polar": polar.PolarScreen,
-        "worldmap": worldmap.WorldMapScreen,
         "groundtrack": groundtrack.GroundTrackScreen,
         "orbit": orbit.OrbitScreen,
         "illum": illum.IllumScreen,

@@ -18,11 +18,13 @@ from ..data.sample_data import sample_gp_json, sample_tx_for, SAMPLE_TX
 AMSAT_GP_URL = "https://newark192.amsat.org/gpdata/current/daily-bulletin.json"
 SATNOGS_TX_URL = ("https://db.satnogs.org/api/transmitters/"
                   "?format=json&satellite__norad_cat_id=")
+SATNOGS_ALL_TX_URL = "https://db.satnogs.org/api/transmitters/?format=json"
 
 CONFIG_DIR = os.path.join(os.path.expanduser("~"), ".orbitdeck")
 CONFIG_PATH = os.path.join(CONFIG_DIR, "config.json")
 GP_CACHE = os.path.join(CONFIG_DIR, "gp.json")
 SPACEWX_CACHE = os.path.join(CONFIG_DIR, "spacewx.json")
+TX_CACHE = os.path.join(CONFIG_DIR, "transmitters.json")
 
 
 class Store:
@@ -63,7 +65,26 @@ class Store:
         if self.selected_norad is not None and \
                 self.db.get(self.selected_norad) is None and self.db.count():
             self.selected_norad = self.db.sats[0].norad
+        # apply any cached transponder DB to the whole catalog
+        self._apply_tx_cache()
         self._sync_predictor()
+
+    def _apply_tx_cache(self):
+        """Attach transponders from a cached SatNOGS dump (by NORAD) to every
+        matching satellite in the catalog, if the cache exists."""
+        try:
+            with open(TX_CACHE) as f:
+                by_norad = json.load(f)
+        except Exception:
+            return 0
+        attached = 0
+        for s in self.db.sats:
+            lst = by_norad.get(str(s.norad))
+            if lst:
+                s.transponders = SatDb.parse_transmitters_json(
+                    json.dumps(lst))
+                attached += 1
+        return attached
 
     def catalog_age_days(self):
         """Age (days) of the freshest element in the catalog, or a large
@@ -138,6 +159,33 @@ class Store:
 
     def my_grid(self):
         return latlon_to_grid(self.obs.lat, self.obs.lon)
+
+    # ---- transponder database (bulk) ----
+    def update_transponders_online(self, progress=None):
+        """Fetch the entire SatNOGS transmitter DB once, cache it grouped by
+        NORAD id, and attach to every matching satellite in the catalog.
+        Far faster than per-satellite fetches for a full GP catalog."""
+        if progress:
+            progress("Fetching transponder database from SatNOGS\u2026")
+        txt = _http_get(SATNOGS_ALL_TX_URL, timeout=60)
+        arr = json.loads(txt)
+        by_norad = {}
+        for t in arr:
+            nid = t.get("norad_cat_id")
+            if nid is None:
+                continue
+            by_norad.setdefault(str(int(nid)), []).append(t)
+        try:
+            os.makedirs(CONFIG_DIR, exist_ok=True)
+            with open(TX_CACHE, "w") as f:
+                json.dump(by_norad, f)
+        except Exception:
+            pass
+        attached = self._apply_tx_cache()
+        if progress:
+            progress("Cached transponders for %d satellites (%d transmitters)."
+                     % (attached, len(arr)))
+        return attached
 
     # ---- space weather ----
     def load_spacewx_cache(self):

@@ -10,7 +10,7 @@ from ...engine import Observer, grid_to_latlon
 
 class MutualScreen(Screen):
     def build(self):
-        self.header("Mutual Windows \u2014 co-visibility with a DX station")
+        self.sat_header("Mutual Windows \u2014 co-visibility with a DX station")
         bar = ttk.Frame(self.frame, style="TFrame")
         bar.pack(fill="x", padx=16, pady=4)
         ttk.Label(bar, text="DX grid or lat,lon:", style="TLabel").pack(side="left")

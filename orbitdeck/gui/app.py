@@ -33,19 +33,18 @@ FONT_H = ("DejaVu Sans", 13, "bold")
 
 
 NAV_ITEMS = [
+    ("Home", "home"),
     ("Track", "track"),
     ("Next Passes", "passes"),
     ("Pass Detail", "passdetail"),
-    ("Polar", "polar"),
-    ("World Map", "worldmap"),
     ("Ground Track", "groundtrack"),
     ("Orbital Analysis", "orbit"),
     ("Illumination", "illum"),
-    ("Sun / Moon", "sunmoon"),
+    ("Pass Progression", "tenday"),
     ("Mutual Windows", "mutual"),
     ("Workable", "grids"),
+    ("Sun / Moon", "sunmoon"),
     ("Space Wx", "spacewx"),
-    ("Pass Progression", "tenday"),
     ("Satellites", "satellites"),
     ("Location", "location"),
 ]
@@ -63,11 +62,33 @@ class OrbitDeckApp:
         root.geometry("1180x760")
         root.minsize(960, 640)
         root.configure(bg=COL_BG)
+        self._set_window_icon(root)
 
         self._init_style()
         self._build_layout()
-        self.show("track")
+        self.show("home")
         self._tick()
+
+    def _set_window_icon(self, root):
+        """Set the taskbar / title-bar icon from the bundled asset, if present."""
+        import os
+        here = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        assets = os.path.join(here, "gui", "assets")
+        try:
+            ico = os.path.join(assets, "icon.ico")
+            if os.name == "nt" and os.path.exists(ico):
+                root.iconbitmap(ico)
+                return
+        except Exception:
+            pass
+        try:
+            png = os.path.join(assets, "icon-256.png")
+            if os.path.exists(png):
+                img = tk.PhotoImage(file=png)
+                root.iconphoto(True, img)
+                self._icon_img = img      # keep a reference
+        except Exception:
+            pass
 
     def _init_style(self):
         st = ttk.Style()
@@ -112,10 +133,13 @@ class OrbitDeckApp:
 
         st.configure("TCombobox", fieldbackground=COL_PANEL, background=COL_PANEL,
                      foreground=COL_TEXT, arrowcolor=COL_TEXT,
-                     bordercolor=COL_GRID, borderwidth=1)
+                     bordercolor=COL_GRID, borderwidth=1,
+                     selectbackground=COL_PANEL, selectforeground=COL_TEXT)
         st.map("TCombobox",
                fieldbackground=[("readonly", COL_PANEL)],
-               foreground=[("readonly", COL_TEXT)])
+               foreground=[("readonly", COL_TEXT)],
+               selectbackground=[("readonly", COL_PANEL)],
+               selectforeground=[("readonly", COL_TEXT)])
 
         # --- radio / check: visible indicators on the dark background ---
         st.configure("TRadiobutton", background=COL_BG, foreground=COL_TEXT,
@@ -154,8 +178,11 @@ class OrbitDeckApp:
         self.clock_var = tk.StringVar(value="")
         ttk.Label(top, textvariable=self.clock_var, style="Mono.TLabel").pack(
             side="right", padx=16)
-        ttk.Button(top, text="Update GP (online)",
+        ttk.Button(top, text="Update GP",
                    command=self._update_online).pack(side="right", padx=6, pady=6)
+        ttk.Button(top, text="Update Transponders",
+                   command=self._update_transponders).pack(
+            side="right", padx=2, pady=6)
         ttk.Button(top, text="Select Satellite\u2026",
                    command=self._quick_select).pack(side="right", padx=6, pady=6)
 
@@ -167,7 +194,7 @@ class OrbitDeckApp:
                                    font=("DejaVu Sans", 10, "bold"),
                                    anchor="w", padx=12, pady=4)
         self.banner_lbl.pack(side="left", fill="x", expand=True)
-        tk.Button(self.banner, text="Update GP (online)",
+        tk.Button(self.banner, text="Update GP",
                   command=self._update_online, bg="#1a1205", fg=COL_WARN,
                   relief="flat", font=("DejaVu Sans", 9, "bold"),
                   padx=10, pady=2, bd=0, highlightthickness=0).pack(
@@ -216,6 +243,9 @@ class OrbitDeckApp:
         self.current = scr
         self.current_key = key
         scr.frame.pack(fill="both", expand=True)
+        # keep the "selected satellite" badge current on screens that show one
+        if hasattr(scr, "refresh_sat_header"):
+            scr.refresh_sat_header()
         scr.on_show()
 
     # ---- live clock + active-screen refresh ----
@@ -270,36 +300,93 @@ class OrbitDeckApp:
         win = tk.Toplevel(self.root)
         win.title("Select Satellite")
         win.configure(bg=COL_BG)
-        win.geometry("360x460")
-        lb = tk.Listbox(win, bg=COL_PANEL, fg=COL_TEXT, font=FONT_MONO,
-                        selectbackground=COL_ACCENT, borderwidth=0,
-                        highlightthickness=0)
-        lb.pack(fill="both", expand=True, padx=8, pady=8)
-        order = sorted(range(len(sats)),
-                       key=lambda i: (sats[i].norad not in self.store.favorites,
-                                      sats[i].name))
-        for i in order:
-            s = sats[i]
-            mark = "\u2605 " if s.norad in self.store.favorites else "  "
-            lb.insert("end", "%s%-12s %5d" % (mark, s.name, s.norad))
+        win.geometry("560x560")
+
+        top = ttk.Frame(win, style="TFrame")
+        top.pack(fill="x", padx=8, pady=(8, 4))
+        ttk.Label(top, text="Filter:", style="TLabel").pack(side="left")
+        filt = tk.StringVar()
+        ent = ttk.Entry(top, textvariable=filt, width=28)
+        ent.pack(side="left", padx=6)
+        ent.focus_set()
+        favonly = tk.BooleanVar(value=False)
+        ttk.Checkbutton(top, text="Favorites", variable=favonly).pack(
+            side="left", padx=8)
+
+        cols = ("fav", "name", "norad", "period", "tx")
+        heads = ("\u2605", "Name", "NORAD", "Period", "TX")
+        widths = {"fav": 30, "name": 230, "norad": 80, "period": 90, "tx": 50}
+        tree = ttk.Treeview(win, columns=cols, show="headings", height=20)
+        for c, h in zip(cols, heads):
+            tree.heading(c, text=h)
+            tree.column(c, width=widths[c],
+                        anchor="w" if c == "name" else "center")
+        tree.pack(fill="both", expand=True, padx=8, pady=4)
+        vsb = ttk.Scrollbar(win, orient="vertical", command=tree.yview)
+        tree.configure(yscrollcommand=vsb.set)
+
+        rows = []
+
+        def repop(*_):
+            for i in tree.get_children():
+                tree.delete(i)
+            rows.clear()
+            f = filt.get().strip().lower()
+            order = sorted(range(len(sats)),
+                           key=lambda i: (sats[i].norad
+                                          not in self.store.favorites,
+                                          sats[i].name))
+            for i in order:
+                s = sats[i]
+                if favonly.get() and s.norad not in self.store.favorites:
+                    continue
+                if f and f not in s.name.lower() and f not in str(s.norad):
+                    continue
+                star = "\u2605" if s.norad in self.store.favorites else ""
+                tree.insert("", "end", values=(
+                    star, s.name, s.norad, "%.1f min" % s.period_min,
+                    "%d" % len(s.transponders) if s.transponders else ""))
+                rows.append(s)
 
         def choose(_=None):
-            sel = lb.curselection()
+            sel = tree.selection()
             if sel:
-                s = sats[order[sel[0]]]
-                self.store.select(s.norad)
-                self.store.save_config()
-                if self.current:
-                    self.current.on_show()
-                win.destroy()
-        lb.bind("<Double-Button-1>", choose)
+                idx = tree.index(sel[0])
+                if 0 <= idx < len(rows):
+                    self.store.select(rows[idx].norad)
+                    self.store.ensure_transponders(rows[idx], online=True)
+                    self.store.save_config()
+                    if self.current:
+                        if hasattr(self.current, "refresh_sat_header"):
+                            self.current.refresh_sat_header()
+                        self.current.on_show()
+                    win.destroy()
+
+        filt.trace_add("write", repop)
+        favonly.trace_add("write", repop)
+        tree.bind("<Double-Button-1>", choose)
+        ent.bind("<Return>", lambda _e: choose())
         ttk.Button(win, text="Select", command=choose).pack(pady=6)
+        repop()
+
+    def _refresh_current(self):
+        if not self.current:
+            return
+        if hasattr(self.current, "refresh_sat_header"):
+            self.current.refresh_sat_header()
+        self.current.on_show()
 
     def _update_online(self):
         def work():
             try:
                 self.set_status("Updating GP catalog\u2026")
                 n = self.store.update_gp_online(progress=self.set_status)
+                # also refresh the full transponder DB in the same pass
+                try:
+                    self.store.update_transponders_online(
+                        progress=self.set_status)
+                except Exception:
+                    pass
                 self.set_status("Updated: %d satellites loaded." % n)
             except Exception as e:
                 self.set_status("Update failed: %s" % e)
@@ -307,8 +394,21 @@ class OrbitDeckApp:
                     "Update failed",
                     "Could not fetch GP data.\n\n%s\n\nThe app keeps working "
                     "with the cached/sample catalog." % e))
-            self.root.after(0, lambda: self.current.on_show()
-                            if self.current else None)
+            self.root.after(0, self._refresh_current)
+        threading.Thread(target=work, daemon=True).start()
+
+    def _update_transponders(self):
+        def work():
+            try:
+                n = self.store.update_transponders_online(
+                    progress=self.set_status)
+                self.set_status("Transponders cached for %d satellites." % n)
+            except Exception as e:
+                self.set_status("Transponder update failed: %s" % e)
+                self.root.after(0, lambda: messagebox.showerror(
+                    "Update failed",
+                    "Could not fetch the transponder database.\n\n%s" % e))
+            self.root.after(0, self._refresh_current)
         threading.Thread(target=work, daemon=True).start()
 
 

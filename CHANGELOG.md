@@ -4,6 +4,142 @@ All notable changes to OrbitDeck are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/), and the project aims to follow
 semantic versioning.
 
+## [0.7.0]
+
+### Changed
+- Screens that act on the selected satellite (Track, Next Passes, Pass Detail,
+  Ground Track, Orbital Analysis, Illumination, Pass Progression, Mutual Windows,
+  Workable) now show a **▸ satellite-name badge** in their header, so it's
+  clear which bird the page applies to. The badge updates when the selection
+  changes.
+- **Sun / Moon** moved below **Workable** in the navigation.
+
+### Fixed
+- Satellite name labels no longer spill off the edges of the Home map; they flip
+  side / nudge inward near the map borders and are clipped to the map area.
+
+## [0.6.0]
+
+### Added
+- Application **icon** (globe + orbiting satellite), bundled as SVG/PNG/ICO and
+  shown in the title bar and taskbar.
+- **PyInstaller packaging**: `orbitdeck.spec`, a `packaging/build.py` helper,
+  `packaging/BUILD.md` instructions, and a `build.yml` GitHub Actions workflow
+  that builds standalone Windows/macOS/Linux bundles on tagged releases.
+
+### Changed
+- Selecting a satellite on the Home **map** (side list) or **Next Passes**
+  (double-click) now makes it the app-wide selected satellite for every screen.
+- Removed the "(online)" suffix from the Update GP and Space-Wx refresh buttons.
+
+## [0.5.0]
+
+### Added
+- **Home screen (new default view)** with two tabs:
+  * **Map** — a world map of every favorited satellite with its current
+    sub-point and footprint, the day/night terminator, and your station. Click a
+    satellite in the side list to focus just that one (with its ground track);
+    click "All" to show the whole fleet.
+  * **Next Passes** — the soonest upcoming pass of every favorite with a
+    live AOS/LOS countdown, in the style of CardSat's schedule page.
+
+### Changed
+- App now opens on **Home** instead of Track.
+- **Illumination** and **Pass Progression** scroll through time indefinitely
+  (back / forward / load-more) instead of fixed time chunks.
+- The Illumination eclipse-fraction readout moved out of the plot into the
+  toolbar.
+- **Pass Progression** moved below Illumination in the navigation.
+
+### Fixed
+- Illumination showed all-dark for some satellites (e.g. FO-29) because the
+  predictor was not re-pointed at the selected satellite before sampling.
+- Track transponder dropdown no longer stays highlighted after a selection.
+- Space Weather now reliably populates the **Kp and A** indices: Kp is read from
+  NOAA's dict feed with a products-array fallback, and A from the daily
+  geomagnetic report (falling back to a Kp-derived value).
+
+### Removed
+- **Polar** screen (it duplicated the polar plot already on the Track screen).
+- **World Map** screen (superseded by the Home map of all favorites).
+
+## [0.4.0]
+
+### Added
+- Transponder database can be cached for the **whole catalog** at once via a
+  bulk SatNOGS fetch (new "Update Transponders" button; GP update also pulls
+  them). Cached to disk and auto-attached on startup.
+- **Track screen** now has a transponder selector and shows live downlink (DN),
+  Doppler-corrected receive (RX), uplink (UP), Doppler-corrected transmit (TX),
+  and both downlink and uplink Doppler shifts.
+- **Sun / Moon** screen redrawn as a graphical polar sky dome (rayed Sun, phase-
+  shaded Moon) with an aligned data panel.
+- Info page now shows the **decay-estimate range** (solar-max to solar-min
+  bracket), matching CardSat.
+
+### Changed
+- Live-updating data pages now **update in place instead of rebuilding**, which
+  removes the flicker/blink on every tick.
+- **Orbital Analysis** uses a **tab bar** instead of radio buttons.
+- **Satellite selection** dialog is now a filterable, columned table.
+- **Next Passes** list streamlined: day grouping, fewer columns, high passes
+  colour-coded.
+- **Pass Detail** left panel uses aligned key/value columns.
+- **Illumination** raster transposed: days on X, orbital period on Y.
+- **Workable** grids / states / DXCC shown in aligned rows and columns.
+
+## [0.3.0]
+
+### Added
+- **Workable US States** and **Workable DXCC** overlays, alongside Workable
+  Grids, in a combined Workable screen (live now / union across next pass).
+  States use multi-point interior sampling; DXCC uses per-entity reference
+  points for a practical set of commonly worked entities.
+- **Space Weather screen** — solar 10.7 cm flux, planetary Kp, and A index
+  from NOAA SWPC, with plain-language levels, an operating outlook, and offline
+  caching. Completes parity with CardSat'''s tracking/analysis surface.
+- Engine helpers make_footprint_test() and footprint_radius_deg() shared by all
+  workable overlays.
+
+### Notes
+- With this release the only CardSat features not in OrbitDeck are radio (CAT)
+  and rotator control, which are intentionally out of scope.
+
+## [0.2.0]
+
+### Added
+- **Workable Grids screen** — the Maidenhead squares inside the footprint,
+  live or unioned across the next pass (grid chasing), computed geometrically.
+- **orbitdeck.engine.analysis** module with the full CardSat analysis math:
+  J2 node/perigee drift, sun-synchronous detection, LTAN, repeat ground-track,
+  longest-possible-pass, beta* threshold, true anomaly / argument of latitude,
+  time to perigee/apogee, and a King-Hele decay estimate.
+
+### Changed
+- **Orbital Analysis completely reworked** to match the device''s nine pages and
+  presented as clean grouped key/value cards instead of a raw text dump. New
+  data: footprint diameter at apogee/perigee, B* decay estimate, eclipse depth,
+  dual-band Doppler, slant ranges at AOS/TCA/LOS, one-way path delay, J2 nodal
+  dynamics, beta* and eclipse fraction, 7-day pass outlook with best pass, and
+  true-anomaly / argument-of-latitude / perigee-apogee timing.
+
+### Notes
+- Workable US-states and DXCC overlays and the NOAA Space-Wx feed are not yet
+  ported (documented in the README coverage section).
+
+## [0.1.1]
+
+### Fixed
+- **Pass times from the bundled catalog were computed from a fixed 2024 epoch**,
+  which made them wildly inaccurate when run later. Demo elements are now stamped
+  to the current date, and a stale on-disk cache (older than ~3 weeks) is
+  discarded in favor of fresh sample data. A yellow banner now warns whenever
+  demo or stale elements are loaded, so predictions are never silently wrong.
+- **Text input fields were invisible** (dark text on a same-colored field) under
+  the clam theme. Added explicit ttk styling for Entry, Combobox, Radiobutton,
+  Checkbutton, Scrollbar, and Separator so all controls render consistently on
+  the dark theme across platforms.
+
 ## [0.1.0] - 2025
 
 Initial public release. A cross-platform desktop port of the tracking and

@@ -11,7 +11,7 @@ from ..mapdraw import draw_basemap
 
 class GroundTrackScreen(Screen):
     def build(self):
-        self.header("Ground Track \u2014 forward orbits")
+        self.sat_header("Ground Track \u2014 forward orbits")
         bar = ttk.Frame(self.frame, style="TFrame")
         bar.pack(fill="x", padx=16)
         ttk.Label(bar, text="Orbits ahead:", style="TLabel").pack(side="left")

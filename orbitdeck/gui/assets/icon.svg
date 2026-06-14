@@ -1,0 +1,72 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+  <defs>
+    <radialGradient id="bg" cx="50%" cy="38%" r="75%">
+      <stop offset="0%" stop-color="#161b22"/>
+      <stop offset="100%" stop-color="#0d1117"/>
+    </radialGradient>
+    <radialGradient id="earth" cx="38%" cy="32%" r="80%">
+      <stop offset="0%" stop-color="#1f6feb"/>
+      <stop offset="55%" stop-color="#1158c7"/>
+      <stop offset="100%" stop-color="#0b2f6b"/>
+    </radialGradient>
+    <linearGradient id="ring" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#3fb950"/>
+      <stop offset="100%" stop-color="#2f81f7"/>
+    </linearGradient>
+  </defs>
+
+  <!-- rounded-square backdrop -->
+  <rect x="16" y="16" width="480" height="480" rx="108" fill="url(#bg)"/>
+  <rect x="16.5" y="16.5" width="479" height="479" rx="107.5" fill="none"
+        stroke="#30363d" stroke-width="3"/>
+
+  <!-- orbit ring (tilted ellipse) -->
+  <g transform="rotate(-28 256 256)">
+    <ellipse cx="256" cy="256" rx="196" ry="92" fill="none"
+             stroke="url(#ring)" stroke-width="9" opacity="0.9"/>
+  </g>
+
+  <!-- Earth -->
+  <circle cx="256" cy="256" r="118" fill="url(#earth)"/>
+  <!-- simple landmass blobs -->
+  <g fill="#3fb950" opacity="0.82">
+    <path d="M205 196 q26 -16 52 -6 q18 8 8 26 q-14 22 -42 18 q-30 -4 -18 -38z"/>
+    <path d="M286 232 q30 -6 44 14 q10 18 -10 30 q-26 14 -44 -6 q-16 -26 10 -38z"/>
+    <path d="M210 300 q24 -10 44 6 q14 14 -4 30 q-26 18 -48 0 q-14 -22 8 -36z"/>
+  </g>
+  <!-- graticule -->
+  <g fill="none" stroke="#79c0ff" stroke-width="2" opacity="0.30">
+    <ellipse cx="256" cy="256" rx="118" ry="44"/>
+    <ellipse cx="256" cy="256" rx="60" ry="118"/>
+    <line x1="138" y1="256" x2="374" y2="256"/>
+  </g>
+  <circle cx="256" cy="256" r="118" fill="none" stroke="#0d1117"
+          stroke-width="3" opacity="0.6"/>
+
+  <!-- footprint cap on the globe -->
+  <circle cx="300" cy="206" r="40" fill="none" stroke="#d29922"
+          stroke-width="4" opacity="0.85"/>
+
+  <!-- satellite riding the orbit (upper right) -->
+  <g transform="rotate(-28 256 256)">
+    <g transform="translate(452 256)">
+      <!-- solar panels -->
+      <rect x="-46" y="-9" width="30" height="18" rx="2" fill="#2f81f7"/>
+      <rect x="16" y="-9" width="30" height="18" rx="2" fill="#2f81f7"/>
+      <line x1="-16" y1="0" x2="16" y2="0" stroke="#8b949e" stroke-width="3"/>
+      <!-- body -->
+      <rect x="-12" y="-13" width="24" height="26" rx="4" fill="#e6edf3"/>
+      <rect x="-12" y="-13" width="24" height="26" rx="4" fill="none"
+            stroke="#8b949e" stroke-width="2"/>
+      <!-- dish -->
+      <circle cx="0" cy="-20" r="7" fill="#3fb950"/>
+    </g>
+  </g>
+
+  <!-- a couple of stars -->
+  <g fill="#e6edf3" opacity="0.85">
+    <circle cx="92" cy="120" r="4"/>
+    <circle cx="420" cy="392" r="3.5"/>
+    <circle cx="120" cy="404" r="3"/>
+  </g>
+</svg>

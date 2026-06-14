@@ -14,7 +14,7 @@ mandatory orbital libraries** — and automatically uses the C-accelerated `sgp4
 package and full-resolution `cartopy` coastlines if you have them installed.
 
 <p align="center">
-  <img src="docs/img/worldmap.png" width="80%" alt="World map with ground track, footprint and terminator">
+  <img src="docs/img/home.png" width="80%" alt="Home: all favorite satellites with footprints on the world map">
 </p>
 
 ---
@@ -66,11 +66,10 @@ pip install -e ".[full]"       # both
 
 | Screen | What it shows |
 |---|---|
-| **Track** | Live azimuth/elevation, slant range, range-rate, sub-point, altitude, live Doppler on the selected downlink, sunlit/eclipse, next AOS/LOS, and a live sky polar plot. |
+| **Home** *(default)* | World map of all **favorited** satellites with their footprints, the day/night terminator and your station; click one to focus it with its ground track. A second tab lists the **next pass of every favorite with a live countdown**. |
+| **Track** | Live azimuth/elevation, slant range, range-rate, sub-point, altitude, transponder selector with downlink/uplink Doppler, sunlit/eclipse, next AOS/LOS, and a live sky polar plot. |
 | **Next Passes** | Pass table for the next 7 days with selectable minimum elevation; double-click a pass for its detail. |
 | **Pass Detail** | Polar sky-track plus an elevation-vs-time profile for a chosen pass. |
-| **Polar** | Full-size live polar sky view of the current/next pass with the Sun marked. |
-| **World Map** | Sub-point, coverage **footprint**, ground track, the day/night **terminator** and sub-solar point, and your station. |
 | **Ground Track** | Forward ground track over 1–8 upcoming orbits. |
 | **Orbital Analysis** | Nine pages matching the source device: **Info** (size/shape, footprint diameter now/apogee/perigee, B\* drag-decay estimate, element age), **Live** (look angles, dual-band Doppler, eclipse depth), **Next Pass** (slant ranges at AOS/TCA/LOS, one-way path delay), **Ground Track**, **Doppler** curve (peak shift + max range-rate), **Nodal** (J2 node/perigee drift, sun-sync flag, LTAN, repeat ground-track, longest possible pass), **Sun/Beta** (β now, β\* threshold, eclipse fraction, 60-day plot), **Pass Outlook** (7-day planning summary + best pass), **Orbit Position** (mean/true anomaly, argument of latitude, time to perigee/apogee). Presented as clean grouped data cards. |
 | **Illumination** | 10/30/60-day sunlit-vs-eclipse raster with mean eclipse fraction. |
@@ -83,7 +82,7 @@ pip install -e ".[full]"       # both
 | **Location** | Set your observer site by lat/lon/altitude or Maidenhead grid. |
 
 <p align="center">
-  <img src="docs/img/polar.png" width="42%" alt="Polar pass plot">
+  <img src="docs/img/sunmoon.png" width="42%" alt="Sun and Moon sky dome">
   &nbsp;&nbsp;
   <img src="docs/img/doppler.png" width="50%" alt="Doppler curve">
 </p>

@@ -1,0 +1,76 @@
+name: Build standalone apps
+
+# Build OrbitDeck into standalone executables for Windows, macOS, and Linux.
+# Runs on tags like v0.5.0 (and can be triggered manually). Artifacts are
+# uploaded per-OS; on a tag, they're also attached to a GitHub Release.
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            artifact: OrbitDeck-windows
+          - os: macos-latest
+            artifact: OrbitDeck-macos
+          - os: ubuntu-latest
+            artifact: OrbitDeck-linux
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install OrbitDeck and PyInstaller
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e .
+          pip install pyinstaller
+
+      - name: Generate macOS .icns
+        if: runner.os == 'macOS'
+        run: |
+          cd orbitdeck/gui/assets
+          mkdir -p icon.iconset
+          for s in 16 32 64 128 256 512; do
+            sips -z $s $s icon-512.png --out icon.iconset/icon_${s}x${s}.png
+            d=$((s*2))
+            sips -z $d $d icon-512.png --out icon.iconset/icon_${s}x${s}@2x.png
+          done
+          iconutil -c icns icon.iconset -o icon.icns
+
+      - name: Build with PyInstaller
+        run: pyinstaller --noconfirm orbitdeck.spec
+
+      - name: Package (zip the bundle)
+        shell: bash
+        run: |
+          cd dist
+          if [ "${{ runner.os }}" = "macOS" ]; then
+            zip -r ../${{ matrix.artifact }}.zip OrbitDeck.app
+          else
+            zip -r ../${{ matrix.artifact }}.zip OrbitDeck
+          fi
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: ${{ matrix.artifact }}.zip
+
+      - name: Attach to release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ${{ matrix.artifact }}.zip

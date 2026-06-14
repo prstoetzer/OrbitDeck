@@ -16,7 +16,16 @@ venv/
 env/
 
 # App data / caches (created at runtime under the user's home)
-.cardsat_desktop/
+.orbitdeck/
+
+# PyInstaller
+build/
+dist/
+*.manifest
+
+# Generated macOS icon (built in CI from icon-512.png)
+orbitdeck/gui/assets/icon.icns
+orbitdeck/gui/assets/icon.iconset/
 
 # OS / editor
 .DS_Store

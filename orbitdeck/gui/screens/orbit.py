@@ -29,13 +29,23 @@ class OrbitScreen(Screen):
     live = True
 
     def build(self):
-        self.header("Orbital Analysis")
-        bar = ttk.Frame(self.frame, style="TFrame")
-        bar.pack(fill="x", padx=16, pady=(0, 4))
+        self.sat_header("Orbital Analysis")
+        bar = tk.Frame(self.frame, bg=COL_PANEL)
+        bar.pack(fill="x", padx=16, pady=(0, 6))
         self.page = tk.IntVar(value=0)
+        self._tabs = []
         for i, name in enumerate(PAGES):
-            ttk.Radiobutton(bar, text=name, value=i, variable=self.page,
-                            command=self._switch).pack(side="left", padx=1)
+            holder = tk.Frame(bar, bg=COL_PANEL)
+            holder.pack(side="left", padx=1, pady=2)
+            btn = tk.Label(holder, text=name, bg=COL_PANEL, fg=COL_MUTED,
+                           font=("DejaVu Sans", 10), padx=10, pady=5,
+                           cursor="hand2")
+            btn.pack(side="top")
+            ind = tk.Frame(holder, bg=COL_PANEL, height=2)
+            ind.pack(side="top", fill="x")
+            btn.bind("<Button-1>", lambda _e, idx=i: self._select_tab(idx))
+            self._tabs.append((btn, ind))
+        self._highlight_tab(0)
 
         # two presentation surfaces: a KV card (data pages) and a plot (graph
         # pages). We show whichever the active page needs.
@@ -44,6 +54,19 @@ class OrbitScreen(Screen):
         self.plotwrap = ttk.Frame(self.frame, style="Panel.TFrame")
         self.mpl = None
         self._plot_shown = False
+
+    def _highlight_tab(self, active):
+        for i, (btn, ind) in enumerate(self._tabs):
+            on = (i == active)
+            btn.configure(fg=COL_ACCENT if on else COL_MUTED,
+                          font=("DejaVu Sans", 10, "bold") if on
+                          else ("DejaVu Sans", 10))
+            ind.configure(bg=COL_ACCENT if on else COL_PANEL)
+
+    def _select_tab(self, idx):
+        self.page.set(idx)
+        self._highlight_tab(idx)
+        self.on_show()
 
     # ---- surface management ----
     def _show_kv(self):
@@ -100,7 +123,11 @@ class OrbitScreen(Screen):
         foot_apo = A.footprint_diameter_km(s.apogee_km)
         foot_per = A.footprint_diameter_km(s.perigee_km)
         age = (now_unix() - s.epoch_unix) / 86400.0
-        decay = A.estimate_decay_days(s.bstar, mm, s.ecc)
+        decay = A.estimate_decay_days(s.bstar, mm, s.ecc, dens_scale=1.0)
+        # solar-activity bracket: high density (solar max) -> shortest life;
+        # low density (solar min) -> longest. CardSat shows the same range.
+        decay_short = A.estimate_decay_days(s.bstar, mm, s.ecc, dens_scale=2.5)
+        decay_long = A.estimate_decay_days(s.bstar, mm, s.ecc, dens_scale=0.4)
 
         k.section("Identity")
         k.row("Name", s.name, COL_TEXT, big=True)
@@ -124,6 +151,10 @@ class OrbitScreen(Screen):
         k.row("B*", "%.6f" % s.bstar)
         k.row("Decay est.", A.fmt_decay(decay),
               COL_WARN if (0 <= decay < 3650) else COL_TEXT)
+        if decay >= 0 and decay < 36500:
+            k.row("Decay range", "%s \u2013 %s (max\u2013min sun)" %
+                  (A.fmt_decay(decay_short), A.fmt_decay(decay_long)),
+                  COL_MUTED)
 
         k.section("Element set")
         k.row("Epoch", fmt_utc(s.epoch_unix, "%Y-%m-%d %H:%M"))

@@ -257,3 +257,103 @@ def test_spacewx_labels_and_ap():
     assert W._kp_to_ap(9) == 400
     out = W.outlook(140, 6)
     assert "storm" in out.lower()
+
+
+def test_transponder_bulk_cache(tmp_path=None):
+    import os, json, tempfile
+    import orbitdeck.gui.store as store_mod
+    tmp = tempfile.mkdtemp()
+    store_mod.CONFIG_DIR = tmp
+    store_mod.CONFIG_PATH = os.path.join(tmp, "config.json")
+    store_mod.GP_CACHE = os.path.join(tmp, "gp.json")
+    store_mod.TX_CACHE = os.path.join(tmp, "transmitters.json")
+    s = store_mod.Store()
+    # simulate a cached bulk SatNOGS dump grouped by NORAD
+    dump = {"25544": [{"description": "Voice", "downlink_low": 437800000,
+                       "uplink_low": 145990000, "mode": "FM",
+                       "status": "active"}]}
+    with open(store_mod.TX_CACHE, "w") as f:
+        json.dump(dump, f)
+    n = s._apply_tx_cache()
+    iss = s.db.get(25544)
+    assert n >= 1
+    assert iss is not None and len(iss.transponders) == 1
+    assert iss.transponders[0].downlink == 437800000
+
+
+def test_decay_range_brackets_nominal():
+    from orbitdeck.engine import analysis as A
+    mm = 15.50103472
+    nominal = A.estimate_decay_days(0.00025, mm, 0.0004, dens_scale=1.0)
+    fast = A.estimate_decay_days(0.00025, mm, 0.0004, dens_scale=2.5)
+    slow = A.estimate_decay_days(0.00025, mm, 0.0004, dens_scale=0.4)
+    # higher density (solar max) -> shorter life; lower -> longer
+    assert fast < nominal < slow
+
+
+def test_spacewx_ka_populate_from_feeds():
+    import json
+    from orbitdeck.gui import spacewx as W
+    def fake(url, timeout=20):
+        if "f107" in url:
+            return json.dumps([{"flux": "138.2"}])
+        if "planetary_k_index_1m" in url:
+            return json.dumps([{"kp_index": 3.67}, {"kp_index": 4.33}])
+        if "daily-geomagnetic" in url:
+            return "# h\n2026 06 14   27   4 4 5 4 3 3 3 2\n"
+        return "[]"
+    orig = W._http_get
+    W._http_get = fake
+    try:
+        d = W.fetch()
+    finally:
+        W._http_get = orig
+    assert abs(d["kp"] - 4.33) < 0.01
+    assert abs(d["a_index"] - 27) < 0.01      # A populates from DGD
+    assert abs(d["flux"] - 138.2) < 0.1
+
+
+def test_spacewx_ka_fallback_products_array():
+    import json
+    from orbitdeck.gui import spacewx as W
+    def fake(url, timeout=20):
+        if "planetary_k_index_1m" in url:
+            return "[]"
+        if "noaa-planetary-k-index" in url:
+            return json.dumps([["time_tag", "Kp", "a_running", "n"],
+                               ["2026-06-14 09:00:00", "5.33", "56", "8"]])
+        if "f107" in url:
+            return json.dumps([{"flux": "120"}])
+        return "# none\n"
+    orig = W._http_get
+    W._http_get = fake
+    try:
+        d = W.fetch()
+    finally:
+        W._http_get = orig
+    assert abs(d["kp"] - 5.33) < 0.01
+    assert d["a_index"] is not None           # derived from Kp
+
+
+def test_fo29_illumination_not_all_dark():
+    import json, datetime
+    from orbitdeck.gui.store import Store
+    from orbitdeck.engine import SatDb
+    omm = [{"OBJECT_NAME": "FO-29", "OBJECT_ID": "1996-046B",
+            "EPOCH": datetime.datetime.now(datetime.timezone.utc)
+            .strftime("%Y-%m-%dT%H:%M:%S.000000"),
+            "MEAN_MOTION": 12.78, "ECCENTRICITY": 0.0351,
+            "INCLINATION": 98.56, "RA_OF_ASC_NODE": 100.0,
+            "ARG_OF_PERICENTER": 180.0, "MEAN_ANOMALY": 180.0,
+            "BSTAR": 0.0001, "NORAD_CAT_ID": 24278, "REV_AT_EPOCH": 40000,
+            "ELEMENT_SET_NO": 999}]
+    st = Store()
+    st.db.load_gp_json(json.dumps(omm))
+    s = st.db.sats[0]
+    st.pred.set_sat(s)
+    import time
+    t0 = time.time()
+    lit = sum(1 for k in range(96)
+              if st.pred.sunlit_at(t0 + (k / 96) * s.period_min * 60))
+    # should be a healthy mix, not all-dark
+    assert 10 < lit < 96

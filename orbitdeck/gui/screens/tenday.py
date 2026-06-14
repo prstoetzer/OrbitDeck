@@ -28,24 +28,22 @@ def _el_color(el):
 
 class TenDayScreen(Screen):
     def build(self):
-        self.header("Multi-Day Pass Progression")
+        self.sat_header("Multi-Day Pass Progression")
         bar = ttk.Frame(self.frame, style="TFrame")
         bar.pack(fill="x", padx=16, pady=4)
-        ttk.Label(bar, text="Days:", style="TLabel").pack(side="left")
-        self.days = tk.IntVar(value=10)
-        for v in (5, 10, 14, 21):
-            ttk.Radiobutton(bar, text=str(v), value=v, variable=self.days,
-                            command=self._reload).pack(side="left", padx=2)
-        ttk.Label(bar, text="   Min el:", style="TLabel").pack(side="left")
+        ttk.Label(bar, text="Min el:", style="TLabel").pack(side="left")
         self.minel = tk.IntVar(value=int(self.store.min_el))
         for v in (0, 5, 10, 20):
             ttk.Radiobutton(bar, text="%d\u00b0" % v, value=v, variable=self.minel,
                             command=self._reload).pack(side="left", padx=2)
-        ttk.Button(bar, text="Refresh", command=self._reload).pack(side="left",
-                                                                   padx=10)
+        ttk.Button(bar, text="\u23ce today", command=self._reload).pack(
+            side="left", padx=10)
+        ttk.Button(bar, text="load 7 more days \u25bc",
+                   command=self._load_more).pack(side="left", padx=2)
         self.info = tk.StringVar(value="")
         ttk.Label(self.frame, textvariable=self.info, style="Muted.TLabel").pack(
             anchor="w", padx=16)
+        self._ndays = 10
 
         # scrollable canvas holding per-day rows
         outer = ttk.Frame(self.frame, style="Panel.TFrame")
@@ -67,6 +65,10 @@ class TenDayScreen(Screen):
         for seq in ("<MouseWheel>", "<Button-4>", "<Button-5>"):
             self.canvas.bind_all(seq, self._on_wheel)
 
+    def _load_more(self):
+        self._ndays += 7
+        self._reload(keep_view=True)
+
     def on_hide(self):
         for seq in ("<MouseWheel>", "<Button-4>", "<Button-5>"):
             self.canvas.unbind_all(seq)
@@ -86,7 +88,9 @@ class TenDayScreen(Screen):
         else:
             self.canvas.yview_scroll(int(-e.delta / 120), "units")
 
-    def _reload(self):
+    def _reload(self, keep_view=False):
+        if not keep_view:
+            self._ndays = 10
         for w in self.inner.winfo_children():
             w.destroy()
         s = self.sat()
@@ -96,8 +100,8 @@ class TenDayScreen(Screen):
         self.store.min_el = float(self.minel.get())
         self.store.save_config()
         t0 = now_unix()
-        ndays = self.days.get()
-        passes = self.pred().predict_passes(t0, self.store.min_el, 400,
+        ndays = self._ndays
+        passes = self.pred().predict_passes(t0, self.store.min_el, 2000,
                                             t0 + ndays * 86400)
         # group passes by UTC calendar day
         by_day = {}
@@ -113,8 +117,8 @@ class TenDayScreen(Screen):
             self._add_day_row(day_date, by_day.get(key, []))
 
         self.info.set("%s \u2014 %d passes over %d days (min %.0f\u00b0). "
-                      "Scroll for more days." %
-                      (s.name, len(passes), ndays, self.store.min_el))
+                      "Click load-more to extend." %
+                      (s.name, len(passes), self._ndays, self.store.min_el))
 
     def _add_day_row(self, day_date, day_passes):
         row = ttk.Frame(self.inner, style="Panel.TFrame")

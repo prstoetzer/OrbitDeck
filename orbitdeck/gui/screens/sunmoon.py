@@ -4,8 +4,9 @@ import math
 import tkinter as tk
 from tkinter import ttk
 
-from . import (Screen, COL_TEXT, COL_MUTED, FONT_MONO, fmt_utc, now_unix,
-               compass)
+from . import (Screen, MplPanel, KVPanel, COL_PANEL, COL_TEXT, COL_MUTED,
+               COL_ACCENT, COL_ACCENT2, COL_WARN, COL_GRID, FONT_MONO,
+               fmt_utc, now_unix, compass)
 from ...engine.predict import _sun_eci_unit, _gmst_rad, jd_of, DEG
 
 
@@ -72,10 +73,21 @@ class SunMoonScreen(Screen):
     live = True
 
     def build(self):
-        self.header("Sun / Moon")
-        self.text = tk.Text(self.frame, bg="#161b22", fg=COL_TEXT,
-                            font=FONT_MONO, borderwidth=0, height=16, wrap="word")
-        self.text.pack(fill="both", expand=True, padx=16, pady=10)
+        self.header("Sun / Moon \u2014 sky view")
+        body = ttk.Frame(self.frame, style="TFrame")
+        body.pack(fill="both", expand=True, padx=12, pady=4)
+
+        # left: data panel
+        left = ttk.Frame(body, style="Panel.TFrame")
+        left.pack(side="left", fill="y", padx=(0, 8))
+        self.kv = KVPanel(left, label_width=11)
+        self.kv.pack(fill="y", padx=6, pady=8)
+
+        # right: polar sky dome
+        right = ttk.Frame(body, style="Panel.TFrame")
+        right.pack(side="left", fill="both", expand=True)
+        self.mpl = MplPanel(right, figsize=(5.2, 5.2), polar=True)
+        self.mpl.pack(fill="both", expand=True, padx=6, pady=6)
 
     def on_show(self):
         self._render(now_unix())
@@ -87,20 +99,73 @@ class SunMoonScreen(Screen):
         lat, lon = self.store.obs.lat, self.store.obs.lon
         saz, sel = _sun_altaz(lat, lon, t)
         maz, mel, phase, illum = _moon_altaz_phase(lat, lon, t)
-        lines = [
-            "Observer  %.3f, %.3f  (grid %s)" % (lat, lon, self.store.my_grid()),
-            "Time      %s" % fmt_utc(t),
-            "",
-            "SUN",
-            "  Azimuth    %.1f\u00b0 %s" % (saz, compass(saz)),
-            "  Elevation  %+.1f\u00b0  (%s)" % (
-                sel, "up" if sel > 0 else ("twilight" if sel > -18 else "night")),
-            "",
-            "MOON",
-            "  Azimuth    %.1f\u00b0 %s" % (maz, compass(maz)),
-            "  Elevation  %+.1f\u00b0" % mel,
-            "  Phase      %s  (%.0f%% illuminated)" % (_phase_name(phase),
-                                                       illum * 100),
-        ]
-        self.text.delete("1.0", "end")
-        self.text.insert("1.0", "\n".join(lines))
+
+        k = self.kv
+        k.begin()
+        k.section("Observer")
+        k.row("Site", "%.2f, %.2f" % (lat, lon))
+        k.row("Grid", self.store.my_grid())
+        k.row("Time", fmt_utc(t, "%H:%M:%S"))
+        k.section("Sun")
+        k.row("Azimuth", "%.1f\u00b0 %s" % (saz, compass(saz)))
+        k.row("Elevation", "%+.1f\u00b0" % sel,
+              COL_WARN if sel > 0 else COL_MUTED, big=True)
+        k.row("State", "up" if sel > 0 else
+              ("twilight" if sel > -18 else "night"))
+        k.section("Moon")
+        k.row("Azimuth", "%.1f\u00b0 %s" % (maz, compass(maz)))
+        k.row("Elevation", "%+.1f\u00b0" % mel,
+              COL_ACCENT if mel > 0 else COL_MUTED, big=True)
+        k.row("Phase", _phase_name(phase))
+        k.row("Illuminated", "%.0f%%" % (illum * 100))
+        k.end()
+
+        self._draw_dome(saz, sel, maz, mel, illum, phase)
+
+    def _draw_dome(self, saz, sel, maz, mel, illum, phase):
+        import math
+        ax = self.mpl.ax
+        ax.clear()
+        self.mpl._style_axes()
+        ax.set_theta_zero_location("N")
+        ax.set_theta_direction(-1)
+        ax.set_rlim(90, 0)             # zenith centre, horizon rim
+        ax.set_rgrids([0, 30, 60, 90], labels=["90", "60", "30", "0"],
+                      color=COL_MUTED, fontsize=7)
+        ax.set_thetagrids(range(0, 360, 45),
+                          labels=["N", "NE", "E", "SE", "S", "SW", "W", "NW"],
+                          color=COL_MUTED, fontsize=9)
+        ax.grid(True, color=COL_GRID, linewidth=0.6)
+
+        # Sun: rayed yellow disc (faint just outside rim if below horizon)
+        s_r = sel if sel >= 0 else -1.5
+        sthe = math.radians(saz)
+        if sel >= 0:
+            for ang in range(0, 360, 30):
+                dx = 4 * math.cos(math.radians(ang))
+                ax.plot([sthe, sthe], [s_r, max(0, s_r - 4)],
+                        color=COL_WARN, linewidth=0.8, alpha=0.5)
+            ax.plot([sthe], [s_r], "o", color=COL_WARN, markersize=18,
+                    alpha=0.95)
+            ax.plot([sthe], [s_r], "o", color="#ffe08a", markersize=11)
+        else:
+            ax.plot([sthe], [90], "o", color=COL_WARN, markersize=7,
+                    alpha=0.4)
+            ax.annotate("Sun", (sthe, 90), color=COL_MUTED, fontsize=7)
+
+        # Moon: disc shaded by illumination
+        mthe = math.radians(maz)
+        m_r = mel if mel >= 0 else 90
+        if mel >= 0:
+            ax.plot([mthe], [m_r], "o", color="#cfe3ff", markersize=15,
+                    alpha=0.9)
+            # dark overlay sized by (1-illum) to suggest the phase
+            shade = 1.0 - illum
+            if shade > 0.05:
+                ax.plot([mthe], [m_r], "o", color=COL_PANEL,
+                        markersize=15 * shade, alpha=0.85)
+        else:
+            ax.plot([mthe], [90], "o", color="#cfe3ff", markersize=6,
+                    alpha=0.4)
+            ax.annotate("Moon", (mthe, 90), color=COL_MUTED, fontsize=7)
+        self.mpl.draw()
