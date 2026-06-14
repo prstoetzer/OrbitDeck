@@ -16,6 +16,23 @@ from ..engine import SatDb, Predictor, Observer, latlon_to_grid, grid_to_latlon
 from ..data.sample_data import sample_gp_json, sample_tx_for, SAMPLE_TX
 
 AMSAT_GP_URL = "https://newark192.amsat.org/gpdata/current/daily-bulletin.json"
+# CelesTrak GP groups (OMM JSON). The user can pick a category or a custom URL.
+CELESTRAK_BASE = "https://celestrak.org/NORAD/elements/gp.php?FORMAT=json&GROUP="
+CELESTRAK_GROUPS = [
+    ("Amateur Radio", "amateur"),
+    ("CubeSats", "cubesat"),
+    ("Space Stations", "stations"),
+    ("Last 30 Days' Launches", "last-30-days"),
+    ("Active Satellites", "active"),
+    ("Weather", "weather"),
+    ("NOAA", "noaa"),
+    ("GOES", "goes"),
+    ("Earth Resources", "resource"),
+    ("Galileo", "galileo"),
+    ("GPS Operational", "gps-ops"),
+    ("Science", "science"),
+    ("Geostationary", "geo"),
+]
 SATNOGS_TX_URL = ("https://db.satnogs.org/api/transmitters/"
                   "?format=json&satellite__norad_cat_id=")
 SATNOGS_ALL_TX_URL = "https://db.satnogs.org/api/transmitters/?format=json"
@@ -25,6 +42,8 @@ CONFIG_PATH = os.path.join(CONFIG_DIR, "config.json")
 GP_CACHE = os.path.join(CONFIG_DIR, "gp.json")
 SPACEWX_CACHE = os.path.join(CONFIG_DIR, "spacewx.json")
 TX_CACHE = os.path.join(CONFIG_DIR, "transmitters.json")
+MANUAL_SATS = os.path.join(CONFIG_DIR, "manual_sats.json")
+MANUAL_TX = os.path.join(CONFIG_DIR, "manual_tx.json")
 
 
 class Store:
@@ -34,6 +53,7 @@ class Store:
         self.favorites = set()              # set of NORAD ids
         self.selected_norad = None
         self.min_el = 5.0                   # default pass-prediction minimum
+        self.gp_source = {"kind": "amsat"}  # amsat | celestrak | custom
         self.pred = Predictor()
         self._load_config()
         self._load_catalog()
@@ -67,7 +87,96 @@ class Store:
             self.selected_norad = self.db.sats[0].norad
         # apply any cached transponder DB to the whole catalog
         self._apply_tx_cache()
+        # merge user-entered satellites and transponders (persist across refreshes)
+        self._merge_manual()
         self._sync_predictor()
+
+    # ---- manual (user-entered) satellites and transponders ----
+    def _load_manual_sats(self):
+        try:
+            with open(MANUAL_SATS) as f:
+                return json.load(f)
+        except Exception:
+            return []
+
+    def _save_manual_sats(self, items):
+        try:
+            os.makedirs(CONFIG_DIR, exist_ok=True)
+            with open(MANUAL_SATS, "w") as f:
+                json.dump(items, f)
+        except Exception:
+            pass
+
+    def _load_manual_tx(self):
+        try:
+            with open(MANUAL_TX) as f:
+                return json.load(f)
+        except Exception:
+            return {}
+
+    def _save_manual_tx(self, by_norad):
+        try:
+            os.makedirs(CONFIG_DIR, exist_ok=True)
+            with open(MANUAL_TX, "w") as f:
+                json.dump(by_norad, f)
+        except Exception:
+            pass
+
+    def _merge_manual(self):
+        """Add user-entered satellites to the catalog and append user-entered
+        transponders to each satellite. Called after every catalog/cache load so
+        manual data survives GP and transponder refreshes."""
+        from ..engine.satdb import sat_from_dict, tx_from_dict
+        # manual satellites: add if not already present (manual overrides)
+        for d in self._load_manual_sats():
+            try:
+                e = sat_from_dict(d)
+            except Exception:
+                continue
+            idx = self.db.index_of_norad(e.norad)
+            if idx >= 0:
+                # keep any transponders already attached, replace elements
+                e.transponders = self.db.sats[idx].transponders
+                self.db.sats[idx] = e
+            else:
+                self.db.sats.append(e)
+        # manual transponders: append to the satellite's existing list
+        by_norad = self._load_manual_tx()
+        for s in self.db.sats:
+            extra = by_norad.get(str(s.norad))
+            if extra:
+                s.transponders = list(s.transponders) + [
+                    tx_from_dict(d) for d in extra]
+
+    def add_manual_sat(self, entry):
+        """Persist a user-entered SatEntry and add it to the live catalog."""
+        from ..engine.satdb import sat_to_dict
+        items = [d for d in self._load_manual_sats()
+                 if int(d.get("norad", -1)) != entry.norad]
+        items.append(sat_to_dict(entry))
+        self._save_manual_sats(items)
+        idx = self.db.index_of_norad(entry.norad)
+        if idx >= 0:
+            entry.transponders = self.db.sats[idx].transponders
+            self.db.sats[idx] = entry
+        else:
+            self.db.sats.append(entry)
+        self.select(entry.norad)
+
+    def remove_manual_sat(self, norad):
+        items = [d for d in self._load_manual_sats()
+                 if int(d.get("norad", -1)) != int(norad)]
+        self._save_manual_sats(items)
+
+    def add_manual_transponder(self, norad, tp):
+        """Persist a user-entered Transponder for a satellite and attach it."""
+        from ..engine.satdb import tx_to_dict
+        by_norad = self._load_manual_tx()
+        by_norad.setdefault(str(int(norad)), []).append(tx_to_dict(tp))
+        self._save_manual_tx(by_norad)
+        s = self.db.get(int(norad))
+        if s is not None:
+            s.transponders = list(s.transponders) + [tp]
 
     def _apply_tx_cache(self):
         """Attach transponders from a cached SatNOGS dump (by NORAD) to every
@@ -182,6 +291,7 @@ class Store:
         except Exception:
             pass
         attached = self._apply_tx_cache()
+        self._merge_manual()        # keep user-entered transponders attached
         if progress:
             progress("Cached transponders for %d satellites (%d transmitters)."
                      % (attached, len(arr)))
@@ -208,22 +318,39 @@ class Store:
         return data
 
     # ---- online update ----
+    def gp_source_url(self):
+        """Resolve the configured GP source to a fetch URL and a label."""
+        src = self.gp_source or {"kind": "amsat"}
+        kind = src.get("kind", "amsat")
+        if kind == "celestrak":
+            grp = src.get("group", "amateur")
+            return CELESTRAK_BASE + grp, "CelesTrak (%s)" % grp
+        if kind == "custom":
+            url = src.get("url", "").strip()
+            if url:
+                return url, "custom URL"
+        return AMSAT_GP_URL, "AMSAT"
+
     def update_gp_online(self, progress=None):
+        url, label = self.gp_source_url()
         if progress:
-            progress("Fetching GP catalog from AMSAT...")
-        txt = _http_get(AMSAT_GP_URL, timeout=30)
+            progress("Fetching GP catalog from %s..." % label)
+        txt = _http_get(url, timeout=30)
         n = self.db.load_gp_json(txt)
         os.makedirs(CONFIG_DIR, exist_ok=True)
         with open(GP_CACHE, "w") as f:
             f.write(txt)
         self._using_sample = False
+        # re-apply cached + manual transponders and manual satellites
+        self._apply_tx_cache()
+        self._merge_manual()
         if (self.selected_norad is None or
                 self.db.get(self.selected_norad) is None) and self.db.count():
             self.selected_norad = self.db.sats[0].norad
         self._sync_predictor()
         if progress:
-            progress("Loaded %d satellites (freshest element %.1f days old)."
-                     % (n, self.catalog_age_days()))
+            progress("Loaded %d satellites from %s (freshest element "
+                     "%.1f days old)." % (n, label, self.catalog_age_days()))
         return n
 
     # ---- config persistence ----
@@ -238,6 +365,9 @@ class Store:
             self.favorites = set(c.get("favorites", []))
             self.selected_norad = c.get("selected_norad")
             self.min_el = c.get("min_el", 5.0)
+            src = c.get("gp_source")
+            if isinstance(src, dict) and src.get("kind"):
+                self.gp_source = src
         except Exception:
             pass
 
@@ -249,6 +379,7 @@ class Store:
             "favorites": sorted(self.favorites),
             "selected_norad": self.selected_norad,
             "min_el": self.min_el,
+            "gp_source": self.gp_source,
         }
         try:
             with open(CONFIG_PATH, "w") as f:

@@ -81,6 +81,7 @@ class SatEntry:
     elset_num: int = 0
     amsat_status: int = 0      # 0 none,1 heard,2 not heard,3 telemetry only
     transponders: List[Transponder] = field(default_factory=list)
+    is_manual: bool = False    # user-entered, persists across GP refreshes
 
     @property
     def jdsatepoch(self) -> float:
@@ -199,6 +200,91 @@ class SatDb:
             tp.service = (t.get('service') or '')[:20]
             out.append(tp)
         return out
+
+
+# ---- manual entry: build / serialize satellites and transponders ----
+def make_manual_sat(name, norad, epoch_unix, incl, raan, ecc, argp, ma,
+                    mean_motion, bstar=0.0, intl_des=""):
+    """Construct a user-entered SatEntry from GP mean elements."""
+    e = SatEntry()
+    e.name = name.strip() or ("NORAD %s" % norad)
+    e.norad = int(norad)
+    e.intl_des = intl_des
+    e.epoch_unix = float(epoch_unix)
+    e.incl = float(incl)
+    e.raan = float(raan)
+    e.ecc = float(ecc)
+    e.argp = float(argp)
+    e.ma = float(ma)
+    e.mean_motion = float(mean_motion)
+    e.bstar = float(bstar)
+    e.is_manual = True
+    return e
+
+
+def sat_to_dict(e: SatEntry) -> dict:
+    return {
+        "name": e.name, "norad": e.norad, "intl_des": e.intl_des,
+        "epoch_unix": e.epoch_unix, "incl": e.incl, "ecc": e.ecc,
+        "raan": e.raan, "argp": e.argp, "ma": e.ma,
+        "mean_motion": e.mean_motion, "bstar": e.bstar,
+        "rev_at_epoch": e.rev_at_epoch,
+    }
+
+
+def sat_from_dict(d: dict) -> SatEntry:
+    e = make_manual_sat(
+        d.get("name", ""), d.get("norad", 0), d.get("epoch_unix", 0.0),
+        d.get("incl", 0.0), d.get("raan", 0.0), d.get("ecc", 0.0),
+        d.get("argp", 0.0), d.get("ma", 0.0), d.get("mean_motion", 0.0),
+        d.get("bstar", 0.0), d.get("intl_des", ""))
+    e.rev_at_epoch = int(d.get("rev_at_epoch", 0))
+    return e
+
+
+def make_manual_transponder(downlink, uplink=0, downlink_high=0,
+                            uplink_high=0, invert=False, mode="",
+                            desc="Manual"):
+    """Construct a user-entered Transponder. Linear if downlink_high > downlink
+    and an uplink is present; otherwise single-channel."""
+    tp = Transponder()
+    tp.desc = desc or "Manual"
+    tp.downlink = int(downlink or 0)
+    tp.uplink = int(uplink or 0)
+    tp.downlink_high = int(downlink_high or 0)
+    tp.mode = (mode or "")[:12]
+    tp.invert = bool(invert)
+    tp.is_linear = bool(tp.downlink_high and tp.downlink_high > tp.downlink
+                        and tp.uplink)
+    if tp.is_linear:
+        # default uplink_high to same bandwidth as the downlink if not given
+        if uplink_high and int(uplink_high) > tp.uplink:
+            tp.uplink_high = int(uplink_high)
+        else:
+            tp.uplink_high = tp.uplink + (tp.downlink_high - tp.downlink)
+    return tp
+
+
+def tx_to_dict(tp: Transponder) -> dict:
+    return {
+        "desc": tp.desc, "downlink": tp.downlink, "uplink": tp.uplink,
+        "downlink_high": tp.downlink_high, "uplink_high": tp.uplink_high,
+        "mode": tp.mode, "invert": tp.invert, "is_linear": tp.is_linear,
+    }
+
+
+def tx_from_dict(d: dict) -> Transponder:
+    tp = Transponder()
+    tp.desc = d.get("desc", "Manual")
+    tp.downlink = int(d.get("downlink", 0))
+    tp.uplink = int(d.get("uplink", 0))
+    tp.downlink_high = int(d.get("downlink_high", 0))
+    tp.uplink_high = int(d.get("uplink_high", 0))
+    tp.mode = d.get("mode", "")
+    tp.invert = bool(d.get("invert", False))
+    tp.is_linear = bool(d.get("is_linear",
+                               tp.downlink_high > tp.downlink and tp.uplink))
+    return tp
 
 
 def _f(o, *keys, default=0.0):

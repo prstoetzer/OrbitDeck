@@ -52,6 +52,18 @@ class OrbitScreen(Screen):
         self.kv = KVPanel(self.frame, label_width=15)
         self.kv.pack(fill="both", expand=True, padx=16, pady=8)
         self.plotwrap = ttk.Frame(self.frame, style="Panel.TFrame")
+        # control bar shown only on the Doppler page: pick which downlink to model
+        self.dopbar = ttk.Frame(self.plotwrap, style="Panel.TFrame")
+        ttk.Label(self.dopbar, text="Downlink", style="Muted.TLabel").pack(
+            side="left", padx=(8, 6))
+        self.dop_var = tk.StringVar()
+        self.dop_combo = ttk.Combobox(self.dopbar, textvariable=self.dop_var,
+                                      state="readonly", width=40)
+        self.dop_combo.pack(side="left", padx=4, pady=4)
+        self.dop_combo.bind("<<ComboboxSelected>>", self._on_dop_change)
+        self._dop_list = []          # parallel list of (label, downlink_hz)
+        self._dop_index = 0
+        self._dop_sat = None
         self.mpl = None
         self._plot_shown = False
         # cache the next-pass forward search so the Next-Pass page's live
@@ -80,14 +92,51 @@ class OrbitScreen(Screen):
         if not self.kv.outer.winfo_ismapped():
             self.kv.pack(fill="both", expand=True, padx=16, pady=8)
 
-    def _show_plot(self, polar=False):
+    def _show_plot(self, polar=False, dopbar=False):
         self.kv.outer.pack_forget()
         if not self._plot_shown:
             self.plotwrap.pack(fill="both", expand=True, padx=12, pady=8)
             self._plot_shown = True
+        # the downlink selector bar only appears on the Doppler page
+        if dopbar:
+            if not self.dopbar.winfo_ismapped():
+                # ensure it sits above the canvas: repack canvas after the bar
+                self.dopbar.pack(side="top", fill="x")
+                if self.mpl is not None:
+                    self.mpl.widget.pack_forget()
+                    self.mpl.pack(fill="both", expand=True, padx=8, pady=8)
+        else:
+            if self.dopbar.winfo_ismapped():
+                self.dopbar.pack_forget()
         if self.mpl is None:
             self.mpl = MplPanel(self.plotwrap, figsize=(8, 4.2), polar=polar)
             self.mpl.pack(fill="both", expand=True, padx=8, pady=8)
+
+    def _sync_dop_list(self, s):
+        """Build the downlink dropdown from the satellite's transponders."""
+        self.store.ensure_transponders(s)
+        self._dop_list = []
+        for tp in (s.transponders or []):
+            if not tp.downlink:
+                continue
+            # model the downlink center (passband midpoint for linear)
+            hz = tp.downlink_center()
+            label = "%s  [%s]  %.4f MHz" % (
+                tp.desc or tp.kind() or "transponder", tp.kind(), hz / 1e6)
+            self._dop_list.append((label, hz))
+        if not self._dop_list:
+            self._dop_list = [("(no transponder \u2014 145.800 MHz default)",
+                               145_800_000)]
+        self.dop_combo.configure(values=[lbl for lbl, _ in self._dop_list])
+        if self._dop_index >= len(self._dop_list):
+            self._dop_index = 0
+        self.dop_combo.current(self._dop_index)
+
+    def _on_dop_change(self, _evt=None):
+        self._dop_index = self.dop_combo.current()
+        self.dop_combo.selection_clear()
+        self.frame.focus_set()
+        self._render(now_unix())
 
     def _switch(self):
         self.on_show()
@@ -438,14 +487,19 @@ class OrbitScreen(Screen):
         self.mpl.draw()
 
     def _doppler(self, s, t):
-        self._show_plot(polar=False)
+        # (re)build the downlink list when the satellite changes
+        if s is not self._dop_sat:
+            self._dop_sat = s
+            self._dop_index = 0
+            self._sync_dop_list(s)
+        elif not self._dop_list:
+            self._sync_dop_list(s)
+        self._show_plot(polar=False, dopbar=True)
         ax = self.mpl.ax
         ax.clear()
         self.mpl._style_axes()
-        self.store.ensure_transponders(s)
-        dl = 145_800_000
-        if s.transponders and s.transponders[0].downlink:
-            dl = s.transponders[0].downlink
+        dl = self._dop_list[self._dop_index][1] if self._dop_list \
+            else 145_800_000
         nxt = self.pred().predict_passes(t - 1800, self.store.min_el, 1,
                                          t + 6 * 86400)
         if not nxt:

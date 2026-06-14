@@ -4,7 +4,7 @@ app.py - the OrbitDeck main window.
 A Tkinter application with a navigation sidebar and a swappable content area.
 Visual screens embed matplotlib. Designed to match the source device's analysis feature
 set: Track, Passes, Pass Detail/Polar, World Map, Illumination, Orbital
-Analysis (9 pages), Sun/Moon, Mutual Windows, Space Wx, Satellites, Location.
+Analysis (9 pages), Sun/Moon, Mutual Windows, Space Wx, Satellites, Settings.
 """
 
 import time
@@ -46,7 +46,7 @@ NAV_ITEMS = [
     ("Sun / Moon", "sunmoon"),
     ("Space Wx", "spacewx"),
     ("Satellites", "satellites"),
-    ("Location", "location"),
+    ("Settings", "location"),
 ]
 
 

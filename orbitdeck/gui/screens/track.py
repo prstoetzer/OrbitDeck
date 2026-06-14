@@ -36,6 +36,8 @@ class TrackScreen(Screen):
                                      state="readonly", width=34)
         self.tp_combo.pack(side="left", fill="x", expand=True)
         self.tp_combo.bind("<<ComboboxSelected>>", self._on_tp_change)
+        ttk.Button(selrow, text="+", width=2,
+                   command=self._add_manual_tp).pack(side="left", padx=(4, 0))
         self._tp_list = []
         self._tp_index = 0
 
@@ -160,6 +162,47 @@ class TrackScreen(Screen):
         # combobox doesn't stay visually "selected" after a pick
         self.tp_combo.selection_clear()
         self.frame.focus_set()
+        self._refresh(now_unix(), force_plot=True)
+
+    def _add_manual_tp(self):
+        s = self.sat()
+        if not s:
+            return
+        from ..dialogs import FormDialog, Field
+        from ...engine.satdb import make_manual_transponder
+
+        def hz(v):
+            return int(float(v))
+
+        fields = [
+            Field("dl", "Downlink low (Hz)", "", "e.g. 145800000", hz),
+            Field("ul", "Uplink low (Hz)", "0", "0 = none / beacon", hz,
+                  required=False),
+            Field("dlh", "Downlink high (Hz)", "0",
+                  "0 = single channel / FM", hz, required=False),
+            Field("ulh", "Uplink high (Hz)", "0",
+                  "linear only; 0 = same bandwidth", hz, required=False),
+            Field("inv", "Inverting? (y/n)", "n",
+                  "linear only", lambda v: v.strip().lower().startswith("y"),
+                  required=False),
+            Field("mode", "Mode", "", "e.g. FM, SSB, CW", None,
+                  required=False),
+        ]
+        res = FormDialog(self.frame, "Add manual transponder", fields,
+                         intro="For a linear transponder, give a downlink high "
+                               "above the low AND an uplink. Single-channel "
+                               "entries leave downlink high = 0. Stored "
+                               "separately so a refresh won't erase them.").show()
+        if not res:
+            return
+        tp = make_manual_transponder(
+            res["dl"], res["ul"], res["dlh"], res["ulh"], res["inv"],
+            res["mode"], desc="Manual")
+        self.store.add_manual_transponder(s.norad, tp)
+        self._sync_tp_list(s)
+        # select the newly added transponder (last in the list)
+        self._tp_index = len(self._tp_list) - 1
+        self.tp_combo.current(self._tp_index)
         self._refresh(now_unix(), force_plot=True)
 
     def on_show(self):

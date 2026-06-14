@@ -4,6 +4,33 @@ All notable changes to OrbitDeck are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/), and the project aims to follow
 semantic versioning.
 
+## [0.9.1]
+
+### Changed
+- Renamed the **Location** screen to **Settings** (it now holds both the observer
+  site and the GP element-source picker).
+- The Orbital Analysis **Doppler** page now has a **downlink selector**: choose
+  any of the satellite's transponders from the database to model its Doppler
+  curve (linear transponders use the passband center). Defaults to 145.800 MHz
+  when a satellite has no transponder data.
+
+## [0.9.0]
+
+### Added
+- **Manual orbital elements.** Satellites → “Add manual satellite…” lets you
+  enter a satellite by its GP mean elements (name, NORAD, epoch, inclination,
+  RAAN, eccentricity, arg of perigee, mean anomaly, mean motion, BSTAR). Manual
+  satellites are stored separately and persist across GP refreshes.
+- **Manual transponders.** Track → “+” next to the transponder selector adds a
+  transponder by hand (downlink/uplink low, downlink/uplink high, inverting,
+  mode). Linear vs single-channel is inferred the CardSat way. Manual
+  transponders are kept separately from the SatNOGS cache so a refresh won’t
+  erase them.
+- **Selectable GP source.** Location → “GP element source” lets you pull elements
+  from AMSAT (default), a CelesTrak category (Amateur, CubeSats, Stations,
+  Active, Weather, NOAA, GOES, GPS, …), or a custom OMM-JSON URL. The choice is
+  saved and used by the next Update GP.
+
 ## [0.8.3]
 
 ### Fixed

@@ -8,7 +8,7 @@ from . import Screen, COL_TEXT, COL_MUTED, COL_ACCENT, FONT_MONO
 
 class LocationScreen(Screen):
     def build(self):
-        self.header("Location \u2014 observer site")
+        self.header("Settings \u2014 observer site")
         panel = ttk.Frame(self.frame, style="Panel.TFrame")
         panel.pack(fill="x", padx=16, pady=10)
 
@@ -42,6 +42,96 @@ class LocationScreen(Screen):
         ttk.Label(self.frame, textvariable=self.info, style="Muted.TLabel").pack(
             anchor="w", padx=16, pady=6)
 
+        self._build_gp_source()
+
+    def _build_gp_source(self):
+        from ..store import CELESTRAK_GROUPS
+        self.header("GP element source")
+        panel = ttk.Frame(self.frame, style="Panel.TFrame")
+        panel.pack(fill="x", padx=16, pady=10)
+
+        r1 = ttk.Frame(panel, style="Panel.TFrame")
+        r1.pack(fill="x", padx=14, pady=6)
+        ttk.Label(r1, text="Source", style="Muted.TLabel", width=16,
+                  anchor="w").pack(side="left")
+        self.gp_kind = tk.StringVar(value="AMSAT (amateur)")
+        self._kind_labels = ["AMSAT (amateur)", "CelesTrak category",
+                             "Custom URL"]
+        kc = ttk.Combobox(r1, textvariable=self.gp_kind, state="readonly",
+                          values=self._kind_labels, width=24)
+        kc.pack(side="left")
+        kc.bind("<<ComboboxSelected>>", lambda _e: self._gp_kind_changed())
+
+        r2 = ttk.Frame(panel, style="Panel.TFrame")
+        r2.pack(fill="x", padx=14, pady=6)
+        ttk.Label(r2, text="CelesTrak group", style="Muted.TLabel", width=16,
+                  anchor="w").pack(side="left")
+        self._ct_groups = CELESTRAK_GROUPS
+        self.gp_group = tk.StringVar(value=CELESTRAK_GROUPS[0][0])
+        self.gp_group_combo = ttk.Combobox(
+            r2, textvariable=self.gp_group, state="readonly",
+            values=[g[0] for g in CELESTRAK_GROUPS], width=24)
+        self.gp_group_combo.pack(side="left")
+
+        r3 = ttk.Frame(panel, style="Panel.TFrame")
+        r3.pack(fill="x", padx=14, pady=6)
+        ttk.Label(r3, text="Custom URL", style="Muted.TLabel", width=16,
+                  anchor="w").pack(side="left")
+        self.gp_url = tk.StringVar(value="")
+        self.gp_url_entry = ttk.Entry(r3, textvariable=self.gp_url, width=40)
+        self.gp_url_entry.pack(side="left")
+
+        b = ttk.Frame(self.frame, style="TFrame")
+        b.pack(fill="x", padx=16, pady=(0, 8))
+        ttk.Button(b, text="Save GP source",
+                   command=self._save_gp_source).pack(side="left")
+        self.gp_info = tk.StringVar(value="")
+        ttk.Label(b, textvariable=self.gp_info, style="Muted.TLabel").pack(
+            side="left", padx=12)
+
+    def _gp_kind_changed(self):
+        kind = self.gp_kind.get()
+        # enable/disable the dependent inputs for clarity
+        self.gp_group_combo.configure(
+            state="readonly" if kind == "CelesTrak category" else "disabled")
+        self.gp_url_entry.configure(
+            state="normal" if kind == "Custom URL" else "disabled")
+
+    def _save_gp_source(self):
+        kind = self.gp_kind.get()
+        if kind == "CelesTrak category":
+            grp = dict(self._ct_groups).get(self.gp_group.get(), "amateur")
+            self.store.gp_source = {"kind": "celestrak", "group": grp}
+            msg = "GP source: CelesTrak (%s)" % grp
+        elif kind == "Custom URL":
+            url = self.gp_url.get().strip()
+            if not url:
+                self.gp_info.set("Enter a URL first.")
+                return
+            self.store.gp_source = {"kind": "custom", "url": url}
+            msg = "GP source: custom URL"
+        else:
+            self.store.gp_source = {"kind": "amsat"}
+            msg = "GP source: AMSAT (amateur)"
+        self.store.save_config()
+        self.gp_info.set(msg + " \u2014 used by the next Update GP.")
+        self.app.set_status(msg)
+
+    def _load_gp_source_ui(self):
+        src = self.store.gp_source or {"kind": "amsat"}
+        kind = src.get("kind", "amsat")
+        if kind == "celestrak":
+            self.gp_kind.set("CelesTrak category")
+            label = next((g[0] for g in self._ct_groups
+                          if g[1] == src.get("group")), self._ct_groups[0][0])
+            self.gp_group.set(label)
+        elif kind == "custom":
+            self.gp_kind.set("Custom URL")
+            self.gp_url.set(src.get("url", ""))
+        else:
+            self.gp_kind.set("AMSAT (amateur)")
+        self._gp_kind_changed()
+
     def on_show(self):
         o = self.store.obs
         self.lat.set("%.4f" % o.lat)
@@ -50,6 +140,7 @@ class LocationScreen(Screen):
         self.grid.set(self.store.my_grid())
         self.info.set("Current: %.4f, %.4f  alt %.0f m  grid %s" %
                       (o.lat, o.lon, o.alt_m, self.store.my_grid()))
+        self._load_gp_source_ui()
 
     def _apply_latlon(self):
         try:

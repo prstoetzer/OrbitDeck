@@ -612,3 +612,186 @@ def test_orbit_live_page_stable_structure_across_ticks():
                 sys.modules.pop(n, None)
         sys.modules.pop("orbitdeck.gui.screens", None)
         sys.modules.pop("orbitdeck.gui.screens.orbit", None)
+
+
+def test_manual_sat_and_tx_helpers():
+    import time
+    from orbitdeck.engine.satdb import (make_manual_sat, sat_to_dict,
+                                        sat_from_dict, make_manual_transponder,
+                                        tx_to_dict, tx_from_dict)
+    e = make_manual_sat("MANUAL1", 90001, time.time(), 51.6, 100, 0.001,
+                        90, 180, 15.5, 0.0001)
+    assert e.is_manual and e.norad == 90001
+    assert 90 < e.period_min < 95          # ~15.5 rev/day -> ~93 min
+    e2 = sat_from_dict(sat_to_dict(e))
+    assert e2.norad == e.norad and abs(e2.mean_motion - e.mean_motion) < 1e-9
+
+    # linear transponder: auto-fills uplink_high to matching bandwidth
+    lin = make_manual_transponder(145925000, 432125000, 145975000, 0,
+                                  True, "SSB")
+    assert lin.is_linear and lin.invert
+    assert lin.downlink_center() == 145950000
+    assert lin.uplink_high == 432175000    # 50 kHz bandwidth matched
+    lin2 = tx_from_dict(tx_to_dict(lin))
+    assert lin2.downlink_center() == 145950000
+
+    # single-channel FM
+    fm = make_manual_transponder(145800000, 435100000, 0, 0, False, "FM")
+    assert not fm.is_linear and fm.downlink_center() == 145800000
+
+
+def test_gp_source_url_resolution(tmp_path=None):
+    import sys
+    import importlib
+    import tempfile
+    import os
+    d = tempfile.mkdtemp()
+    import orbitdeck.gui.store as ST
+    saved = {a: getattr(ST, a) for a in
+             ("CONFIG_DIR", "CONFIG_PATH", "GP_CACHE", "TX_CACHE",
+              "SPACEWX_CACHE", "MANUAL_SATS", "MANUAL_TX")}
+    ST.CONFIG_DIR = d
+    for a, fn in (("CONFIG_PATH", "config.json"), ("GP_CACHE", "gp.json"),
+                  ("TX_CACHE", "tx.json"), ("SPACEWX_CACHE", "sw.json"),
+                  ("MANUAL_SATS", "manual_sats.json"),
+                  ("MANUAL_TX", "manual_tx.json")):
+        setattr(ST, a, os.path.join(d, fn))
+    try:
+        s = ST.Store()
+        assert s.gp_source_url()[1] == "AMSAT"
+        s.gp_source = {"kind": "celestrak", "group": "stations"}
+        url, label = s.gp_source_url()
+        assert "GROUP=stations" in url and "CelesTrak" in label
+        s.gp_source = {"kind": "custom", "url": "https://x.test/gp.json"}
+        assert s.gp_source_url()[0] == "https://x.test/gp.json"
+        s.gp_source = {"kind": "custom", "url": ""}     # empty -> AMSAT
+        assert s.gp_source_url()[1] == "AMSAT"
+    finally:
+        for a, v in saved.items():
+            setattr(ST, a, v)
+
+
+def test_doppler_downlink_list_from_transponders():
+    """The Doppler page builds its downlink dropdown from the satellite's
+    transponders, using the passband center for linear transponders."""
+    import sys
+    import types
+    import json
+
+    # minimal tk/ttk/mpl stubs so the orbit screen constructs headlessly
+    class W:
+        def __init__(self, *a, **k):
+            self._cfg = dict(k)
+
+        def pack(self, *a, **k):
+            pass
+
+        def pack_forget(self):
+            pass
+
+        def configure(self, **k):
+            self._cfg.update(k)
+
+        def cget(self, key):
+            return self._cfg.get(key, "")
+
+        def bind(self, *a, **k):
+            pass
+
+        def current(self, *a):
+            return 0
+
+        def winfo_ismapped(self):
+            return 0
+
+        def __getattr__(self, n):
+            return lambda *a, **k: W()
+
+    saved = {n: sys.modules.get(n) for n in (
+        "tkinter", "tkinter.ttk", "tkinter.messagebox",
+        "matplotlib.backends.backend_tkagg")}
+    tk = types.ModuleType("tkinter")
+    for n in ("Frame", "Button", "Label", "Canvas", "Toplevel", "Entry"):
+        setattr(tk, n, W)
+
+    class _SV:
+        def __init__(self, value="", master=None):
+            self._v = value
+
+        def set(self, v):
+            self._v = v
+
+        def get(self):
+            return self._v
+
+        def trace_add(self, *a, **k):
+            pass
+    tk.StringVar = tk.IntVar = tk.BooleanVar = tk.DoubleVar = _SV
+    ttk = types.ModuleType("tkinter.ttk")
+    for n in ("Frame", "Label", "Button", "Style", "Entry", "Combobox",
+              "Treeview", "Radiobutton", "Checkbutton", "Separator",
+              "Notebook", "Scrollbar"):
+        setattr(ttk, n, W)
+    mb = types.ModuleType("tkinter.messagebox")
+    mb.showerror = mb.showinfo = mb.showwarning = lambda *a, **k: None
+    mbk = types.ModuleType("matplotlib.backends.backend_tkagg")
+
+    class _FC:
+        def __init__(self, *a, **k):
+            self.widget = W()
+
+        def get_tk_widget(self):
+            return self.widget
+
+        def draw_idle(self):
+            pass
+
+        def draw(self):
+            pass
+    mbk.FigureCanvasTkAgg = _FC
+    sys.modules.update({"tkinter": tk, "tkinter.ttk": ttk,
+                        "tkinter.messagebox": mb,
+                        "matplotlib.backends.backend_tkagg": mbk})
+    sys.modules.pop("orbitdeck.gui.screens", None)
+    sys.modules.pop("orbitdeck.gui.screens.orbit", None)
+    try:
+        from orbitdeck.gui import screens
+        from orbitdeck.gui.store import Store
+        from orbitdeck.engine import SatDb
+        store = Store()
+        s = store.selected_sat()
+        arr = [{"description": "Linear B", "downlink_low": 145925000,
+                "downlink_high": 145975000, "uplink_low": 432125000,
+                "mode": "LSB", "invert": True, "status": "active"},
+               {"description": "FM", "downlink_low": 145800000,
+                "mode": "FM", "status": "active"}]
+        s.transponders = SatDb.parse_transmitters_json(json.dumps(arr))
+
+        class App:
+            class _R:
+                def after(self, *a, **k):
+                    return None
+
+            def __init__(self, st):
+                self.store = st
+                self.current = None
+                self._screen_cache = {}
+                self.root = App._R()
+
+            def set_status(self, t):
+                pass
+        orbit = screens.make_screen("orbit", W(), App(store))
+        orbit._sync_dop_list(s)
+        freqs = [hz for _lbl, hz in orbit._dop_list]
+        # linear transponder contributes its center, FM its single freq
+        assert 145950000 in freqs       # linear center, not 145925000 low edge
+        assert 145800000 in freqs
+        assert 145925000 not in freqs
+    finally:
+        for n, m in saved.items():
+            if m is not None:
+                sys.modules[n] = m
+            else:
+                sys.modules.pop(n, None)
+        sys.modules.pop("orbitdeck.gui.screens", None)
+        sys.modules.pop("orbitdeck.gui.screens.orbit", None)

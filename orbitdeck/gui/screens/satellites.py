@@ -40,12 +40,53 @@ class SatellitesScreen(Screen):
                    command=self._select).pack(side="left")
         ttk.Button(btns, text="Toggle favorite (space)",
                    command=self._toggle_fav).pack(side="left", padx=8)
+        ttk.Button(btns, text="Add manual satellite\u2026",
+                   command=self._add_manual_sat).pack(side="left", padx=8)
         self.info = tk.StringVar(value="")
         ttk.Label(btns, textvariable=self.info, style="Muted.TLabel").pack(
             side="left", padx=12)
 
     def on_show(self):
         self._reload()
+
+    def _add_manual_sat(self):
+        from ..dialogs import FormDialog, Field
+        from ...engine.satdb import make_manual_sat
+        import datetime as _dt
+
+        def parse_epoch(s):
+            d = _dt.datetime.strptime(s, "%Y-%m-%d %H:%M:%S")
+            return d.replace(tzinfo=_dt.timezone.utc).timestamp()
+
+        now = _dt.datetime.now(_dt.timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
+        fields = [
+            Field("name", "Name", "", "e.g. MYSAT"),
+            Field("norad", "NORAD ID", "", "catalog number", int),
+            Field("epoch", "Epoch (UTC)", now,
+                  "YYYY-MM-DD HH:MM:SS", parse_epoch),
+            Field("incl", "Inclination", "", "degrees", float),
+            Field("raan", "RAAN", "", "deg (right ascension of node)", float),
+            Field("ecc", "Eccentricity", "", "e.g. 0.0006190", float),
+            Field("argp", "Arg of perigee", "", "degrees", float),
+            Field("ma", "Mean anomaly", "", "degrees", float),
+            Field("mm", "Mean motion", "", "rev/day", float),
+            Field("bstar", "BSTAR", "0", "drag; 0 if unknown", float,
+                  required=False),
+        ]
+        res = FormDialog(self.frame, "Add manual satellite", fields,
+                         intro="Enter GP mean elements. The satellite is stored "
+                               "with the downloaded ones and persists across GP "
+                               "refreshes.").show()
+        if not res:
+            return
+        entry = make_manual_sat(
+            res["name"], res["norad"], res["epoch"], res["incl"], res["raan"],
+            res["ecc"], res["argp"], res["ma"], res["mm"], res["bstar"])
+        self.store.add_manual_sat(entry)
+        self.store.save_config()
+        self._reload()
+        self.info.set("Added manual satellite %s (NORAD %d)." %
+                      (entry.name, entry.norad))
 
     def _reload(self):
         for i in self.tree.get_children():

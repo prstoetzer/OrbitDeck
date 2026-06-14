@@ -67,7 +67,7 @@ pip install -e ".[full]"       # both
 | Screen | What it shows |
 |---|---|
 | **Home** *(default)* | World map of all **favorited** satellites with their footprints, the day/night terminator and your station; click one to focus it with its ground track. A second tab lists the **next pass of every favorite with a live countdown**. |
-| **Track** | Live azimuth/elevation, slant range, range-rate, sub-point, altitude, transponder selector (with details: FM/linear/beacon/data, passband, baud) and Doppler-corrected RX/TX using the passband **center** for linear transponders, sunlit/eclipse, next AOS/LOS, and a live sky polar plot. |
+| **Track** | Live azimuth/elevation, slant range, range-rate, sub-point, altitude, transponder selector (with details: FM/linear/beacon/data, passband, baud) and Doppler-corrected RX/TX using the passband **center** for linear transponders, sunlit/eclipse, next AOS/LOS, and a live sky polar plot. You can also **add a manual transponder** here. |
 | **Next Passes** | Pass table for the next 7 days with selectable minimum elevation; double-click a pass for its detail. |
 | **Pass Detail** | Polar sky-track plus an elevation-vs-time profile for a chosen pass. |
 | **Ground Track** | Forward ground track over 1–8 upcoming orbits. |
@@ -78,8 +78,8 @@ pip install -e ".[full]"       # both
 | **Workable** | What's inside the footprint — **grids**, **US states**, or **DXCC entities** — live (now) or unioned across the next pass, for grid/state/DX chasing. |
 | **Space Wx** | Solar 10.7 cm flux, planetary Kp, and A index from NOAA SWPC, with plain-language levels and an operating outlook. Cached for offline viewing. |
 | **Multi-Day Pass Progression** | One satellite's passes across 10+ days as a scrollable stack of 24-hour timelines — each pass placed at its time of day, width = duration, shaded by max elevation. |
-| **Satellites** | The catalog: filter, select, favorite (★), and fetch transponders. |
-| **Location** | Set your observer site by lat/lon/altitude or Maidenhead grid. |
+| **Satellites** | The catalog: filter, select, favorite (★), fetch transponders, and **add manually-entered satellites** (by GP mean elements) that persist across refreshes. |
+| **Settings** | Set your observer site by lat/lon/altitude or Maidenhead grid, and choose the **GP element source** (AMSAT, a CelesTrak category, or a custom OMM-JSON URL). |
 
 <p align="center">
   <img src="docs/img/sunmoon.png" width="42%" alt="Sun and Moon sky dome">
