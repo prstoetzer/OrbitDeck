@@ -111,10 +111,17 @@ dependency-free SGP4 implementation, verified against the canonical Vallado
 essentially every FM and linear amateur satellite (SO-50, the AO/FO/CAS birds,
 the ISS, RS-44, etc.).
 
-**Deep-space caveat.** For deep-space orbits (orbital period ≥ 225 min — e.g.
-AO-7's ~12-hour orbit, or Molniya-type orbits), the bundled propagator's
-deep-space secular terms are approximate and will drift over many hours. Install
-the reference propagator and OrbitDeck uses it **automatically**:
+**Deep-space orbits (GEO/HEO).** For deep-space orbits (orbital period ≥ 225 min
+— e.g. the geostationary QO-100 / Es'hail-2, AO-7's ~12-hour orbit, or
+Molniya-type orbits), full reference SDP4 is required for correct positions, so
+the [`sgp4`](https://pypi.org/project/sgp4/) reference propagator is a **required
+dependency** and OrbitDeck uses it automatically. If for some reason `sgp4` is
+not installed, OrbitDeck falls back to its bundled pure-Python propagator, whose
+deep-space terms are only approximate — in that state it **flags affected
+satellites in the header with a reduced-accuracy warning**, because an
+approximate model can mis-place a geostationary bird badly enough to imply it
+rises and sets when it does not. Reinstall the dependency to restore full
+accuracy:
 
 ```bash
 pip install sgp4

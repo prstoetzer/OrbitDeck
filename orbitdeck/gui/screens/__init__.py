@@ -94,6 +94,10 @@ class Screen:
             bar, text="", bg=COL_BG, fg=COL_ACCENT,
             font=("DejaVu Sans", 12, "bold"))
         self._sat_badge.pack(side="left", padx=(12, 0), pady=(2, 0))
+        self._ds_badge = tk.Label(
+            bar, text="", bg=COL_BG, fg=COL_WARN,
+            font=("DejaVu Sans", 9))
+        self._ds_badge.pack(side="left", padx=(10, 0), pady=(3, 0))
         self.refresh_sat_header()
         return bar
 
@@ -106,6 +110,13 @@ class Screen:
             badge.configure(text="\u25b8 %s" % s.name, fg=COL_ACCENT)
         else:
             badge.configure(text="\u25b8 no satellite selected", fg=COL_WARN)
+        ds = getattr(self, "_ds_badge", None)
+        if ds is not None:
+            if s and self.store.pred.deepspace_approximate():
+                ds.configure(text="\u26a0 deep-space orbit \u2014 reduced "
+                                  "accuracy (install 'sgp4' for full SDP4)")
+            else:
+                ds.configure(text="")
 
     def pred(self):
         return self.store.pred

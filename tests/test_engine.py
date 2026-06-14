@@ -795,3 +795,58 @@ def test_doppler_downlink_list_from_transponders():
                 sys.modules.pop(n, None)
         sys.modules.pop("orbitdeck.gui.screens", None)
         sys.modules.pop("orbitdeck.gui.screens.orbit", None)
+
+
+def test_deepspace_approximate_flag():
+    """A geostationary bird (deep-space) should be flagged as approximate when
+    the full SDP4 (pip 'sgp4') backend isn't installed, so the UI can warn that
+    its visibility may be unreliable."""
+    import json
+    import datetime
+    from orbitdeck.gui.store import Store
+    from orbitdeck.engine.propagator import have_full_sdp4
+    now = datetime.datetime.now(datetime.timezone.utc)
+    omm = [{"OBJECT_NAME": "QO-100",
+            "EPOCH": now.strftime("%Y-%m-%dT%H:%M:%S.000000"),
+            "MEAN_MOTION": 1.00271, "ECCENTRICITY": 0.0001,
+            "INCLINATION": 0.05, "RA_OF_ASC_NODE": 80.0,
+            "ARG_OF_PERICENTER": 100.0, "MEAN_ANOMALY": 200.0,
+            "BSTAR": 0.0, "NORAD_CAT_ID": 43700}]
+    st = Store()
+    st.db.load_gp_json(json.dumps(omm))
+    st.pred.set_sat(st.db.sats[0])
+    # the flag is True exactly when we lack the full reference backend
+    assert st.pred.deepspace_approximate() == (not have_full_sdp4())
+    # a LEO bird is never flagged
+    from orbitdeck.data.sample_data import sample_gp_json
+    st.db.load_gp_json(sample_gp_json())
+    st.pred.set_sat(st.db.sats[0])
+    assert st.pred.deepspace_approximate() is False
+
+
+def test_geostationary_subpoint_stable_with_full_sdp4():
+    """With the full SDP4 backend, a geostationary satellite's sub-point should
+    stay roughly fixed (it does not rise and set). Skipped when only the
+    approximate vendored backend is available."""
+    from orbitdeck.engine.propagator import have_full_sdp4
+    if not have_full_sdp4():
+        return  # vendored deep-space is approximate; nothing to assert here
+    import json
+    import time
+    import datetime
+    from orbitdeck.gui.store import Store
+    now = datetime.datetime.now(datetime.timezone.utc)
+    omm = [{"OBJECT_NAME": "QO-100",
+            "EPOCH": now.strftime("%Y-%m-%dT%H:%M:%S.000000"),
+            "MEAN_MOTION": 1.00271, "ECCENTRICITY": 0.0001,
+            "INCLINATION": 0.05, "RA_OF_ASC_NODE": 80.0,
+            "ARG_OF_PERICENTER": 100.0, "MEAN_ANOMALY": 200.0,
+            "BSTAR": 0.0, "NORAD_CAT_ID": 43700}]
+    st = Store()
+    st.db.load_gp_json(json.dumps(omm))
+    st.pred.set_sat(st.db.sats[0])
+    t0 = time.time()
+    lons = [st.pred.subpoint_at(t0 + h * 3600)[1] for h in range(0, 24, 3)]
+    # sub-longitude should not wander more than a few degrees for a GEO sat
+    spread = max(lons) - min(lons)
+    assert spread < 10.0

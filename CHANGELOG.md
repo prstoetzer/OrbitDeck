@@ -4,6 +4,19 @@ All notable changes to OrbitDeck are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/), and the project aims to follow
 semantic versioning.
 
+## [0.9.2]
+
+### Fixed
+- **Geostationary / deep-space satellites could show incorrect visibility** (e.g.
+  QO-100 / Es'hail-2 appearing to rise and set from a location it is never
+  visible from). The bundled pure-Python propagator's deep-space (SDP4) resonance
+  terms are only approximate and mis-place synchronous orbits. The reference
+  `sgp4` propagator (full SDP4) is now a **required dependency** and is bundled
+  in the PyInstaller spec, so deep-space birds propagate correctly.
+- As a safety net, when only the approximate backend is available, deep-space
+  satellites are flagged in the screen header with a **reduced-accuracy warning**
+  rather than silently showing a wrong position/visibility.
+
 ## [0.9.1]
 
 ### Changed

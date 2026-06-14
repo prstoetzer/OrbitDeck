@@ -50,6 +50,8 @@ a = Analysis(
     hiddenimports=[
         # ssl / certificate handling for HTTPS data fetches:
         "certifi", "ssl",
+        # full SDP4 deep-space propagation (GEO/HEO birds like QO-100):
+        "sgp4", "sgp4.api", "sgp4.propagation",
         # tkinter + ttk are usually auto-detected, but be explicit:
         "tkinter", "tkinter.ttk", "tkinter.messagebox",
         "tkinter.simpledialog", "tkinter.filedialog",
@@ -110,6 +112,6 @@ if sys.platform == "darwin":
         bundle_identifier="org.orbitdeck.app",
         info_plist={
             "NSHighResolutionCapable": True,
-            "CFBundleShortVersionString": "0.9.1",
+            "CFBundleShortVersionString": "0.9.2",
         },
     )

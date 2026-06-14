@@ -164,6 +164,22 @@ class Predictor:
         self._have = (self._sat.error == 0)
         return self._have
 
+    def deepspace_approximate(self) -> bool:
+        """True when the current satellite is a deep-space (period >= 225 min,
+        e.g. geostationary / Molniya) orbit AND we're propagating it with the
+        vendored approximate backend rather than the full reference SDP4. In that
+        state, positions (and therefore visibility) can be significantly off, so
+        callers should warn the user."""
+        if self._sat is None:
+            return False
+        try:
+            from .propagator import have_full_sdp4
+            if have_full_sdp4():
+                return False
+            return bool(getattr(self._sat, "is_deep", False))
+        except Exception:
+            return False
+
     # ---- propagation helpers ----
     def _propagate(self, unix: float):
         tsince = (unix - self._epoch_unix) / 60.0
