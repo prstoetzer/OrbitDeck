@@ -174,6 +174,7 @@ class KVPanel:
         # cache of built widgets keyed by a stable id; reused across rebuilds
         self._cache = {}         # key -> dict(kind, frame, widgets...)
         self._order = []         # keys touched this pass, in order
+        self._packed = []        # keys currently packed, in order
         self._seq = 0            # disambiguates duplicate labels/sections
 
     def pack(self, **kw):
@@ -252,14 +253,23 @@ class KVPanel:
     def end(self):
         # prune widgets that weren't touched this pass
         touched = set(self._order)
+        pruned = False
         for key in list(self._cache.keys()):
             if key not in touched:
                 ent = self._cache.pop(key)
                 ent["frame"].destroy()
                 if ent.get("line") is not None:
                     ent["line"].destroy()
-        # (re)pack everything in the order it was declared, so additions and
-        # removals land in the right place without disturbing untouched rows
+                pruned = True
+
+        # Only re-pack when the set/order of rows actually changed. On a live
+        # page the layout is identical every tick, and pack_forget()+pack() each
+        # time forces a full geometry relayout -- which is slow on macOS (Aqua)
+        # and makes the text updates look choppy. Skipping it leaves the in-place
+        # configure() calls to refresh the values smoothly.
+        if not pruned and self._order == self._packed:
+            return
+
         for ent in self._cache.values():
             ent["frame"].pack_forget()
             if ent.get("line") is not None:
@@ -275,6 +285,7 @@ class KVPanel:
                 ent["frame"].pack(fill="x", padx=8, pady=1)
             else:
                 ent["frame"].pack(fill="x", padx=8, pady=(6, 2))
+        self._packed = list(self._order)
 
 
 def make_screen(key, parent, app):

@@ -54,6 +54,10 @@ class OrbitScreen(Screen):
         self.plotwrap = ttk.Frame(self.frame, style="Panel.TFrame")
         self.mpl = None
         self._plot_shown = False
+        # cache the next-pass forward search so the Next-Pass page's live
+        # countdown doesn't re-run the expensive search every second
+        self._np_cache = None
+        self._np_at = 0.0
 
     def _highlight_tab(self, active):
         for i, (btn, ind) in enumerate(self._tabs):
@@ -89,6 +93,7 @@ class OrbitScreen(Screen):
         self.on_show()
 
     def on_show(self):
+        self._np_cache = None        # force a fresh search when (re)entering
         self._render(now_unix())
 
     def on_tick(self, now_dt):
@@ -215,8 +220,13 @@ class OrbitScreen(Screen):
         self._show_kv()
         k = self.kv
         k.begin()
-        nxt = self.pred().predict_passes(t - 600, self.store.min_el, 1,
-                                         t + 6 * 86400)
+        # recompute the forward search only every ~15 s; the countdown derives
+        # from the cached pass each tick, so it still updates every second
+        if self._np_cache is None or (t - self._np_at) > 15:
+            self._np_cache = self.pred().predict_passes(
+                t - 600, self.store.min_el, 1, t + 6 * 86400)
+            self._np_at = t
+        nxt = self._np_cache
         if not nxt:
             k.section("Next pass")
             k.note("No pass above %.0f\u00b0 in the next 6 days."

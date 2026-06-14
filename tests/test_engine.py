@@ -400,3 +400,92 @@ def test_net_builds_verifying_ssl_context():
     import ssl
     assert ctx is not None
     assert ctx.verify_mode == ssl.CERT_REQUIRED
+
+
+def test_kvpanel_skips_repack_when_unchanged():
+    """The live-page smoothness fix: when the row set/order is identical across
+    refreshes, KVPanel must not pack_forget()+pack() every time (that forces a
+    slow geometry relayout on macOS). It should only repack on structural
+    changes."""
+    import sys
+    import types
+
+    class FakeW:
+        def __init__(self, *a, **k):
+            self._cfg = dict(k)
+            self.pack_count = 0
+            self.forget_count = 0
+            self.destroyed = False
+
+        def pack(self, *a, **k):
+            self.pack_count += 1
+
+        def pack_forget(self):
+            self.forget_count += 1
+
+        def configure(self, **k):
+            self._cfg.update(k)
+
+        def cget(self, key):
+            return self._cfg.get(key, "")
+
+        def destroy(self):
+            self.destroyed = True
+
+    real_tk = sys.modules.get("tkinter")
+    real_ttk = sys.modules.get("tkinter.ttk")
+    real_mbk = sys.modules.get("matplotlib.backends.backend_tkagg")
+    fake_tk = types.ModuleType("tkinter")
+    fake_tk.Frame = FakeW
+    fake_tk.Label = FakeW
+    fake_ttk = types.ModuleType("tkinter.ttk")
+    for _n in ("Frame", "Label", "Button", "Style", "Treeview", "Entry",
+               "Radiobutton", "Checkbutton", "Separator", "Notebook",
+               "Combobox", "Scrollbar"):
+        setattr(fake_ttk, _n, FakeW)
+    fake_mbk = types.ModuleType("matplotlib.backends.backend_tkagg")
+
+    class _FC:
+        def __init__(self, *a, **k):
+            pass
+
+        def get_tk_widget(self):
+            return FakeW()
+
+        def draw_idle(self):
+            pass
+
+    fake_mbk.FigureCanvasTkAgg = _FC
+    sys.modules["tkinter"] = fake_tk
+    sys.modules["tkinter.ttk"] = fake_ttk
+    sys.modules["matplotlib.backends.backend_tkagg"] = fake_mbk
+    try:
+        import importlib
+        # ensure a fresh import against the fakes
+        sys.modules.pop("orbitdeck.gui.screens", None)
+        screens = importlib.import_module("orbitdeck.gui.screens")
+        kv = screens.KVPanel(FakeW())
+
+        def render(v):
+            kv.begin()
+            kv.section("S")
+            kv.row("A", v)
+            kv.row("B", v)
+            kv.end()
+
+        render("1")     # first build packs (repack expected here)
+        before = sum(e["frame"].forget_count for e in kv._cache.values())
+        render("2")     # same structure -> must NOT repack
+        after = sum(e["frame"].forget_count for e in kv._cache.values())
+        assert after - before == 0, "KVPanel repacked despite unchanged layout"
+        aval = [e for e in kv._cache.values()
+                if e["kind"] == "row" and e["lab"].cget("text") == "A"][0]["val"]
+        assert aval.cget("text") == "2"
+    finally:
+        for name, mod in (("tkinter", real_tk), ("tkinter.ttk", real_ttk),
+                          ("matplotlib.backends.backend_tkagg", real_mbk)):
+            if mod is not None:
+                sys.modules[name] = mod
+            else:
+                sys.modules.pop(name, None)
+        sys.modules.pop("orbitdeck.gui.screens", None)

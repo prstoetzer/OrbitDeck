@@ -4,6 +4,22 @@ All notable changes to OrbitDeck are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/), and the project aims to follow
 semantic versioning.
 
+## [0.8.2]
+
+### Fixed
+- **Choppy text updates on macOS** on the live pages (Sun/Moon, Space Weather,
+  and the Orbital Analysis live / next-pass / orbit-position pages). The
+  key/value panel was re-running a full geometry relayout
+  (pack_forget + pack on every row) on each one-second refresh, which is slow
+  under macOS/Aqua. It now relayouts only when the set of rows actually changes
+  and otherwise updates values in place, so the text refreshes smoothly.
+
+### Changed
+- The Track screen and the Orbital Analysis next-pass page now cache the forward
+  pass search and throttle the sky-plot redraw, instead of recomputing the pass
+  prediction and redrawing the full plot every second. The numeric read-outs and
+  countdowns still update every second.
+
 ## [0.8.1]
 
 ### Fixed

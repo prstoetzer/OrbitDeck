@@ -111,6 +111,10 @@ class TrackScreen(Screen):
         self.mpl = MplPanel(right, figsize=(4.8, 4.8), polar=True)
         self.mpl.pack(fill="both", expand=True, padx=6, pady=6)
         self._sky_sat = None
+        # redraw throttling (full plot + pass search are expensive; see _refresh)
+        self._cached_pass = None
+        self._pass_at = 0.0
+        self._sky_at = 0.0
 
     def _update_tp_details(self, tp):
         v = self.tpd_vars
@@ -156,21 +160,22 @@ class TrackScreen(Screen):
         # combobox doesn't stay visually "selected" after a pick
         self.tp_combo.selection_clear()
         self.frame.focus_set()
-        self._refresh(now_unix())
+        self._refresh(now_unix(), force_plot=True)
 
     def on_show(self):
         s = self.sat()
         if s is not self._sky_sat:
             self._tp_index = 0
             self._sky_sat = s
+            self._cached_pass = None        # new sat -> recompute pass + plot
         if s:
             self._sync_tp_list(s)
-        self._refresh(now_unix())
+        self._refresh(now_unix(), force_plot=True)
 
     def on_tick(self, now_dt):
         self._refresh(now_dt.timestamp())
 
-    def _refresh(self, t):
+    def _refresh(self, t, force_plot=False):
         s = self.sat()
         if not s:
             for v in self.vars.values():
@@ -207,28 +212,39 @@ class TrackScreen(Screen):
             self.vars["dup"].set("\u2014")
         self._update_tp_details(tp)
 
-        # next AOS or LOS
+        # The forward pass search is relatively expensive; cache it and recompute
+        # only every ~15 s (or when forced on show). The countdown text below is
+        # derived from the cached pass each second, so it still ticks smoothly.
+        if force_plot or self._cached_pass is None or (t - self._pass_at) > 15:
+            self._cached_pass = self.pred().predict_passes(
+                t - 1800, self.store.min_el, 1, t + 6 * 86400)
+            self._pass_at = t
+        self._update_next_event(t, L)
+
+        # The sky plot changes slowly; a full matplotlib redraw is the main cause
+        # of stutter (especially on macOS), so redraw at most every ~3 s, or when
+        # forced (on show / satellite or transponder change).
+        if force_plot or (t - self._sky_at) > 3:
+            self._draw_sky(t, L)
+            self._sky_at = t
+
+    def _update_next_event(self, t, L):
+        cp = self._cached_pass or []
         if L.visible:
-            passes = self.pred().predict_passes(t - 1200, self.store.min_el, 1,
-                                                t + 7200)
             los = None
-            for p in passes:
+            for p in cp:
                 if p.aos <= t <= p.los:
                     los = p.los
             self.vars["nextev"].set(
                 ("LOS in %s @ %s" % (fmt_hms(los - t), fmt_utc(los, "%H:%M:%S")))
                 if los else "in view")
         else:
-            nxt = self.pred().predict_passes(t, self.store.min_el, 1,
-                                             t + 6 * 86400)
-            if nxt:
-                p = nxt[0]
+            if cp:
+                p = cp[0]
                 self.vars["nextev"].set("AOS in %s (maxEl %.0f\u00b0)" %
-                                        (fmt_hms(p.aos - t), p.max_el))
+                                        (fmt_hms(max(0, p.aos - t)), p.max_el))
             else:
                 self.vars["nextev"].set("no pass in 6 days")
-
-        self._draw_sky(t, L)
 
     def _draw_sky(self, t, L):
         ax = self.mpl.ax
@@ -243,8 +259,8 @@ class TrackScreen(Screen):
                           labels=["N", "NE", "E", "SE", "S", "SW", "W", "NW"],
                           color=COL_MUTED, fontsize=8)
         ax.grid(True, color=COL_GRID, linewidth=0.6)
-        passes = self.pred().predict_passes(t - 1800, self.store.min_el, 1,
-                                            t + 6 * 86400)
+        # reuse the cached next pass (already computed in _refresh)
+        passes = self._cached_pass or []
         if passes:
             p = passes[0]
             azs, els = [], []
