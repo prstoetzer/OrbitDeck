@@ -16,7 +16,8 @@ from ...engine import analysis as A
 from ..mapdraw import draw_basemap
 
 PAGES = ["Info", "Live", "Next Pass", "Ground Track", "Doppler", "Nodal",
-         "Sun/Beta", "Pass Outlook", "Orbit Position"]
+         "Sun/Beta", "Pass Outlook", "Orbit Position", "Equ. Crossings",
+         "Crossings List"]
 C_KM = 299792.458
 
 
@@ -52,6 +53,23 @@ class OrbitScreen(Screen):
         self.kv = KVPanel(self.frame, label_width=15)
         self.kv.pack(fill="both", expand=True, padx=16, pady=8)
         self.plotwrap = ttk.Frame(self.frame, style="Panel.TFrame")
+        # a scrollable table surface, used by the equator-crossings list page
+        self.tablewrap = ttk.Frame(self.frame, style="TFrame")
+        cols = ("idx", "date", "time", "lon")
+        heads = ("#", "Date (UTC)", "Time (UTC)", "Longitude")
+        self.xtable = ttk.Treeview(self.tablewrap, columns=cols,
+                                   show="headings", height=20)
+        widths = {"idx": 50, "date": 130, "time": 110, "lon": 130}
+        for c, h in zip(cols, heads):
+            self.xtable.heading(c, text=h)
+            self.xtable.column(c, width=widths[c],
+                               anchor="center" if c != "lon" else "e")
+        xsb = ttk.Scrollbar(self.tablewrap, orient="vertical",
+                            command=self.xtable.yview)
+        self.xtable.configure(yscrollcommand=xsb.set)
+        xsb.pack(side="right", fill="y")
+        self.xtable.pack(side="left", fill="both", expand=True)
+        self._table_shown = False
         # control bar shown only on the Doppler page: pick which downlink to model
         self.dopbar = ttk.Frame(self.plotwrap, style="Panel.TFrame")
         ttk.Label(self.dopbar, text="Downlink", style="Muted.TLabel").pack(
@@ -85,15 +103,31 @@ class OrbitScreen(Screen):
         self.on_show()
 
     # ---- surface management ----
+    def _hide_table(self):
+        if self._table_shown:
+            self.tablewrap.pack_forget()
+            self._table_shown = False
+
     def _show_kv(self):
         if self._plot_shown:
             self.plotwrap.pack_forget()
             self._plot_shown = False
+        self._hide_table()
         if not self.kv.outer.winfo_ismapped():
             self.kv.pack(fill="both", expand=True, padx=16, pady=8)
 
+    def _show_table(self):
+        self.kv.outer.pack_forget()
+        if self._plot_shown:
+            self.plotwrap.pack_forget()
+            self._plot_shown = False
+        if not self._table_shown:
+            self.tablewrap.pack(fill="both", expand=True, padx=16, pady=8)
+            self._table_shown = True
+
     def _show_plot(self, polar=False, dopbar=False):
         self.kv.outer.pack_forget()
+        self._hide_table()
         if not self._plot_shown:
             self.plotwrap.pack(fill="both", expand=True, padx=12, pady=8)
             self._plot_shown = True
@@ -162,7 +196,7 @@ class OrbitScreen(Screen):
         pg = self.page.get()
         dispatch = [self._info, self._live, self._nextpass, self._groundtrack,
                     self._doppler, self._nodal, self._sunbeta, self._outlook,
-                    self._orbitpos]
+                    self._orbitpos, self._crossings, self._crossings_list]
         dispatch[pg](s, t)
 
     # ================= data pages =================
@@ -456,6 +490,62 @@ class OrbitScreen(Screen):
         k.end()
 
     # ================= graphical pages =================
+    def _crossings(self, s, t):
+        """OSCARLocator-style equator-crossing schedule: ascending-node times and
+        longitudes for the next 7 days, as a chart plus a printable list."""
+        self._show_plot(polar=False)
+        ax = self.mpl.ax
+        ax.clear()
+        self.mpl._style_axes()
+        nodes = self.pred().ascending_nodes(t, t + 7 * 86400)
+        if not nodes:
+            ax.set_title("No equator crossings found (no satellite / elements).",
+                         color=COL_MUTED, fontsize=10)
+            self.mpl.draw()
+            return
+        # X = sub-longitude at crossing, Y = days from now (0 at top, 7 at bottom)
+        xs = [lon for _tc, lon in nodes]
+        ys = [(tc - t) / 86400.0 for tc, _lon in nodes]
+        ax.scatter(xs, ys, s=14, color=COL_ACCENT2, zorder=5)
+        # connect successive crossings to show the westward regression staircase
+        ax.plot(xs, ys, color=COL_ACCENT, linewidth=0.6, alpha=0.5, zorder=4)
+        # day gridlines
+        for d in range(0, 8):
+            ax.axhline(d, color=COL_GRID, linewidth=0.6)
+        for lon in (-180, -120, -60, 0, 60, 120, 180):
+            ax.axvline(lon, color=COL_GRID, linewidth=0.4, alpha=0.6)
+        ax.set_xlim(-180, 180)
+        ax.set_ylim(7, 0)                       # 0 (now) at the top
+        ax.set_xticks([-180, -120, -60, 0, 60, 120, 180])
+        ax.set_xlabel("Ascending-node longitude (\u00b0E)")
+        ax.set_ylabel("Days from now")
+        ax.set_title("%s \u2014 equator crossings (ascending), next 7 days  "
+                     "[%d nodes]" % (s.name, len(nodes)),
+                     color=COL_TEXT, fontsize=10)
+        # label the next few crossings with their UTC time so they can be read
+        # straight off the chart for an OSCARLocator setup
+        for tc, lon in nodes[:6]:
+            ax.annotate(fmt_utc(tc, "%m-%d %H:%M"), (lon, (tc - t) / 86400.0),
+                        color=COL_MUTED, fontsize=7,
+                        xytext=(4, -2), textcoords="offset points")
+        self.mpl.draw()
+
+    def _crossings_list(self, s, t):
+        """A plain table of ascending equator-crossing date, time (UTC), and
+        longitude for the next 7 days -- the figures to read off or log for an
+        OSCARLocator setup."""
+        self._show_table()
+        for i in self.xtable.get_children():
+            self.xtable.delete(i)
+        nodes = self.pred().ascending_nodes(t, t + 7 * 86400)
+        for n, (tc, lon) in enumerate(nodes, start=1):
+            hemi = "E" if lon >= 0 else "W"
+            self.xtable.insert("", "end", values=(
+                n,
+                fmt_utc(tc, "%Y-%m-%d"),
+                fmt_utc(tc, "%H:%M:%S"),
+                "%.1f\u00b0 %s" % (abs(lon), hemi)))
+
     def _groundtrack(self, s, t):
         self._show_plot(polar=False)
         ax = self.mpl.ax

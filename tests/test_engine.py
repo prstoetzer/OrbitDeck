@@ -525,6 +525,9 @@ def test_orbit_live_page_stable_structure_across_ticks():
         def winfo_ismapped(self):
             return 1
 
+        def __getattr__(self, n):
+            return lambda *a, **k: FakeW()
+
     saved = {n: sys.modules.get(n) for n in (
         "tkinter", "tkinter.ttk", "tkinter.messagebox",
         "matplotlib.backends.backend_tkagg")}
@@ -901,3 +904,146 @@ def test_gp_update_handles_celestrak_errors():
         ST._http_get = orig_http
         for a, v in saved.items():
             setattr(ST, a, v)
+
+
+def test_ascending_nodes_equator_crossings():
+    """Ascending-node finder: one crossing per orbit, sub-latitude ~0 at each
+    crossing, and westward longitude regression for a prograde LEO."""
+    import time
+    from orbitdeck.gui.store import Store
+    st = Store()
+    s = st.db.sats[0]              # ISS-like LEO from the sample catalog
+    st.pred.set_sat(s)
+    t0 = time.time()
+    nodes = st.pred.ascending_nodes(t0, t0 + 7 * 86400)
+    # ~ (7 days * 1440 min) / period crossings
+    expected = 7 * 1440.0 / s.period_min
+    assert abs(len(nodes) - expected) <= 2
+    # each crossing is at the equator (sub-lat ~ 0) and ascending
+    for tc, lon in nodes[:5]:
+        lat = st.pred.subpoint_at(tc)[0]
+        assert abs(lat) < 0.5
+        assert -180.0 <= lon <= 180.0
+    # spacing between successive ascending nodes ~ one orbital period
+    if len(nodes) >= 2:
+        dt_min = (nodes[1][0] - nodes[0][0]) / 60.0
+        assert abs(dt_min - s.period_min) < 1.0
+        # prograde LEO regresses westward (~ -360/rev_per_day per orbit)
+        dlon = ((nodes[1][1] - nodes[0][1] + 180) % 360) - 180
+        assert dlon < 0
+
+
+def test_crossings_list_matches_node_finder():
+    """The Crossings List page data is just the ascending-node finder formatted
+    for display: same count, same chronological order, longitudes in range."""
+    import time
+    from orbitdeck.gui.store import Store
+    st = Store()
+    s = st.db.sats[0]
+    st.pred.set_sat(s)
+    t0 = time.time()
+    nodes = st.pred.ascending_nodes(t0, t0 + 7 * 86400)
+    assert len(nodes) > 0
+    # strictly increasing in time
+    times = [tc for tc, _ in nodes]
+    assert all(b > a for a, b in zip(times, times[1:]))
+    # all within the requested window and longitudes valid
+    assert all(t0 <= tc <= t0 + 7 * 86400 for tc in times)
+    assert all(-180.0 <= lon <= 180.0 for _, lon in nodes)
+
+
+def test_geodetic_conversion_handles_geostationary():
+    """The TEME->geodetic conversion must not divide by zero for high-altitude
+    near-equatorial (geostationary) satellites."""
+    import json
+    import time
+    import datetime
+    from orbitdeck.gui.store import Store
+    now = datetime.datetime.now(datetime.timezone.utc)
+    omm = [{"OBJECT_NAME": "QO-100",
+            "EPOCH": now.strftime("%Y-%m-%dT%H:%M:%S.000000"),
+            "MEAN_MOTION": 1.00271, "ECCENTRICITY": 0.0001,
+            "INCLINATION": 0.05, "RA_OF_ASC_NODE": 80.0,
+            "ARG_OF_PERICENTER": 100.0, "MEAN_ANOMALY": 200.0,
+            "BSTAR": 0.0, "NORAD_CAT_ID": 43700}]
+    st = Store()
+    st.db.load_gp_json(json.dumps(omm))
+    st.pred.set_sat(st.db.sats[0])
+    lat, lon, alt = st.pred.subpoint_at(time.time())
+    assert -90 <= lat <= 90 and -180 <= lon <= 180
+    # geostationary altitude is ~35,786 km
+    assert 30000 < alt < 40000
+
+
+def test_oscarlocator_pdf_generates():
+    """The OSCARLOCATOR generator produces a non-trivial 3-page PDF for a LEO
+    satellite without error."""
+    import os
+    import tempfile
+    from orbitdeck.gui.store import Store
+    from orbitdeck.gui.oscarlocator import generate_oscarlocator_pdf
+    st = Store()
+    s = st.db.sats[0]
+    out = os.path.join(tempfile.mkdtemp(), "osc.pdf")
+    generate_oscarlocator_pdf(out, st, s)
+    assert os.path.exists(out)
+    assert os.path.getsize(out) > 5000      # vector content, not empty
+    # PDF magic bytes
+    with open(out, "rb") as f:
+        assert f.read(5) == b"%PDF-"
+
+
+def test_oscarlocator_node_shift_and_track():
+    """The per-pass arc advance and canonical track behave physically: ISS
+    advances ~23 deg west/pass, a polar sun-sync ~25 deg, and the canonical
+    track latitude never exceeds the inclination."""
+    import json
+    import datetime
+    from orbitdeck.gui.store import Store
+    from orbitdeck.gui.oscarlocator import _node_shift_deg, _canonical_track
+    now = datetime.datetime.now(datetime.timezone.utc)
+
+    def make(mm, incl, nid):
+        omm = [{"OBJECT_NAME": "T",
+                "EPOCH": now.strftime("%Y-%m-%dT%H:%M:%S.000000"),
+                "MEAN_MOTION": mm, "ECCENTRICITY": 0.001, "INCLINATION": incl,
+                "RA_OF_ASC_NODE": 100, "ARG_OF_PERICENTER": 90,
+                "MEAN_ANOMALY": 180, "BSTAR": 0.0001, "NORAD_CAT_ID": nid}]
+        st = Store()
+        st.db.load_gp_json(json.dumps(omm))
+        return st.db.sats[0]
+
+    iss = make(15.5, 51.6, 25544)
+    shift = _node_shift_deg(iss)
+    assert shift < 0                                  # westward for prograde LEO
+    assert 20 < abs(shift) < 27                       # ~23 deg/orbit
+
+    polar = make(14.3, 98.7, 99998)
+    assert 22 < abs(_node_shift_deg(polar)) < 28
+
+    # canonical track: |lat| <= inclination, one orbit of minute stamps
+    track = _canonical_track(iss)
+    assert all(abs(lat) <= iss.incl + 0.5 for _lon, lat, _m in track)
+    assert abs(track[-1][2] - iss.period_min) < 0.5   # ends ~one period in
+
+
+def test_oscarlocator_pdf_geostationary_ok():
+    """The enhanced generator handles a geostationary satellite (huge footprint,
+    360 deg/pass) without error."""
+    import os
+    import json
+    import tempfile
+    import datetime
+    from orbitdeck.gui.store import Store
+    from orbitdeck.gui.oscarlocator import generate_oscarlocator_pdf
+    now = datetime.datetime.now(datetime.timezone.utc)
+    omm = [{"OBJECT_NAME": "QO-100",
+            "EPOCH": now.strftime("%Y-%m-%dT%H:%M:%S.000000"),
+            "MEAN_MOTION": 1.00271, "ECCENTRICITY": 0.0001, "INCLINATION": 0.05,
+            "RA_OF_ASC_NODE": 80.0, "ARG_OF_PERICENTER": 100.0,
+            "MEAN_ANOMALY": 200.0, "BSTAR": 0.0, "NORAD_CAT_ID": 43700}]
+    st = Store()
+    st.db.load_gp_json(json.dumps(omm))
+    out = os.path.join(tempfile.mkdtemp(), "geo.pdf")
+    generate_oscarlocator_pdf(out, st, st.db.sats[0])
+    assert os.path.getsize(out) > 5000

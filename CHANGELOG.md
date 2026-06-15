@@ -4,6 +4,59 @@ All notable changes to OrbitDeck are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/), and the project aims to follow
 semantic versioning.
 
+## [0.10.1]
+
+### Changed
+- **OSCARLOCATOR PDF export, much improved:**
+  * `cartopy` is now a core dependency, so the base map uses full-resolution
+    Natural Earth coastlines (bundled coastlines remain a fallback).
+  * Base map gained a **lat/lon graticule** (parallels and meridians every 15°)
+    and denser azimuth spokes.
+  * Footprint overlay now has **distance rings every 1000 km** and **radial lines
+    every 15°**.
+  * Path-arc overlay is now the **classic rotatable any-orbit arc** (station-
+    independent), with **1-minute tick marks** (larger every 10 minutes) and an
+    **inset diagram of the per-pass advance angle** (degrees to rotate the arc
+    for each successive pass).
+
+## [0.10.0]
+
+### Added
+- **Printable OSCARLOCATOR PDF export** (Track screen → “Make OSCARLOCATOR
+  PDF…”). Generates a 3-page vector PDF for the selected satellite, all drawn
+  to the same angular scale so the overlays register:
+  * an **azimuthal-equidistant base map** centred on your station, with range
+    rings, azimuth spokes and coastlines (print on paper/card);
+  * a **footprint coverage circle** sized for the satellite’s altitude (print on
+    transparency); and
+  * a **ground-track path arc** for the satellite’s inclination (print on
+    transparency).
+  Pin the transparencies through the centre cross over your QTH to build a
+  homemade OSCARLOCATOR for any satellite.
+
+### Fixed
+- TEME→geodetic sub-point conversion no longer divides by zero for
+  high-altitude near-equatorial (geostationary) satellites; pole-crossing
+  positions are also handled. (Surfaced by the OSCARLOCATOR export for QO-100.)
+
+## [0.9.6]
+
+### Added
+- **Crossings List** tab on the Orbital Analysis screen: a plain table of the
+  ascending equator-crossing **date, time (UTC), and longitude** for the next 7
+  days, alongside the existing OSCARLocator chart. Scrollable, with longitudes
+  shown as °E/°W.
+
+## [0.9.5]
+
+### Added
+- **Equatorial Crossings** tab on the Orbital Analysis screen: charts the
+  ascending equator-crossing times and longitudes for the selected satellite
+  over the next 7 days, for use with an OSCARLocator. The chart shows
+  longitude vs. days-from-now with the soonest crossings labelled by UTC time.
+- New `Predictor.ascending_nodes(from, to)` engine method that finds ascending
+  node crossings (sub-latitude - to +) by coarse scan plus bisection refinement.
+
 ## [0.9.4]
 
 ### Documentation

@@ -34,6 +34,13 @@ mpl_datas = collect_data_files("matplotlib")
 # the frozen app. Without this, macOS bundles fail with CERTIFICATE_VERIFY_FAILED.
 certifi_datas = collect_data_files("certifi")
 
+# cartopy ships Natural Earth shapefiles / data used for the OSCARLOCATOR base
+# map coastlines; bundle them (falls back to OrbitDeck's own coastlines if absent).
+try:
+    cartopy_datas = collect_data_files("cartopy")
+except Exception:
+    cartopy_datas = []
+
 # Per-platform icon for the executable itself.
 if sys.platform == "win32":
     exe_icon = "orbitdeck/gui/assets/icon.ico"
@@ -46,7 +53,7 @@ a = Analysis(
     ["run.py"],
     pathex=[],
     binaries=[],
-    datas=asset_datas + mpl_datas + certifi_datas,
+    datas=asset_datas + mpl_datas + certifi_datas + cartopy_datas,
     hiddenimports=[
         # ssl / certificate handling for HTTPS data fetches:
         "certifi", "ssl",
@@ -57,6 +64,8 @@ a = Analysis(
         "tkinter.simpledialog", "tkinter.filedialog",
         # matplotlib's Tk backend:
         "matplotlib.backends.backend_tkagg",
+        # matplotlib's PDF backend (OSCARLOCATOR sheet export):
+        "matplotlib.backends.backend_pdf",
     ],
     hookspath=[],
     hooksconfig={},
@@ -112,6 +121,6 @@ if sys.platform == "darwin":
         bundle_identifier="org.orbitdeck.app",
         info_plist={
             "NSHighResolutionCapable": True,
-            "CFBundleShortVersionString": "0.9.4",
+            "CFBundleShortVersionString": "0.10.1",
         },
     )

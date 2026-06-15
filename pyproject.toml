@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "orbitdeck"
-version = "0.9.4"
+version = "0.10.1"
 description = "Cross-platform desktop satellite tracking and orbital-analysis tool for amateur-radio operators"
 readme = "README.md"
 requires-python = ">=3.8"
@@ -29,15 +29,16 @@ dependencies = [
     "numpy>=1.20",
     "certifi>=2023.7.22",
     "sgp4>=2.20",
+    "cartopy>=0.21",
 ]
 
 [project.optional-dependencies]
 # High-accuracy SGP4/SDP4 is now a core dependency; this extra is kept for
 # backward compatibility and is a no-op alias.
 accurate = ["sgp4>=2.20"]
-# Full-resolution Natural Earth coastlines on the world map.
+# cartopy is now a core dependency; this extra is kept as a no-op alias.
 maps = ["cartopy>=0.21"]
-# Everything optional.
+# Everything (aliases for the now-core extras).
 full = ["sgp4>=2.20", "cartopy>=0.21"]
 # Development tooling.
 dev = ["pytest>=7", "ruff>=0.1"]

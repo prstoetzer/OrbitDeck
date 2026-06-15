@@ -108,6 +108,12 @@ class TrackScreen(Screen):
             ttk.Label(row, textvariable=v, style="Mono.TLabel",
                       wraplength=300, justify="left").pack(side="left")
 
+        # printable OSCARLOCATOR sheets for the selected satellite
+        act = ttk.Frame(left, style="Panel.TFrame")
+        act.pack(fill="x", padx=14, pady=(8, 12))
+        ttk.Button(act, text="Make OSCARLOCATOR PDF\u2026",
+                   command=self._make_oscarlocator).pack(side="left")
+
         right = ttk.Frame(body, style="Panel.TFrame")
         right.pack(side="left", fill="both", expand=True)
         self.mpl = MplPanel(right, figsize=(4.8, 4.8), polar=True)
@@ -163,6 +169,36 @@ class TrackScreen(Screen):
         self.tp_combo.selection_clear()
         self.frame.focus_set()
         self._refresh(now_unix(), force_plot=True)
+
+    def _make_oscarlocator(self):
+        s = self.sat()
+        if not s:
+            return
+        from tkinter import filedialog, messagebox
+        from ..oscarlocator import generate_oscarlocator_pdf
+        default = "oscarlocator_%s.pdf" % s.name.replace("/", "-").replace(
+            " ", "_")
+        path = filedialog.asksaveasfilename(
+            title="Save OSCARLOCATOR PDF",
+            defaultextension=".pdf",
+            initialfile=default,
+            filetypes=[("PDF", "*.pdf")])
+        if not path:
+            return
+        try:
+            generate_oscarlocator_pdf(path, self.store, s)
+        except Exception as e:
+            messagebox.showerror("OSCARLOCATOR", "Could not generate PDF:\n%s"
+                                 % e)
+            return
+        self.app.set_status("Saved OSCARLOCATOR PDF: %s" % path)
+        messagebox.showinfo(
+            "OSCARLOCATOR",
+            "Saved a 3-page OSCARLOCATOR PDF for %s.\n\n"
+            "Page 1 (base map): print on paper or card.\n"
+            "Pages 2 & 3 (footprint + path arc): print on transparency film.\n\n"
+            "Pin the overlays through the centre cross over your station on the "
+            "base map." % s.name)
 
     def _add_manual_tp(self):
         s = self.sat()

@@ -127,12 +127,21 @@ def _teme_to_ecef_lla(r, jd):
     lon = math.atan2(ye, xe)
     # iterate for geodetic latitude
     p = math.hypot(xe, ye)
+    if p < 1e-6:
+        # essentially over a pole: latitude is +/-90, altitude is |ze| - polar N
+        lat = math.copysign(math.pi / 2.0, ze)
+        N = RE_KM / math.sqrt(1.0 - E2)
+        alt = abs(ze) - RE_KM * (1.0 - E2) / math.sqrt(1.0 - E2)
+        return lat / DEG, lon / DEG, alt
     lat = math.atan2(ze, p * (1.0 - E2))
     for _ in range(5):
         s = math.sin(lat)
         N = RE_KM / math.sqrt(1.0 - E2 * s * s)
         alt = p / math.cos(lat) - N
-        lat = math.atan2(ze, p * (1.0 - E2 * N / (N + alt)))
+        denom = N + alt
+        if abs(denom) < 1e-9:
+            break
+        lat = math.atan2(ze, p * (1.0 - E2 * N / denom))
     s = math.sin(lat)
     N = RE_KM / math.sqrt(1.0 - E2 * s * s)
     alt = p / math.cos(lat) - N
@@ -332,6 +341,55 @@ class Predictor:
     def subpoint_at(self, unix: float):
         r, _ = self._eci_state(unix)
         return _teme_to_ecef_lla(r, jd_of(unix))
+
+    def ascending_nodes(self, frm: float, to: float, max_n: int = 200):
+        """Find ascending equator crossings (sub-latitude going - to +) between
+        the unix times `frm` and `to`. Returns a list of (unix_time, longitude)
+        tuples, suitable for plotting an OSCARLocator-style equator-crossing
+        schedule. Longitude is the geographic sub-longitude at the crossing.
+
+        The scan steps coarsely (a fraction of the orbital period) to bracket
+        each sign change in sub-latitude, then refines the crossing time by
+        bisection. Descending crossings (going + to -) are ignored."""
+        if not self._have:
+            return []
+        # step at ~1/12 of the period so we never skip a crossing
+        period_s = 0.0
+        try:
+            period_s = (2.0 * math.pi / self._sat.no_kozai) * 60.0
+        except Exception:
+            period_s = 95.0 * 60.0
+        if period_s <= 0:
+            period_s = 95.0 * 60.0
+        step = max(30.0, period_s / 12.0)
+
+        out = []
+        t = frm
+        prev_t = t
+        prev_lat = self.subpoint_at(t)[0]
+        t += step
+        while t <= to and len(out) < max_n:
+            lat = self.subpoint_at(t)[0]
+            # ascending crossing: previous below equator, now at/above
+            if prev_lat < 0.0 <= lat:
+                # bisect between prev_t and t for the zero crossing
+                a, b = prev_t, t
+                la = prev_lat
+                for _ in range(40):
+                    m = 0.5 * (a + b)
+                    lm = self.subpoint_at(m)[0]
+                    if (la < 0.0) == (lm < 0.0):
+                        a, la = m, lm
+                    else:
+                        b = m
+                    if abs(b - a) < 0.5:        # half-second precision
+                        break
+                tc = 0.5 * (a + b)
+                lon = self.subpoint_at(tc)[1]
+                out.append((tc, lon))
+            prev_t, prev_lat = t, lat
+            t += step
+        return out
 
     @staticmethod
     def elevation_from_subpoint(obs_lat, obs_lon, obs_alt_m,

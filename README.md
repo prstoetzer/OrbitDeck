@@ -9,11 +9,11 @@ plots — **tracking and analysis only**. Radio (CAT) and rotator control are
 intentionally out of scope; excellent dedicated tools already cover that, and
 the original device handles it on the hardware side.
 
-It uses the reference [`sgp4`](https://pypi.org/project/sgp4/) propagator (a
-**required dependency**, installed automatically) for accurate SGP4/SDP4 across
-both low-Earth and deep-space orbits, and also picks up full-resolution
-`cartopy` coastlines if you have them installed. A pure-Python propagator is
-bundled as a fallback.
+It uses the reference [`sgp4`](https://pypi.org/project/sgp4/) propagator and
+[`cartopy`](https://pypi.org/project/Cartopy/) (both **required dependencies**,
+installed automatically) for accurate SGP4/SDP4 across low-Earth and deep-space
+orbits and full-resolution coastlines. A pure-Python propagator and a bundled
+coastline set ship as fallbacks.
 
 <p align="center">
   <img src="docs/img/home.png" width="80%" alt="Home: all favorite satellites with footprints on the world map">
@@ -52,13 +52,9 @@ fetch SatNOGS transponder data for the selected bird.
 
 ### Optional extras
 
-`sgp4` (full SGP4/SDP4) is now a core dependency installed automatically by the
-commands above. The remaining extras are optional:
-
-```bash
-pip install -e ".[maps]"       # full-resolution Natural Earth coastlines (cartopy)
-pip install -e ".[full]"       # maps + an explicit sgp4 pin (already included)
-```
+`sgp4` (full SGP4/SDP4) and `cartopy` (high-resolution coastlines) are both core
+dependencies installed automatically by the commands above. The `accurate`,
+`maps`, and `full` extras are kept only as backward-compatible no-op aliases.
 
 > **tkinter note:** the python.org installers for Windows and macOS include
 > tkinter. On Linux: `sudo apt install python3-tk` (Debian/Ubuntu) or
@@ -71,11 +67,11 @@ pip install -e ".[full]"       # maps + an explicit sgp4 pin (already included)
 | Screen | What it shows |
 |---|---|
 | **Home** *(default)* | World map of all **favorited** satellites with their footprints, the day/night terminator and your station; click one to focus it with its ground track. A second tab lists the **next pass of every favorite with a live countdown**. |
-| **Track** | Live azimuth/elevation, slant range, range-rate, sub-point, altitude, transponder selector (with details: FM/linear/beacon/data, passband, baud) and Doppler-corrected RX/TX using the passband **center** for linear transponders, sunlit/eclipse, next AOS/LOS, and a live sky polar plot. You can also **add a manual transponder** here. |
+| **Track** | Live azimuth/elevation, slant range, range-rate, sub-point, altitude, transponder selector (with details: FM/linear/beacon/data, passband, baud) and Doppler-corrected RX/TX using the passband **center** for linear transponders, sunlit/eclipse, next AOS/LOS, and a live sky polar plot. You can also **add a manual transponder** and **export a printable OSCARLOCATOR PDF** (an azimuthal-equidistant base map with a lat/lon graticule and full-resolution coastlines; a footprint transparency with 1000 km distance rings and 15° radials; and a classic rotatable any-orbit path-arc transparency with 1-minute tick marks, 10-minute majors, and a per-pass advance diagram) for the selected satellite here. |
 | **Next Passes** | Pass table for the next 7 days with selectable minimum elevation; double-click a pass for its detail. |
 | **Pass Detail** | Polar sky-track plus an elevation-vs-time profile for a chosen pass. |
 | **Ground Track** | Forward ground track over 1–8 upcoming orbits. |
-| **Orbital Analysis** | Nine pages matching the source device: **Info** (size/shape, footprint diameter now/apogee/perigee, B\* drag-decay estimate, element age), **Live** (look angles, dual-band Doppler, eclipse depth), **Next Pass** (slant ranges at AOS/TCA/LOS, one-way path delay), **Ground Track**, **Doppler** curve (peak shift + max range-rate), **Nodal** (J2 node/perigee drift, sun-sync flag, LTAN, repeat ground-track, longest possible pass), **Sun/Beta** (β now, β\* threshold, eclipse fraction, 60-day plot), **Pass Outlook** (7-day planning summary + best pass), **Orbit Position** (mean/true anomaly, argument of latitude, time to perigee/apogee). Presented as clean grouped data cards. |
+| **Orbital Analysis** | Eleven pages matching (and extending) the source device: **Info** (size/shape, footprint diameter now/apogee/perigee, B\* drag-decay estimate, element age), **Live** (look angles, dual-band Doppler, eclipse depth), **Next Pass** (slant ranges at AOS/TCA/LOS, one-way path delay), **Ground Track**, **Doppler** curve (selectable downlink from the transponder DB; peak shift + max range-rate), **Nodal** (J2 node/perigee drift, sun-sync flag, LTAN, repeat ground-track, longest possible pass), **Sun/Beta** (β now, β\* threshold, eclipse fraction, 60-day plot), **Pass Outlook** (7-day planning summary + best pass), **Orbit Position** (mean/true anomaly, argument of latitude, time to perigee/apogee), **Equ. Crossings** (ascending-node times and longitudes for the next 7 days, charted for an OSCARLocator), and **Crossings List** (the same crossings as a date/time/longitude table). Presented as clean grouped data cards and plots. |
 | **Illumination** | 10/30/60-day sunlit-vs-eclipse raster with mean eclipse fraction. |
 | **Sun / Moon** | Solar and lunar az/el for your site, plus Moon phase and illumination. |
 | **Mutual Windows** | Co-visibility windows between you and a DX station (entered as a grid or lat,lon). |
