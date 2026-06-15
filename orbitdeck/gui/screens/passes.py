@@ -17,6 +17,13 @@ class PassesScreen(Screen):
         for v in (0, 5, 10, 20, 30):
             ttk.Radiobutton(bar, text="%d\u00b0" % v, value=v, variable=self.minel,
                             command=self._reload).pack(side="left", padx=2)
+        # the active minimum (which may be a custom value set in Settings) is
+        # shown here so a non-preset value is visible
+        self.minel_lbl = tk.StringVar(value="")
+        ttk.Label(bar, textvariable=self.minel_lbl,
+                  style="Muted.TLabel").pack(side="left", padx=(10, 0))
+        ttk.Button(bar, text="Print sky tracks (3 days)\u2026",
+                   command=self._print_polar).pack(side="right")
 
         cols = ("day", "aos", "maxel", "dur", "los", "dir")
         heads = ("Day", "AOS (UTC)", "Max El", "Duration", "LOS", "Track")
@@ -39,12 +46,27 @@ class PassesScreen(Screen):
             anchor="w", padx=16, pady=(0, 8))
 
     def on_show(self):
-        self.minel.set(int(self.store.min_el))
+        # reflect the active minimum; presets snap the radio, custom values show
+        # in the label only
+        mv = self.store.min_el
+        self.minel.set(int(mv) if mv in (0, 5, 10, 20, 30) else -1)
+        self._sync_minel_label()
         self._reload()
 
+    def _sync_minel_label(self):
+        mv = self.store.min_el
+        if mv in (0, 5, 10, 20, 30):
+            self.minel_lbl.set("")
+        else:
+            self.minel_lbl.set("(custom: %g\u00b0 \u2014 set in Settings)" % mv)
+
     def _reload(self):
-        self.store.min_el = float(self.minel.get())
-        self.store.save_config()
+        # a preset radio overrides; -1 means "keep the custom value from Settings"
+        sel = self.minel.get()
+        if sel >= 0:
+            self.store.min_el = float(sel)
+            self.store.save_config()
+        self._sync_minel_label()
         for i in self.tree.get_children():
             self.tree.delete(i)
         s = self.sat()
@@ -90,3 +112,25 @@ class PassesScreen(Screen):
             self.app.show("passdetail")
             scr = self.app.current
             scr.set_pass(self._passes[idx])
+
+    def _print_polar(self):
+        s = self.sat()
+        if not s:
+            return
+        from tkinter import filedialog, messagebox
+        from ..reports import generate_polar_passes_report
+        default = "skytracks_%s.pdf" % s.name.replace("/", "-").replace(
+            " ", "_")
+        path = filedialog.asksaveasfilename(
+            title="Save sky-track report", defaultextension=".pdf",
+            initialfile=default, filetypes=[("PDF", "*.pdf")])
+        if not path:
+            return
+        try:
+            generate_polar_passes_report(path, self.store, s, days=3)
+        except Exception as e:
+            messagebox.showerror("Report", "Could not generate report:\n%s" % e)
+            return
+        self.app.set_status("Saved sky-track report: %s" % path)
+        messagebox.showinfo("Report", "Saved sky-track polar plots for every "
+                            "pass of %s over the next 3 days." % s.name)

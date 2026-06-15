@@ -98,8 +98,40 @@ class Screen:
             bar, text="", bg=COL_BG, fg=COL_WARN,
             font=("DejaVu Sans", 9))
         self._ds_badge.pack(side="left", padx=(10, 0), pady=(3, 0))
+        # a "Report..." action is offered on every satellite-specific screen so
+        # a printable PDF (analysis + passes + EQX) is always one click away
+        ttk.Button(bar, text="Report\u2026",
+                   command=self.make_report).pack(side="right", padx=(0, 4))
         self.refresh_sat_header()
         return bar
+
+    def make_report(self):
+        """Generate a printable PDF report for the selected satellite. Shared by
+        all satellite screens via the sat_header bar."""
+        s = self.sat()
+        if not s:
+            return
+        from tkinter import filedialog, messagebox
+        from ..reports import generate_satellite_report
+        default = "report_%s.pdf" % s.name.replace("/", "-").replace(" ", "_")
+        path = filedialog.asksaveasfilename(
+            title="Save satellite report",
+            defaultextension=".pdf",
+            initialfile=default,
+            filetypes=[("PDF", "*.pdf")])
+        if not path:
+            return
+        try:
+            generate_satellite_report(path, self.store, s)
+        except Exception as e:
+            messagebox.showerror("Report", "Could not generate report:\n%s" % e)
+            return
+        self.app.set_status("Saved report: %s" % path)
+        messagebox.showinfo(
+            "Report",
+            "Saved a printable report for %s, covering orbital analysis, the "
+            "next passes from your station, and the equator-crossing "
+            "schedule." % s.name)
 
     def refresh_sat_header(self):
         badge = getattr(self, "_sat_badge", None)

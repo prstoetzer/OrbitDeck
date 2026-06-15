@@ -456,14 +456,21 @@ def test_kvpanel_skips_repack_when_unchanged():
             pass
 
     fake_mbk.FigureCanvasTkAgg = _FC
+    fake_mbk.FigureCanvas = _FC
     sys.modules["tkinter"] = fake_tk
     sys.modules["tkinter.ttk"] = fake_ttk
     sys.modules["matplotlib.backends.backend_tkagg"] = fake_mbk
     try:
         import importlib
         # ensure a fresh import against the fakes
-        sys.modules.pop("orbitdeck.gui.screens", None)
-        screens = importlib.import_module("orbitdeck.gui.screens")
+        for _m in [m for m in list(sys.modules) if m.startswith("orbitdeck.gui.screens")]:
+            sys.modules.pop(_m, None)
+        import matplotlib as _mpl
+        _use = _mpl.use; _mpl.use = lambda *a, **k: None
+        try:
+            screens = importlib.import_module("orbitdeck.gui.screens")
+        finally:
+            _mpl.use = _use
         kv = screens.KVPanel(FakeW())
 
         def render(v):
@@ -574,11 +581,14 @@ def test_orbit_live_page_stable_structure_across_ticks():
         def draw(self):
             pass
     mbk.FigureCanvasTkAgg = _FC
+    mbk.FigureCanvas = _FC
     sys.modules.update({"tkinter": tk, "tkinter.ttk": ttk,
                         "tkinter.messagebox": mb,
                         "matplotlib.backends.backend_tkagg": mbk})
-    sys.modules.pop("orbitdeck.gui.screens", None)
-    sys.modules.pop("orbitdeck.gui.screens.orbit", None)
+    for _m in [m for m in list(sys.modules) if m.startswith("orbitdeck.gui.screens")]:
+        sys.modules.pop(_m, None)
+    import matplotlib as _mpl
+    _use = _mpl.use; _mpl.use = lambda *a, **k: None
     try:
         from orbitdeck.gui import screens
         from orbitdeck.gui.store import Store
@@ -752,11 +762,14 @@ def test_doppler_downlink_list_from_transponders():
         def draw(self):
             pass
     mbk.FigureCanvasTkAgg = _FC
+    mbk.FigureCanvas = _FC
     sys.modules.update({"tkinter": tk, "tkinter.ttk": ttk,
                         "tkinter.messagebox": mb,
                         "matplotlib.backends.backend_tkagg": mbk})
-    sys.modules.pop("orbitdeck.gui.screens", None)
-    sys.modules.pop("orbitdeck.gui.screens.orbit", None)
+    for _m in [m for m in list(sys.modules) if m.startswith("orbitdeck.gui.screens")]:
+        sys.modules.pop(_m, None)
+    import matplotlib as _mpl
+    _use = _mpl.use; _mpl.use = lambda *a, **k: None
     try:
         from orbitdeck.gui import screens
         from orbitdeck.gui.store import Store
@@ -791,6 +804,7 @@ def test_doppler_downlink_list_from_transponders():
         assert 145800000 in freqs
         assert 145925000 not in freqs
     finally:
+        _mpl.use = _use
         for n, m in saved.items():
             if m is not None:
                 sys.modules[n] = m
@@ -1047,3 +1061,374 @@ def test_oscarlocator_pdf_geostationary_ok():
     out = os.path.join(tempfile.mkdtemp(), "geo.pdf")
     generate_oscarlocator_pdf(out, st, st.db.sats[0])
     assert os.path.getsize(out) > 5000
+
+
+def test_oscarlocator_polar_projection():
+    """The polar projection maps points to colatitude/longitude and the polar
+    PDF generates. QTH mode remains the default (revertable)."""
+    import os
+    import tempfile
+    from orbitdeck.gui.store import Store
+    from orbitdeck.gui.oscarlocator import _Projection, generate_oscarlocator_pdf
+    # polar projection geometry: a point at lat 60 -> rho 30 (colatitude), lon
+    # passes through as bearing
+    p = _Projection("polar")
+    rho, br = p.project(60.0, 45.0)
+    assert abs(rho - 30.0) < 1e-9
+    assert abs(br - 45.0) < 1e-9
+    # the North Pole maps to the centre
+    rho0, _ = p.project(90.0, 123.0)
+    assert abs(rho0) < 1e-9
+    # qth projection still works and is the default
+    q = _Projection("qth", 40.0, -75.0)
+    rho_q, _ = q.project(40.0, -75.0)
+    assert abs(rho_q) < 1e-6                 # station maps to its own centre
+
+    st = Store()
+    s = st.db.sats[0]
+    d = tempfile.mkdtemp()
+    out_polar = os.path.join(d, "polar.pdf")
+    out_qth = os.path.join(d, "qth.pdf")
+    generate_oscarlocator_pdf(out_polar, st, s, projection="polar")
+    generate_oscarlocator_pdf(out_qth, st, s, projection="qth")
+    assert os.path.getsize(out_polar) > 5000
+    assert os.path.getsize(out_qth) > 5000
+
+
+def test_descending_nodes():
+    """descending_nodes finds southbound equator crossings, roughly as many as
+    ascending nodes over the same window, each going + to - in latitude."""
+    import time
+    from orbitdeck.gui.store import Store
+    st = Store()
+    s = st.db.sats[0]
+    st.pred.set_sat(s)
+    t = time.time()
+    asc = st.pred.ascending_nodes(t, t + 86400)
+    desc = st.pred.descending_nodes(t, t + 86400)
+    assert len(desc) > 0
+    assert abs(len(asc) - len(desc)) <= 1
+    for tc, lon in desc[:3]:
+        assert st.pred.subpoint_at(tc - 60)[0] > st.pred.subpoint_at(tc + 60)[0]
+        assert -180 <= lon <= 180
+
+
+def test_oscarlocator_southern_projection():
+    """South-pole projection maps points to colatitude-from-S-pole and mirrors
+    longitude; the southern polar PDF generates; polar-auto picks by latitude."""
+    import os
+    import tempfile
+    from orbitdeck.gui.store import Store
+    from orbitdeck.gui.oscarlocator import _Projection, generate_oscarlocator_pdf
+    from orbitdeck.engine.predict import Observer
+    p = _Projection("polar-south")
+    # a point at lat -60 -> rho 30 (colatitude from south pole)
+    rho, _br = p.project(-60.0, 45.0)
+    assert abs(rho - 30.0) < 1e-9
+    # South Pole maps to centre
+    rho0, _ = p.project(-90.0, 12.0)
+    assert abs(rho0) < 1e-9
+    # longitude is mirrored
+    _r, br = p.project(-45.0, 30.0)
+    assert abs(br - ((-30.0) % 360.0)) < 1e-9
+    assert p.is_south and p.is_polar
+
+    st = Store()
+    st.obs = Observer(lat=-33.9, lon=18.4, alt_m=10, valid=True)  # Cape Town
+    s = st.db.sats[0]
+    d = tempfile.mkdtemp()
+    out = os.path.join(d, "south.pdf")
+    generate_oscarlocator_pdf(out, st, s, projection="polar-south")
+    assert os.path.getsize(out) > 5000
+    # polar-auto resolves to the southern sheet for a southern station
+    out2 = os.path.join(d, "auto.pdf")
+    generate_oscarlocator_pdf(out2, st, s, projection="polar-auto")
+    assert os.path.getsize(out2) > 5000
+
+
+def test_footprint_locus_geometry():
+    """Every point of the footprint locus is exactly the footprint radius (great-
+    circle) from the QTH."""
+    import math
+    from orbitdeck.gui.oscarlocator import _footprint_locus
+
+    def gc(p1, l1, p2, l2):
+        p1, l1, p2, l2 = map(math.radians, [p1, l1, p2, l2])
+        return math.degrees(math.acos(max(-1.0, min(1.0,
+            math.sin(p1) * math.sin(p2) +
+            math.cos(p1) * math.cos(p2) * math.cos(l2 - l1)))))
+
+    for qlat, qlon, rad in [(40, -75, 20), (-33, 18, 25), (0, 0, 15)]:
+        locus = _footprint_locus(qlat, qlon, rad)
+        for lat, lon in locus:
+            assert abs(gc(qlat, qlon, lat, lon) - rad) < 0.01
+
+
+def test_oscarlocator_footprint_on_qth_pages():
+    """footprint_on_qth=True yields a 2-page set for both qth and polar maps."""
+    import os
+    import tempfile
+    from orbitdeck.gui.store import Store
+    from orbitdeck.gui.oscarlocator import generate_oscarlocator_pdf
+    from orbitdeck.engine.predict import Observer
+
+    def npages(p):
+        with open(p, "rb") as f:
+            data = f.read()
+        return max(data.count(b"/Type /Page\n"), data.count(b"/Type /Page "),
+                   data.count(b"/Type/Page"))
+
+    st = Store()
+    st.obs = Observer(lat=40.0, lon=-75.0, alt_m=10, valid=True)
+    s = st.db.sats[0]
+    d = tempfile.mkdtemp()
+    for proj in ("qth", "polar"):
+        out = os.path.join(d, "fpq_%s.pdf" % proj)
+        generate_oscarlocator_pdf(out, st, s, projection=proj,
+                                  footprint_on_qth=True)
+        assert os.path.getsize(out) > 5000
+
+
+def test_satellite_report_generates():
+    """The PDF report generates with all sections and is a valid multi-page PDF."""
+    import os
+    import tempfile
+    from orbitdeck.gui.store import Store
+    from orbitdeck.gui.reports import generate_satellite_report
+    from orbitdeck.engine.predict import Observer
+    st = Store()
+    st.obs = Observer(lat=39.9, lon=-75.0, alt_m=20, valid=True)
+    s = st.db.sats[0]
+    out = os.path.join(tempfile.mkdtemp(), "report.pdf")
+    generate_satellite_report(out, st, s)
+    assert os.path.getsize(out) > 5000
+    with open(out, "rb") as f:
+        assert f.read(5) == b"%PDF-"
+
+
+def test_satellite_report_section_subset():
+    """Selecting a single section still generates a valid report."""
+    import os
+    import tempfile
+    from orbitdeck.gui.store import Store
+    from orbitdeck.gui.reports import generate_satellite_report
+    from orbitdeck.engine.predict import Observer
+    st = Store()
+    st.obs = Observer(lat=39.9, lon=-75.0, alt_m=20, valid=True)
+    s = st.db.sats[0]
+    out = os.path.join(tempfile.mkdtemp(), "report_analysis.pdf")
+    generate_satellite_report(out, st, s, sections=("analysis",))
+    assert os.path.getsize(out) > 3000
+
+
+def test_report_generators_exist():
+    """The new report entry points are importable from the reports module."""
+    from orbitdeck.gui import reports
+    assert hasattr(reports, "generate_favorites_passes_report")
+    assert hasattr(reports, "generate_mutual_passes_report")
+    assert hasattr(reports, "generate_illumination_report")
+    assert hasattr(reports, "generate_progression_report")
+
+
+def test_favorites_passes_report_generates():
+    """The favorites pass schedule generates a valid PDF (and handles the empty
+    favorites case)."""
+    import os
+    import tempfile
+    from orbitdeck.gui.store import Store
+    from orbitdeck.gui.reports import generate_favorites_passes_report
+    from orbitdeck.engine.predict import Observer
+    st = Store()
+    st.obs = Observer(lat=39.9, lon=-75.0, alt_m=20, valid=True)
+    d = tempfile.mkdtemp()
+    # empty favorites -> still a valid PDF
+    out0 = os.path.join(d, "fav0.pdf")
+    generate_favorites_passes_report(out0, st, days=3)
+    assert os.path.getsize(out0) > 2000
+    # with a couple of favorites
+    for s in st.db.sats[:3]:
+        st.favorites.add(s.norad)
+    out = os.path.join(d, "fav.pdf")
+    generate_favorites_passes_report(out, st, days=3)
+    assert os.path.getsize(out) > 3000
+    with open(out, "rb") as f:
+        assert f.read(5) == b"%PDF-"
+
+
+def test_mutual_illum_progression_reports_generate():
+    """The mutual, illumination (60-day) and progression (30-day) reports all
+    generate valid PDFs."""
+    import os
+    import tempfile
+    from orbitdeck.gui.store import Store
+    from orbitdeck.gui import reports as R
+    from orbitdeck.engine.predict import Observer
+    st = Store()
+    st.obs = Observer(lat=39.9, lon=-75.0, alt_m=20, valid=True)
+    s = st.db.sats[0]
+    dx = Observer(lat=51.5, lon=-0.1, alt_m=10, valid=True)
+    d = tempfile.mkdtemp()
+    for fn, args in [
+        (R.generate_mutual_passes_report, (s, dx)),
+        (R.generate_illumination_report, (s,)),
+        (R.generate_progression_report, (s,)),
+    ]:
+        out = os.path.join(d, fn.__name__ + ".pdf")
+        fn(out, st, *args)
+        assert os.path.getsize(out) > 3000
+        with open(out, "rb") as f:
+            assert f.read(5) == b"%PDF-"
+
+
+def test_min_el_persists_in_config():
+    """A custom minimum elevation round-trips through the store's saved config."""
+    import json
+    import tempfile
+    import os
+    import orbitdeck.gui.store as store_mod
+    from orbitdeck.gui.store import Store
+    d = tempfile.mkdtemp()
+    saved_dir, saved_path = store_mod.CONFIG_DIR, store_mod.CONFIG_PATH
+    store_mod.CONFIG_DIR = d
+    store_mod.CONFIG_PATH = os.path.join(d, "config.json")
+    try:
+        st = Store()
+        st.min_el = 15.0
+        st.save_config()
+        with open(store_mod.CONFIG_PATH) as f:
+            assert json.load(f).get("min_el") == 15.0
+    finally:
+        store_mod.CONFIG_DIR, store_mod.CONFIG_PATH = saved_dir, saved_path
+
+
+def test_polar_passes_report_generates():
+    """The 3-day polar sky-tracks report generates a valid PDF."""
+    import os, tempfile
+    from orbitdeck.gui.store import Store
+    from orbitdeck.gui.reports import generate_polar_passes_report
+    from orbitdeck.engine.predict import Observer
+    st = Store()
+    st.obs = Observer(lat=39.9, lon=-75.0, alt_m=20, valid=True)
+    s = st.db.sats[0]
+    out = os.path.join(tempfile.mkdtemp(), "polar.pdf")
+    generate_polar_passes_report(out, st, s, days=3)
+    assert os.path.getsize(out) > 3000
+    with open(out, "rb") as f:
+        assert f.read(5) == b"%PDF-"
+
+
+def test_comprehensive_report_has_graphic_sections():
+    """The comprehensive report with all sections generates a multi-page PDF."""
+    import os, tempfile
+    from orbitdeck.gui.store import Store
+    from orbitdeck.gui.reports import generate_satellite_report
+    from orbitdeck.engine.predict import Observer
+    st = Store()
+    st.obs = Observer(lat=39.9, lon=-75.0, alt_m=20, valid=True)
+    s = st.db.sats[0]
+    out = os.path.join(tempfile.mkdtemp(), "comp.pdf")
+    generate_satellite_report(out, st, s)   # default sections incl. graphics
+    assert os.path.getsize(out) > 8000
+    with open(out, "rb") as f:
+        data = f.read()
+    assert data[:5] == b"%PDF-"
+    # several pages expected (text + polar + illum + progression)
+    assert data.count(b"/Type /Page") + data.count(b"/Type/Page") >= 4
+
+
+def test_omm_parsing_celestrak_keywords():
+    """OrbitDeck parses the CCSDS OMM keywords CelesTrak's gp.php JSON uses,
+    including microsecond EPOCH, per the GP data-format documentation."""
+    import json
+    from orbitdeck.engine.satdb import SatDb
+    omm = [{
+        "OBJECT_NAME": "ISS (ZARYA)", "OBJECT_ID": "1998-067A",
+        "EPOCH": "2026-06-12T19:23:54.123456", "MEAN_MOTION": 15.50103472,
+        "ECCENTRICITY": 0.0004364, "INCLINATION": 51.6393,
+        "RA_OF_ASC_NODE": 210.0, "ARG_OF_PERICENTER": 80.0,
+        "MEAN_ANOMALY": 280.0, "NORAD_CAT_ID": 25544, "BSTAR": 0.00012345,
+        "MEAN_MOTION_DOT": 0.00001234, "MEAN_MOTION_DDOT": 0.0,
+        "REV_AT_EPOCH": 50001, "ELEMENT_SET_NO": 999,
+    }]
+    db = SatDb()
+    assert db.load_gp_json(json.dumps(omm)) == 1
+    s = db.sats[0]
+    assert s.norad == 25544
+    assert s.intl_des == "1998-067A"
+    assert abs(s.mean_motion - 15.50103472) < 1e-8
+    assert abs(s.ecc - 0.0004364) < 1e-9
+    assert abs(s.incl - 51.6393) < 1e-6
+    # EPOCH parsed to the microsecond
+    import datetime as dt
+    got = dt.datetime.fromtimestamp(s.epoch_unix, dt.timezone.utc)
+    assert got.year == 2026 and got.month == 6 and got.day == 12
+    assert got.hour == 19 and got.minute == 23 and got.second == 54
+
+
+def test_omm_supports_6_and_9_digit_catalog_numbers():
+    """The OMM/JSON format exists specifically to carry catalog numbers beyond
+    5 digits. OrbitDeck must store and look them up as integers (no TLE-style
+    truncation), and tolerate null OBJECT_NAME/OBJECT_ID for analyst objects."""
+    import json
+    from orbitdeck.engine.satdb import SatDb
+    omm = [
+        {"OBJECT_NAME": "FENCE-OBJ", "OBJECT_ID": "2026-001A",
+         "EPOCH": "2026-06-12T00:00:00", "MEAN_MOTION": 15.0,
+         "ECCENTRICITY": 0.0001, "INCLINATION": 53.0, "RA_OF_ASC_NODE": 1.0,
+         "ARG_OF_PERICENTER": 1.0, "MEAN_ANOMALY": 1.0,
+         "NORAD_CAT_ID": 270123, "BSTAR": 0.0, "MEAN_MOTION_DOT": 0.0,
+         "MEAN_MOTION_DDOT": 0.0, "REV_AT_EPOCH": 1, "ELEMENT_SET_NO": 1},
+        {"OBJECT_NAME": None, "OBJECT_ID": None,
+         "EPOCH": "2026-06-12T00:00:00", "MEAN_MOTION": 15.0,
+         "ECCENTRICITY": 0.0001, "INCLINATION": 53.0, "RA_OF_ASC_NODE": 1.0,
+         "ARG_OF_PERICENTER": 1.0, "MEAN_ANOMALY": 1.0,
+         "NORAD_CAT_ID": 799001234, "BSTAR": 0.0, "MEAN_MOTION_DOT": 0.0,
+         "MEAN_MOTION_DDOT": 0.0, "REV_AT_EPOCH": 1, "ELEMENT_SET_NO": 1},
+    ]
+    db = SatDb()
+    assert db.load_gp_json(json.dumps(omm)) == 2
+    assert db.get(270123) is not None        # 6-digit
+    assert db.get(799001234) is not None      # 9-digit
+    assert db.get(799001234).name == ""       # null name tolerated
+
+
+def test_celestrak_uses_org_domain_and_json_format():
+    """OrbitDeck queries the canonical .org domain with FORMAT=json (avoiding the
+    301 redirect from .com and the TLE 5-digit limit)."""
+    from orbitdeck.gui.store import CELESTRAK_BASE
+    assert CELESTRAK_BASE.startswith("https://celestrak.org/")
+    assert "FORMAT=json" in CELESTRAK_BASE
+    assert "gp.php" in CELESTRAK_BASE
+    assert ".com" not in CELESTRAK_BASE
+
+
+def test_http_get_reports_403_and_404_clearly():
+    """HTTP 403 (rate-limit/firewall) and 404 surface actionable messages, so a
+    user isn't left guessing and a process won't blindly retry."""
+    import io
+    import urllib.error
+    import orbitdeck.gui.net as net
+    saved = net.urllib.request.urlopen
+    try:
+        def u403(req, timeout=None, context=None):
+            raise urllib.error.HTTPError(req.full_url, 403, "Forbidden", {},
+                                         io.BytesIO(b""))
+        net.urllib.request.urlopen = u403
+        raised = ""
+        try:
+            net.http_get("https://celestrak.org/NORAD/elements/gp.php?GROUP=x")
+        except RuntimeError as e:
+            raised = str(e)
+        assert "403" in raised
+        def u404(req, timeout=None, context=None):
+            raise urllib.error.HTTPError(req.full_url, 404, "NF", {},
+                                         io.BytesIO(b""))
+        net.urllib.request.urlopen = u404
+        raised = ""
+        try:
+            net.http_get("https://celestrak.org/x")
+        except RuntimeError as e:
+            raised = str(e)
+        assert "404" in raised
+    finally:
+        net.urllib.request.urlopen = saved

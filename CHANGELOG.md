@@ -4,6 +4,163 @@ All notable changes to OrbitDeck are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/), and the project aims to follow
 semantic versioning.
 
+## [0.14.3]
+
+### Changed
+- Verified compliance with the CelesTrak GP data-format documentation and
+  hardened HTTP handling: `net.http_get` now reports HTTP 403 (rate-limit /
+  firewall), 404 (bad query) and 3xx (redirect) with clear, actionable messages
+  so failures are obvious and processes don’t blindly retry. OrbitDeck already
+  queries the canonical `.org` domain with `FORMAT=json`, fetches only on
+  explicit user action (never auto-polls), caches to disk, and parses the full
+  set of CCSDS OMM keywords — including 6- and 9-digit catalog numbers and
+  null OBJECT_NAME/OBJECT_ID for analyst objects — which the legacy TLE format
+  cannot represent.
+
+## [0.14.2]
+
+### Fixed
+- Sky-track polar plots: properly inset each plot within its grid cell so the
+  cardinal theta-labels (N at top, S at bottom, and the diagonals) all have
+  clear space and no longer collide with the per-pass caption. The circle is
+  kept round and the caption sits in a reserved strip below the S label.
+
+## [0.14.1]
+
+### Fixed
+- Sky-track polar plots: the “N” compass label no longer collides with the
+  per-pass caption. Each caption now sits below its plot, with headroom above
+  the circle for the cardinal label (both in the standalone sky-track report and
+  the comprehensive report’s embedded grid).
+
+## [0.14.0]
+
+### Added
+- **Pass sky-track report.** A “Print sky tracks (3 days)…” button on the Next
+  Passes screen prints a grid of polar az/el sky-track plots — one per pass over
+  the next three days — matching the on-screen Pass Detail view (N-up, zenith at
+  centre, green AOS / orange LOS markers), labelled with time, max elevation,
+  direction and duration.
+- **Comprehensive report now includes graphics.** The per-satellite report
+  (“Report…” button) now appends the 3-day sky-track grid, the 60-day
+  illumination raster, and the 30-day pass-progression timeline after the
+  orbital-analysis, passes and EQX text sections.
+
+### Fixed
+- The favorites pass-schedule report’s last column (Duration) no longer runs past
+  the right margin; the columns are re-spaced and the numeric columns right-
+  aligned.
+
+## [0.13.1]
+
+### Changed
+- **Illumination and progression reports now mirror their on-screen displays.**
+  * The illumination report uses the same 2D raster as the screen — day on the
+    X axis, minutes into one orbit on the Y axis, bright = sunlit / dark =
+    eclipse (cividis) — so the drifting eclipse band and full-sun seasons read
+    the same on paper, with an added per-day eclipse-fraction strip.
+  * The pass-progression report now draws one row per UTC day with passes as
+    time-of-day bars coloured by max elevation (green ≥ 45°, blue 20–45°,
+    dark-blue < 20°), matching the in-app stacked timeline; paginated, with the
+    full pass table following.
+- **Favorites pass report is now a single time-ordered list.** All favorites’
+  passes are merged and sorted by AOS into one chronological table (with a
+  Satellite column), instead of being grouped per satellite.
+
+## [0.13.0]
+
+### Added
+- **Configurable minimum elevation.** Settings now has a free-entry minimum-
+  elevation field (any value 0–89°), replacing the fixed presets as the source
+  of truth. It persists in the config and applies everywhere — the Next Passes
+  table, the Multi-Day Progression, and every report. The Next Passes screen shows
+  the active value (including custom ones) alongside its quick-set buttons.
+- **Favorites pass-schedule report.** A button on the Home “next passes” tab
+  prints a 7-day pass schedule for every favorite satellite (per-satellite tables,
+  using your station and minimum elevation).
+- **Mutual-windows report.** A “Print mutual…” button on the Mutual Windows
+  screen prints the co-visibility windows with the DX station.
+- **Illumination report (60 days).** A “Print 60-day…” button on the
+  Illumination screen prints a per-orbit sunlit-fraction chart with the mean
+  eclipse fraction.
+- **Pass-progression report (30 days).** A “Print 30-day…” button on the
+  Multi-Day Pass Progression screen prints a time-of-day-vs-day scatter coloured
+  by max elevation, plus a full table of every pass.
+
+## [0.12.0]
+
+### Added
+- **Footprint-on-QTH option for the OSCARLOCATOR export.** A new choice draws the
+  satellite footprint directly on the base map at your station, producing a
+  2-page set (map+footprint, then the path-arc overlay) instead of three separate
+  sheets. Works for both the QTH-centred and the polar maps; on the polar map the
+  footprint is correctly drawn as the off-centre great-circle locus around the
+  QTH. The standard 3-sheet output remains the default.
+- **Printable satellite reports.** A new “Report…” button on every
+  satellite-specific screen generates a clean, multi-section PDF covering the
+  orbital analysis, the next passes from your station, and the equator-crossing
+  schedule (ascending or descending node by hemisphere). New module
+  `orbitdeck.gui.reports`.
+
+### Changed
+- **Bolder, larger OSCARLOCATOR sheets.** Thicker lines for the map graticule,
+  rings, spokes, coastlines, ground track and footprint, plus larger, bolder
+  labels and a bigger centre cross, so the printed sheets read clearly —
+  especially through stacked transparencies. Tunable via style constants at the
+  top of `oscarlocator.py`.
+
+## [0.11.2]
+
+### Changed
+- **Footprint overlay now inks only the actual footprint.** Removed the distance
+  rings that extended out to the sheet edge (~10,000 km) and the full-sheet
+  boundary circle, so the area outside the coverage circle is clear and the base
+  map shows through two stacked transparencies. The sheet keeps the same angular
+  scale as the base map (so it still registers) and shows, within the footprint:
+  the red coverage circle, an azimuth rose (N/E/S/W with 30° spokes/labels), and
+  a few distance rings sized to the footprint (500/1000/2000 km steps).
+
+## [0.11.1]
+
+### Changed
+- **Cleaner satellite path/overhead sheet.** Removed the “NEXT EQX” arrow and
+  the small advance-diagram inset that overlapped the plot. The per-pass move is
+  now shown by an uncluttered curved arrow in the top margin, outside the plot
+  circle, with a label stating the angle, the on-sheet turn direction
+  (clockwise / counter-clockwise), and that the node moves west — e.g.
+  “rotate sheet 23.6° counter-clockwise (node moves west) each pass”. The
+  on-screen sense is computed correctly for both the northern and the
+  (longitude-mirrored) southern sheets.
+
+## [0.11.0]
+
+### Added
+- **Southern-hemisphere OSCARLATOR support.** A new South-pole-centred polar base
+  map (mirrored longitude so it reads correctly from the southern side) for
+  stations below the equator, with Southern-hemisphere coastlines. The Track
+  screen’s polar option now auto-selects north or south from your station
+  latitude (“polar-auto”).
+- **Descending-node equator crossings.** New `Predictor.descending_nodes()`;
+  the Orbital Analysis “Equ. Crossings” chart and “Crossings List” table now
+  show *descending*-node EQX events for southern stations and *ascending*-node
+  for northern stations (auto-selected), since southern OSCARLATOR sheets key off
+  the descending node.
+- **Overheads closer to the classic PE1RAH design:** the orbit overhead now draws
+  a “NEXT EQX” direction marker at the node, and the footprint overlay gains an
+  azimuth compass rose (cardinals + 30° bearing labels) over the distance rings.
+
+## [0.10.2]
+
+### Added
+- **Polar base-map option for the OSCARLOCATOR export.** In addition to the
+  QTH-centred azimuthal map, you can now generate a generic **North-pole-centred
+  polar great-circle map** in the classic PE1RAH OSCARLATOR style — latitude
+  rings, longitude spokes, and the satellite drawn as an “overhead” orbit trace.
+  Because it is pole-centred, the same sheet works for any station via the
+  equator-crossing (EQX) list. The Track screen now asks which style to produce.
+  The QTH-centred map remains the default, so existing behaviour is unchanged
+  (the polar map is purely additive / revertable).
+
 ## [0.10.1]
 
 ### Changed

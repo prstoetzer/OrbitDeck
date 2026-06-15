@@ -23,6 +23,8 @@ class MutualScreen(Screen):
                             command=self._reload).pack(side="left")
         ttk.Button(bar, text="Compute", command=self._reload).pack(side="left",
                                                                     padx=10)
+        ttk.Button(bar, text="Print mutual\u2026",
+                   command=self._print_report).pack(side="left")
         cols = ("start", "end", "dur", "myel", "dxel")
         heads = ("Start (UTC)", "End", "Duration", "My max el", "DX max el")
         self.tree = ttk.Treeview(self.frame, columns=cols, show="headings",
@@ -75,3 +77,33 @@ class MutualScreen(Screen):
                 "%.0f\u00b0" % w.dx_max_el))
         self.info.set("%s: %d mutual windows over 10 days with DX at %.2f,%.2f."
                       % (s.name, len(wins), ll[0], ll[1]))
+
+    def _print_report(self):
+        s = self.sat()
+        if not s:
+            self.info.set("No satellite selected.")
+            return
+        ll = self._parse_dx()
+        if not ll:
+            self.info.set("Could not parse DX location. Use a grid (IO91) or "
+                          "lat,lon.")
+            return
+        from tkinter import filedialog, messagebox
+        from ..reports import generate_mutual_passes_report
+        dx = Observer(lat=ll[0], lon=ll[1], alt_m=0, valid=True)
+        default = "mutual_%s.pdf" % s.name.replace("/", "-").replace(" ", "_")
+        path = filedialog.asksaveasfilename(
+            title="Save mutual-windows report", defaultextension=".pdf",
+            initialfile=default, filetypes=[("PDF", "*.pdf")])
+        if not path:
+            return
+        try:
+            generate_mutual_passes_report(path, self.store, s, dx,
+                                          days=10,
+                                          min_el=float(self.minel.get()))
+        except Exception as e:
+            messagebox.showerror("Report", "Could not generate report:\n%s" % e)
+            return
+        self.app.set_status("Saved mutual-windows report: %s" % path)
+        messagebox.showinfo("Report", "Saved a mutual-windows report for %s "
+                            "with the DX station." % s.name)

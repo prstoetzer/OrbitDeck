@@ -10,6 +10,7 @@ http_get() so the fix lives in one place.
 """
 
 import ssl
+import urllib.error
 import urllib.request
 
 USER_AGENT = "OrbitDeck/1.0"
@@ -40,8 +41,35 @@ def _context():
 
 def http_get(url, timeout=20):
     """Fetch a URL and return its decoded text body. Verifies TLS using the
-    certifi CA bundle when available."""
+    certifi CA bundle when available.
+
+    Raises a clear, actionable error on the HTTP statuses CelesTrak documents
+    (https://celestrak.org/NORAD/documentation/gp-data-formats.php):
+      * 403 - rate-limited / firewalled. CelesTrak blocks IPs that fetch more
+              often than the data updates (every ~2 hours). The caller should
+              NOT retry automatically; wait and reuse cached data.
+      * 404 - the query is wrong (e.g. an unknown GROUP); retrying won't help.
+      * 301 - moved (e.g. using the .com domain). OrbitDeck uses the .org
+              domain, so this shouldn't occur, but is reported if it does.
+    """
     req = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
     ctx = _context()
-    with urllib.request.urlopen(req, timeout=timeout, context=ctx) as r:
-        return r.read().decode("utf-8", "replace")
+    try:
+        with urllib.request.urlopen(req, timeout=timeout, context=ctx) as r:
+            return r.read().decode("utf-8", "replace")
+    except urllib.error.HTTPError as e:
+        code = e.code
+        if code == 403:
+            raise RuntimeError(
+                "Server returned HTTP 403 (rate-limited or blocked). CelesTrak "
+                "blocks repeated downloads; data updates only every ~2 hours, "
+                "so wait a while and reuse cached data rather than retrying.")
+        if code == 404:
+            raise RuntimeError(
+                "Server returned HTTP 404 (not found). Check the group name or "
+                "URL \u2014 retrying the same request will not help.")
+        if code in (301, 302, 307, 308):
+            raise RuntimeError(
+                "Server returned HTTP %d (redirect). Use the canonical URL "
+                "(CelesTrak's .org domain)." % code)
+        raise RuntimeError("Server returned HTTP %d." % code)

@@ -87,6 +87,10 @@ class HomeScreen(Screen):
         self.pass_info = tk.StringVar(value="")
         ttk.Label(self.pass_wrap, textvariable=self.pass_info,
                   style="Muted.TLabel").pack(anchor="w", padx=16, pady=(0, 8))
+        ttk.Button(self.pass_wrap, text="Print 7-day schedule (all favorites)\u2026",
+                   command=self._print_favorites_report).pack(anchor="w",
+                                                              padx=16,
+                                                              pady=(0, 8))
 
         # per-favorite predictors and cached next-pass list
         self._preds = {}            # norad -> Predictor
@@ -372,3 +376,26 @@ class HomeScreen(Screen):
             # promote to overhead styling if it just came into view
             self.tree.item(item, tags=("now",) if np_.aos <= t <= np_.los
                            else ())
+
+    def _print_favorites_report(self):
+        from tkinter import filedialog, messagebox
+        from ..reports import generate_favorites_passes_report
+        if not self.store.favorites:
+            messagebox.showinfo("Favorites report", "No favorite satellites "
+                                "yet. Mark some with the star on the Satellites "
+                                "screen.")
+            return
+        path = filedialog.asksaveasfilename(
+            title="Save favorites pass schedule", defaultextension=".pdf",
+            initialfile="favorites_passes_7day.pdf",
+            filetypes=[("PDF", "*.pdf")])
+        if not path:
+            return
+        try:
+            generate_favorites_passes_report(path, self.store, days=7)
+        except Exception as e:
+            messagebox.showerror("Report", "Could not generate report:\n%s" % e)
+            return
+        self.app.set_status("Saved favorites pass schedule: %s" % path)
+        messagebox.showinfo("Report", "Saved a 7-day pass schedule for all "
+                            "favorite satellites.")

@@ -27,6 +27,8 @@ class IllumScreen(Screen):
                    command=lambda: self._scroll(7)).pack(side="left", padx=2)
         ttk.Button(bar, text="\u23ce today", command=self._reset).pack(
             side="left", padx=8)
+        ttk.Button(bar, text="Print 60-day\u2026",
+                   command=self._print_report).pack(side="left", padx=4)
         self.range_var = tk.StringVar(value="")
         ttk.Label(bar, textvariable=self.range_var, style="TLabel").pack(
             side="left", padx=12)
@@ -90,3 +92,25 @@ class IllumScreen(Screen):
         self.range_var.set("%s  \u2192  %s" % (
             fmt_utc(t0, "%Y-%m-%d"),
             fmt_utc(t0 + WINDOW_DAYS * 86400, "%Y-%m-%d")))
+
+    def _print_report(self):
+        s = self.sat()
+        if not s:
+            return
+        from tkinter import filedialog, messagebox
+        from ..reports import generate_illumination_report
+        default = "illumination_%s.pdf" % s.name.replace("/", "-").replace(
+            " ", "_")
+        path = filedialog.asksaveasfilename(
+            title="Save illumination report", defaultextension=".pdf",
+            initialfile=default, filetypes=[("PDF", "*.pdf")])
+        if not path:
+            return
+        try:
+            generate_illumination_report(path, self.store, s, days=60)
+        except Exception as e:
+            messagebox.showerror("Report", "Could not generate report:\n%s" % e)
+            return
+        self.app.set_status("Saved illumination report: %s" % path)
+        messagebox.showinfo("Report", "Saved a 60-day illumination report for "
+                            "%s." % s.name)

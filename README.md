@@ -67,7 +67,7 @@ dependencies installed automatically by the commands above. The `accurate`,
 | Screen | What it shows |
 |---|---|
 | **Home** *(default)* | World map of all **favorited** satellites with their footprints, the day/night terminator and your station; click one to focus it with its ground track. A second tab lists the **next pass of every favorite with a live countdown**. |
-| **Track** | Live azimuth/elevation, slant range, range-rate, sub-point, altitude, transponder selector (with details: FM/linear/beacon/data, passband, baud) and Doppler-corrected RX/TX using the passband **center** for linear transponders, sunlit/eclipse, next AOS/LOS, and a live sky polar plot. You can also **add a manual transponder** and **export a printable OSCARLOCATOR PDF** (an azimuthal-equidistant base map with a lat/lon graticule and full-resolution coastlines; a footprint transparency with 1000 km distance rings and 15° radials; and a classic rotatable any-orbit path-arc transparency with 1-minute tick marks, 10-minute majors, and a per-pass advance diagram) for the selected satellite here. |
+| **Track** | Live azimuth/elevation, slant range, range-rate, sub-point, altitude, transponder selector (with details: FM/linear/beacon/data, passband, baud) and Doppler-corrected RX/TX using the passband **center** for linear transponders, sunlit/eclipse, next AOS/LOS, and a live sky polar plot. You can also **add a manual transponder** and **export a printable OSCARLOCATOR PDF** (an azimuthal-equidistant base map with a lat/lon graticule and full-resolution coastlines; a footprint transparency with 1000 km distance rings and 15° radials; and a classic rotatable any-orbit path-arc transparency with 1-minute tick marks, 10-minute majors, and a per-pass advance diagram) for the selected satellite here. You can choose a **QTH-centred** map (personalised) or a generic **North-pole polar map** in the classic PE1RAH OSCARLATOR style (auto-selecting a North- or South-pole map from your latitude) that anyone can use with the equator-crossing list. Southern stations get descending-node crossings. An optional mode draws the footprint directly on the base map at your QTH (2-page set). |
 | **Next Passes** | Pass table for the next 7 days with selectable minimum elevation; double-click a pass for its detail. |
 | **Pass Detail** | Polar sky-track plus an elevation-vs-time profile for a chosen pass. |
 | **Ground Track** | Forward ground track over 1–8 upcoming orbits. |
@@ -80,6 +80,18 @@ dependencies installed automatically by the commands above. The `accurate`,
 | **Multi-Day Pass Progression** | One satellite's passes across 10+ days as a scrollable stack of 24-hour timelines — each pass placed at its time of day, width = duration, shaded by max elevation. |
 | **Satellites** | The catalog: filter, select, favorite (★), fetch transponders, and **add manually-entered satellites** (by GP mean elements) that persist across refreshes. |
 | **Settings** | Set your observer site by lat/lon/altitude or Maidenhead grid, and choose the **GP element source** (AMSAT, a CelesTrak category, or a custom OMM-JSON URL). |
+
+Every satellite-specific screen has a **Report…** button that saves a clean,
+printable PDF for the selected satellite — orbital analysis, the next passes from
+your station, and the equator-crossing schedule. Additional one-click reports
+print a **7-day pass schedule for all favorites** (Home), **mutual windows**
+with a DX station (Mutual Windows), a **60-day illumination** summary
+(Illumination), a **30-day pass progression** (Multi-Day Pass Progression), and
+a **3-day grid of polar sky tracks** (Next Passes). The comprehensive per-
+satellite report also embeds the sky tracks, illumination raster and pass
+progression alongside its analysis, passes and EQX sections.
+The **minimum elevation** used for every pass table and report is configurable
+in Settings.
 
 <p align="center">
   <img src="docs/img/sunmoon.png" width="42%" alt="Sun and Moon sky dome">

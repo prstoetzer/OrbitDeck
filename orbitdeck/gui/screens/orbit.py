@@ -490,14 +490,25 @@ class OrbitScreen(Screen):
         k.end()
 
     # ================= graphical pages =================
+    def _eqx_nodes(self, t, days=7):
+        """Return (node_list, kind_label). Southern-hemisphere stations track the
+        descending node (southbound equator crossing); northern stations the
+        ascending node. Picked from the observer latitude."""
+        south = self.store.obs.lat < 0
+        if south:
+            return (self.pred().descending_nodes(t, t + days * 86400),
+                    "descending")
+        return (self.pred().ascending_nodes(t, t + days * 86400), "ascending")
+
     def _crossings(self, s, t):
-        """OSCARLocator-style equator-crossing schedule: ascending-node times and
-        longitudes for the next 7 days, as a chart plus a printable list."""
+        """OSCARLocator-style equator-crossing schedule: node times and
+        longitudes for the next 7 days, as a chart. Uses ascending nodes for
+        northern stations and descending nodes for southern stations."""
         self._show_plot(polar=False)
         ax = self.mpl.ax
         ax.clear()
         self.mpl._style_axes()
-        nodes = self.pred().ascending_nodes(t, t + 7 * 86400)
+        nodes, kind = self._eqx_nodes(t)
         if not nodes:
             ax.set_title("No equator crossings found (no satellite / elements).",
                          color=COL_MUTED, fontsize=10)
@@ -517,10 +528,10 @@ class OrbitScreen(Screen):
         ax.set_xlim(-180, 180)
         ax.set_ylim(7, 0)                       # 0 (now) at the top
         ax.set_xticks([-180, -120, -60, 0, 60, 120, 180])
-        ax.set_xlabel("Ascending-node longitude (\u00b0E)")
+        ax.set_xlabel("%s-node longitude (\u00b0E)" % kind.capitalize())
         ax.set_ylabel("Days from now")
-        ax.set_title("%s \u2014 equator crossings (ascending), next 7 days  "
-                     "[%d nodes]" % (s.name, len(nodes)),
+        ax.set_title("%s \u2014 equator crossings (%s), next 7 days  "
+                     "[%d nodes]" % (s.name, kind, len(nodes)),
                      color=COL_TEXT, fontsize=10)
         # label the next few crossings with their UTC time so they can be read
         # straight off the chart for an OSCARLocator setup
@@ -531,13 +542,15 @@ class OrbitScreen(Screen):
         self.mpl.draw()
 
     def _crossings_list(self, s, t):
-        """A plain table of ascending equator-crossing date, time (UTC), and
-        longitude for the next 7 days -- the figures to read off or log for an
-        OSCARLocator setup."""
+        """A plain table of equator-crossing date, time (UTC), and longitude for
+        the next 7 days -- the figures to read off for an OSCARLOCATOR setup.
+        Ascending nodes for northern stations, descending for southern."""
         self._show_table()
         for i in self.xtable.get_children():
             self.xtable.delete(i)
-        nodes = self.pred().ascending_nodes(t, t + 7 * 86400)
+        nodes, kind = self._eqx_nodes(t)
+        # reflect the node type in the heading
+        self.xtable.heading("lon", text="Longitude (%s node)" % kind)
         for n, (tc, lon) in enumerate(nodes, start=1):
             hemi = "E" if lon >= 0 else "W"
             self.xtable.insert("", "end", values=(

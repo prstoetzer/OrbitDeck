@@ -40,6 +40,8 @@ class TenDayScreen(Screen):
             side="left", padx=10)
         ttk.Button(bar, text="load 7 more days \u25bc",
                    command=self._load_more).pack(side="left", padx=2)
+        ttk.Button(bar, text="Print 30-day\u2026",
+                   command=self._print_report).pack(side="left", padx=4)
         self.info = tk.StringVar(value="")
         ttk.Label(self.frame, textvariable=self.info, style="Muted.TLabel").pack(
             anchor="w", padx=16)
@@ -185,3 +187,25 @@ class TenDayScreen(Screen):
                 compass(p.az_aos), compass(p.az_los))
             c.tag_bind(tag, "<Enter>",
                        lambda e, txt=tip: self.app.set_status(txt))
+
+    def _print_report(self):
+        s = self.sat()
+        if not s:
+            return
+        from tkinter import filedialog, messagebox
+        from ..reports import generate_progression_report
+        default = "progression_%s.pdf" % s.name.replace("/", "-").replace(
+            " ", "_")
+        path = filedialog.asksaveasfilename(
+            title="Save pass-progression report", defaultextension=".pdf",
+            initialfile=default, filetypes=[("PDF", "*.pdf")])
+        if not path:
+            return
+        try:
+            generate_progression_report(path, self.store, s, days=30)
+        except Exception as e:
+            messagebox.showerror("Report", "Could not generate report:\n%s" % e)
+            return
+        self.app.set_status("Saved pass-progression report: %s" % path)
+        messagebox.showinfo("Report", "Saved a 30-day pass-progression report "
+                            "for %s." % s.name)

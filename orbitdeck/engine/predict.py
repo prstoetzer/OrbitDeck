@@ -343,17 +343,26 @@ class Predictor:
         return _teme_to_ecef_lla(r, jd_of(unix))
 
     def ascending_nodes(self, frm: float, to: float, max_n: int = 200):
-        """Find ascending equator crossings (sub-latitude going - to +) between
-        the unix times `frm` and `to`. Returns a list of (unix_time, longitude)
-        tuples, suitable for plotting an OSCARLocator-style equator-crossing
-        schedule. Longitude is the geographic sub-longitude at the crossing.
+        """Ascending equator crossings (sub-latitude going - to +). See
+        _equator_crossings."""
+        return self._equator_crossings(frm, to, ascending=True, max_n=max_n)
 
-        The scan steps coarsely (a fraction of the orbital period) to bracket
-        each sign change in sub-latitude, then refines the crossing time by
-        bisection. Descending crossings (going + to -) are ignored."""
+    def descending_nodes(self, frm: float, to: float, max_n: int = 200):
+        """Descending equator crossings (sub-latitude going + to -). These are
+        the relevant EQX events for southern-hemisphere OSCARLATOR sheets."""
+        return self._equator_crossings(frm, to, ascending=False, max_n=max_n)
+
+    def _equator_crossings(self, frm: float, to: float, ascending: bool = True,
+                           max_n: int = 200):
+        """Find equator crossings between unix times `frm` and `to`. Returns a
+        list of (unix_time, longitude) tuples. With ``ascending`` True the sub-
+        latitude crosses - to + (northbound node); with False it crosses + to -
+        (southbound node). Longitude is the geographic sub-longitude.
+
+        Coarse scan (a fraction of the period) brackets each sign change, then
+        bisection refines the time to half-second precision."""
         if not self._have:
             return []
-        # step at ~1/12 of the period so we never skip a crossing
         period_s = 0.0
         try:
             period_s = (2.0 * math.pi / self._sat.no_kozai) * 60.0
@@ -370,9 +379,9 @@ class Predictor:
         t += step
         while t <= to and len(out) < max_n:
             lat = self.subpoint_at(t)[0]
-            # ascending crossing: previous below equator, now at/above
-            if prev_lat < 0.0 <= lat:
-                # bisect between prev_t and t for the zero crossing
+            crossing = (prev_lat < 0.0 <= lat) if ascending \
+                else (prev_lat >= 0.0 > lat)
+            if crossing:
                 a, b = prev_t, t
                 la = prev_lat
                 for _ in range(40):
@@ -382,7 +391,7 @@ class Predictor:
                         a, la = m, lm
                     else:
                         b = m
-                    if abs(b - a) < 0.5:        # half-second precision
+                    if abs(b - a) < 0.5:
                         break
                 tc = 0.5 * (a + b)
                 lon = self.subpoint_at(tc)[1]

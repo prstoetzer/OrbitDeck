@@ -43,6 +43,41 @@ class LocationScreen(Screen):
             anchor="w", padx=16, pady=6)
 
         self._build_gp_source()
+        self._build_pass_prefs()
+
+    def _build_pass_prefs(self):
+        self.header("Pass prediction")
+        panel = ttk.Frame(self.frame, style="Panel.TFrame")
+        panel.pack(fill="x", padx=16, pady=10)
+        r = ttk.Frame(panel, style="Panel.TFrame")
+        r.pack(fill="x", padx=14, pady=6)
+        ttk.Label(r, text="Min. elevation (\u00b0)", style="Muted.TLabel",
+                  width=18, anchor="w").pack(side="left")
+        self.minel_var = tk.StringVar(value="%g" % self.store.min_el)
+        ttk.Entry(r, textvariable=self.minel_var, width=8).pack(side="left")
+        ttk.Label(r, text="passes below this elevation are hidden everywhere "
+                          "(screens and reports)",
+                  style="Muted.TLabel").pack(side="left", padx=10)
+        ttk.Button(panel, text="Apply min. elevation",
+                   command=self._apply_minel).pack(side="left", padx=14,
+                                                   pady=(2, 10))
+        self.minel_info = tk.StringVar(value="")
+        ttk.Label(self.frame, textvariable=self.minel_info,
+                  style="Muted.TLabel").pack(anchor="w", padx=16, pady=(0, 6))
+
+    def _apply_minel(self):
+        try:
+            v = float(self.minel_var.get())
+        except (TypeError, ValueError):
+            self.minel_info.set("Enter a number between 0 and 89.")
+            return
+        if not (0 <= v <= 89):
+            self.minel_info.set("Minimum elevation must be between 0 and 89\u00b0.")
+            return
+        self.store.min_el = v
+        self.store.save_config()
+        self.minel_info.set("Minimum elevation set to %g\u00b0. Applied to pass "
+                            "tables and reports." % v)
 
     def _build_gp_source(self):
         from ..store import CELESTRAK_GROUPS
