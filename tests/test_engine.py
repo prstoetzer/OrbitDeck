@@ -1128,9 +1128,10 @@ def test_oscarlocator_southern_projection():
     # South Pole maps to centre
     rho0, _ = p.project(-90.0, 12.0)
     assert abs(rho0) < 1e-9
-    # longitude is mirrored
+    # bearing is now plain longitude (handedness handled by the axes
+    # orientation, not by negating the longitude in the projection)
     _r, br = p.project(-45.0, 30.0)
-    assert abs(br - ((-30.0) % 360.0)) < 1e-9
+    assert abs(br - (30.0 % 360.0)) < 1e-9
     assert p.is_south and p.is_polar
 
     st = Store()
@@ -1432,3 +1433,108 @@ def test_http_get_reports_403_and_404_clearly():
         assert "404" in raised
     finally:
         net.urllib.request.urlopen = saved
+
+
+def test_canonical_track_node_start():
+    """The path-arc track starts at minute 0 on the equator (sheet-lon 0) for
+    both the ascending-node (north) and descending-node (south) references."""
+    from orbitdeck.gui.oscarlocator import _canonical_track
+    from orbitdeck.engine.satdb import SatEntry
+
+    class S:
+        incl = 51.6
+        period_min = 92.9
+        mean_motion = 15.5
+        ecc = 0.0004
+    asc = _canonical_track(S(), descending=False)
+    desc = _canonical_track(S(), descending=True)
+    # first point: minute 0, on the equator (lat ~ 0), sheet-lon ~ 0
+    for track in (asc, desc):
+        lon0, lat0, m0 = track[0]
+        assert abs(m0) < 1e-6
+        assert abs(lat0) < 1e-6
+        assert abs(((lon0 + 180) % 360) - 180) < 1e-6
+    # ascending node climbs north first; descending node dips south first
+    assert asc[5][1] > 0          # latitude increasing just after the node
+    assert desc[5][1] < 0
+
+
+def test_qth_map_radius_capped():
+    """The QTH azimuthal map is capped well short of a full hemisphere so it
+    doesn't over-show the opposite hemisphere (rmax in the 50-80 deg window)."""
+    import os
+    import tempfile
+    from orbitdeck.gui.store import Store
+    from orbitdeck.gui import oscarlocator as OL
+    from orbitdeck.engine.predict import Observer
+    # capture the rmax chosen for a mid-latitude QTH by intercepting the base
+    # map call
+    captured = {}
+    orig = OL._base_map_page
+
+    def spy(pdf, proj, qth_name, segments, rmax):
+        captured["rmax"] = rmax
+        return orig(pdf, proj, qth_name, segments, rmax)
+    OL._base_map_page = spy
+    try:
+        st = Store()
+        st.obs = Observer(lat=39.9, lon=-75.0, alt_m=20, valid=True)
+        s = st.db.sats[0]
+        out = os.path.join(tempfile.mkdtemp(), "qth.pdf")
+        OL.generate_oscarlocator_pdf(out, st, s, projection="qth")
+    finally:
+        OL._base_map_page = orig
+    assert 50.0 <= captured.get("rmax", 0) <= 80.0
+
+
+def test_oscarsim_screen_geometry():
+    """The OSCARLOCATOR simulator's projection helpers produce sane geometry:
+    the canonical track starts on the equator at minute 0, the footprint radius
+    grows with altitude, and the great-circle helper is symmetric."""
+    from orbitdeck.gui.screens.oscarsim import OscarSimScreen
+
+    # canonical track (ascending) starts at lat 0, minute 0
+    class S:
+        incl = 51.6
+        period_min = 92.9
+    sim = OscarSimScreen.__new__(OscarSimScreen)
+    track = sim._canonical_track(S(), descending=False)
+    lon0, lat0, m0 = track[0]
+    assert abs(lat0) < 1e-6 and abs(m0) < 1e-6
+    # descending start dips south just after the node
+    td = sim._canonical_track(S(), descending=True)
+    assert td[3][1] < 0
+
+    # footprint radius increases with altitude and is in (0, 90)
+    f_low = OscarSimScreen._footprint_deg(500)
+    f_high = OscarSimScreen._footprint_deg(20000)
+    assert 0 < f_low < f_high < 90
+
+    # great-circle distance is ~zero for identical points (float tolerance)
+    d0, _ = OscarSimScreen._gc(40, -75, 40, -75)
+    assert abs(d0) < 0.05
+    d1, _ = OscarSimScreen._gc(0, 0, 0, 90)
+    assert abs(d1 - 90.0) < 1e-6
+
+
+def test_oscarsim_track_point_on_arc():
+    """The simulator's _track_point (used to slide the marker along the arc in
+    manual mode) lands on the equator at minute 0 and matches the canonical
+    track it is drawn from."""
+    from orbitdeck.gui.screens.oscarsim import OscarSimScreen
+
+    class S:
+        incl = 51.6
+        period_min = 92.9
+    sim = OscarSimScreen.__new__(OscarSimScreen)
+    # at minute 0 the sub-point is on the equator at the EQX longitude
+    lat0, lon0 = sim._track_point(S(), 40.0, 0.0, is_south=False)
+    assert abs(lat0) < 1e-6
+    assert abs(((lon0 - 40.0 + 180) % 360) - 180) < 1e-6
+    # a few minutes in, the latitude has climbed (ascending) and matches the
+    # canonical track sampled at the same minute
+    track = sim._canonical_track(S(), descending=False)
+    # find the canonical point nearest 10 minutes
+    pt = min(track, key=lambda p: abs(p[2] - 10.0))
+    lat_t, lon_t = sim._track_point(S(), 0.0, pt[2], is_south=False)
+    assert abs(lat_t - pt[1]) < 0.5

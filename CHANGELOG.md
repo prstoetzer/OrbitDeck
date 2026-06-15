@@ -4,6 +4,61 @@ All notable changes to OrbitDeck are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/), and the project aims to follow
 semantic versioning.
 
+## [0.16.1]
+
+### Changed
+- **OSCARLOCATOR simulator fixes.**
+  * The footprint circle is now always centred on the QTH (the OSCARLOCATOR range
+    reticle is a fixed station-centred overlay), instead of following the
+    satellite sub-point.
+  * In manual / next-pass mode the “minutes after EQX” slider now moves the
+    satellite marker along the drawn pass-arc line; in live mode the marker
+    follows the true current sub-point.
+  * Coastlines use cartopy / Natural Earth geometry when cartopy is installed
+    (much higher resolution), falling back to the bundled outline otherwise.
+- **Printable OSCARLOCATOR path-arc ticks** are now consistent straight marks
+  drawn perpendicular across the track, with the minute numbers offset clear of
+  the arc so they no longer change shape or collide with the labels.
+
+## [0.16.0]
+
+### Added
+- **Interactive OSCARLOCATOR simulator** (new “OSCARLOCATOR Sim” screen). Play
+  with a virtual OSCARLOCATOR on-screen without printing transparencies: a polar
+  (auto N/S, or forced N/S) or QTH-centred azimuthal-equidistant base map with a
+  rotatable orbit path-arc overlay, minute ticks, the satellite’s position
+  marker and its footprint. Drive it live (current position), manually (EQX-
+  longitude and minutes-after-EQX sliders), or seed it to the next pass from your
+  station. A button exports the matching printable OSCARLOCATOR PDF. Projection
+  conventions match the printed sheet exactly.
+
+### Fixed
+- The path-arc overlay’s “EQX (0 min) — line up on map” label no longer covers
+  any part of the pass arc: it is placed on the side opposite the track (left for
+  the northern sheet, right for the southern sheet).
+
+## [0.15.0]
+
+### Fixed
+- **Polar base maps are no longer mirrored.** The north-polar map now uses the
+  conventional ARRL OSCAR Locator orientation (0° longitude at the bottom, 90°E
+  on the right, east increasing counter-clockwise); the south-polar map is the
+  correct mirror (90°E on the left). Previously the continents were left-right
+  reversed. The handedness is now set by the axes orientation, so the path-arc
+  overlay registers correctly on both hemispheres.
+- **QTH map no longer over-shows the opposite hemisphere.** Its azimuthal-
+  equidistant radius is capped (~|lat|+25°, clamped 50–80°) instead of a full
+  90° hemisphere, so the equator / EQX longitude line is placeable without the
+  distorted far-side wrap around the rim.
+
+### Changed
+- **Path-arc overlay improvements.** Minute marks are now bold radial tick dashes
+  (larger every 10 min) for easy reading. A prominent “EQX (0 min) — line up on
+  map” arrow marks the equator-crossing radial so it’s clear where to align the
+  overlay on the base map. The track is referenced to the ascending node for
+  northern sheets and the descending node for southern sheets, with minute 0 on
+  the equator in both cases.
+
 ## [0.14.3]
 
 ### Changed

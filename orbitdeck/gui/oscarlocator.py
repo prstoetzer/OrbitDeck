@@ -101,14 +101,14 @@ class _Projection:
         self.qlon = qlon
 
     def project(self, lat, lon):
+        # For the polar maps the bearing returned here is simply the longitude;
+        # the conventional (un-mirrored) handedness is set by the axes
+        # orientation in _polar_axes (north: east CCW, south: east CW), so both
+        # hemispheres use the same plain-longitude bearing.
         if self.mode == "polar":
-            # North-pole-centred: distance from pole = 90 - lat, bearing = lon
-            return 90.0 - lat, (lon + 360.0) % 360.0
+            return 90.0 - lat, (lon + 360.0) % 360.0       # colat from N pole
         if self.mode == "polar-south":
-            # South-pole-centred: distance from S pole = 90 + lat. Mirror the
-            # longitude so the map is not left-right reversed when laid out with
-            # the same N-up/clockwise polar axes as the northern sheet.
-            return 90.0 + lat, (-lon + 360.0) % 360.0
+            return 90.0 + lat, (lon + 360.0) % 360.0       # colat from S pole
         return _central_angle_bearing(self.qlat, self.qlon, lat, lon)
 
     @property
@@ -120,14 +120,32 @@ class _Projection:
         return self.mode == "polar-south"
 
 
-def _polar_axes(fig, title, subtitle, rmax=MAP_RADIUS_DEG, show_rim=True):
+def _polar_axes(fig, title, subtitle, rmax=MAP_RADIUS_DEG, show_rim=True,
+                proj=None):
     w = PLOT_DIAMETER_IN / PAGE_W_IN
     h = PLOT_DIAMETER_IN / PAGE_H_IN
     left = (1 - w) / 2
     bottom = (1 - h) / 2 - 0.02
     ax = fig.add_axes([left, bottom, w, h], projection="polar")
-    ax.set_theta_zero_location("N")
-    ax.set_theta_direction(-1)
+    # Orientation depends on the sheet type:
+    #  * QTH azimuth map: bearing is a compass azimuth -- N at top, increasing
+    #    CLOCKWISE (N->E->S->W), the natural antenna-pointing layout.
+    #  * North polar map (atlas-standard view, looking down at the N pole):
+    #    0 deg longitude points DOWN, longitude increases EASTWARD going
+    #    COUNTER-CLOCKWISE. This is the conventional ARRL OSCAR Locator layout;
+    #    drawing it any other way mirrors (left-right flips) the continents.
+    #  * South polar map (looking down THROUGH the earth at the S pole): 0 deg
+    #    longitude points DOWN, longitude increases EASTWARD going CLOCKWISE.
+    if proj is not None and proj.is_polar:
+        if proj.is_south:
+            ax.set_theta_zero_location("S")
+            ax.set_theta_direction(-1)        # east clockwise (southern view)
+        else:
+            ax.set_theta_zero_location("S")
+            ax.set_theta_direction(1)         # east counter-clockwise (north)
+    else:
+        ax.set_theta_zero_location("N")
+        ax.set_theta_direction(-1)            # compass azimuth, clockwise
     ax.set_rlim(0, rmax)
     ax.set_rticks([])
     ax.set_xticks([])
@@ -217,14 +235,14 @@ def _draw_graticule(ax, proj, rmax):
 def _draw_az_grid(ax, proj, rmax):
     if proj.is_polar:
         # polar map: radial spokes are meridians (longitude), rings are
-        # parallels of latitude (colatitude from the pole). For the southern
-        # sheet the bearing is mirrored, so a spoke drawn at screen-angle a
-        # corresponds to longitude -a.
+        # parallels of latitude (colatitude from the pole). A spoke drawn at
+        # theta-value a corresponds to longitude a; the axes set the visual
+        # handedness (north: east CCW, south: east CW), so the label is the same
+        # for both hemispheres.
         for a in range(0, 360, 30):
             ax.plot([math.radians(a), math.radians(a)], [0, rmax],
                     color="#b0b0b0", linewidth=LW_SPOKE, zorder=1)
-            lon = (-a if proj.is_south else a) % 360
-            disp = lon if lon <= 180 else lon - 360
+            disp = a if a <= 180 else a - 360
             hemi = "E" if 0 < disp < 180 else ("W" if disp < 0 else "")
             ax.text(math.radians(a), rmax * 1.05,
                     "%d\u00b0%s" % (abs(disp), hemi),
@@ -279,7 +297,7 @@ def _base_map_page(pdf, proj, qth_name, segments, rmax):
         title = "OSCARLOCATOR \u2014 Base Map"
         sub = "Azimuthal-equidistant map centred on %s  (%.3f, %.3f)" % (
             qth_name, proj.qlat, proj.qlon)
-    ax = _polar_axes(fig, title, sub, rmax=rmax)
+    ax = _polar_axes(fig, title, sub, rmax=rmax, proj=proj)
     _draw_graticule(ax, proj, rmax)
     _draw_coastlines(ax, proj, segments, rmax)
     _draw_az_grid(ax, proj, rmax)
@@ -373,28 +391,42 @@ def _node_shift_deg(sat):
     return earth_turn + node_per_orbit
 
 
-def _canonical_track(sat):
+def _canonical_track(sat, descending=False):
     """One orbit of the satellite's ground track as a station-independent set of
-    (lon_rel, lat, minute) points, starting at an ascending node at lon 0. This
-    is the rotatable OSCARLOCATOR arc: an idealised circular-orbit ground track
-    at the satellite's inclination with Earth rotation removed-then-applied per
-    minute, so it can be pinned at the pole and rotated to any pass."""
+    (lon_rel, lat, minute) points. With ``descending`` False the track starts at
+    the ASCENDING node (equator crossing going north) at lon 0, minute 0 -- the
+    reference for northern-hemisphere sheets. With ``descending`` True it starts
+    at the DESCENDING node (crossing going south), the reference for southern-
+    hemisphere sheets. Either way minute 0 sits on the equator at sheet-lon 0, so
+    the EQX mark on the overlay lines up with the EQX longitude on the map.
+
+    This is an idealised circular-orbit ground track at the satellite's
+    inclination with Earth rotation removed-then-applied per minute, so it can be
+    pinned at the pole and rotated to any pass."""
     incl_deg = sat.incl
     retro = incl_deg > 90.0
     incl = math.radians(incl_deg)
     period_min = sat.period_min if sat.period_min else 95.0
     n = 361
+    # phase offset so minute 0 is at the chosen node: ascending node at u=0,
+    # descending node at u=pi.
+    u0 = math.pi if descending else 0.0
     pts = []
     for i in range(n):
         frac = i / (n - 1)
-        u = 2.0 * math.pi * frac                 # arg of latitude from node
+        u = u0 + 2.0 * math.pi * frac            # arg of latitude from node
         lat = math.degrees(math.asin(math.sin(incl) * math.sin(u)))
         lon = math.degrees(math.atan2(math.cos(incl) * math.sin(u),
                                       math.cos(u)))
         if retro:
             lon = -lon
+        # reference the longitude so the chosen node is at sheet-lon 0
+        lon0 = math.degrees(math.atan2(math.cos(incl) * math.sin(u0),
+                                       math.cos(u0)))
+        if retro:
+            lon0 = -lon0
         earth = -360.0 * (frac * period_min * 60.0) / SIDEREAL_DAY_S
-        pts.append((lon + earth, lat, frac * period_min))
+        pts.append((lon - lon0 + earth, lat, frac * period_min))
     return pts
 
 
@@ -416,27 +448,24 @@ def _arc_page(pdf, pred, sat, proj, rmax):
            "Advance %.1f\u00b0 %s per pass." % (
                sat.incl, sat.period_min, abs(shift),
                "W" if shift < 0 else "E"))
-    ax = _polar_axes(fig, title, sub, rmax=rmax)
+    ax = _polar_axes(fig, title, sub, rmax=rmax, proj=proj)
     for rho in range(30, int(rmax) + 1, 30):
         th = [math.radians(a) for a in range(0, 361, 2)]
         ax.plot(th, [rho] * len(th), color="#cccccc", linewidth=LW_GRID)
 
-    track = _canonical_track(sat)
+    track = _canonical_track(sat, descending=proj.is_south)
     th, rr = [], []
     segs = []
     ticks = []
     prev_br = None
     for lon_rel, lat, minute in track:
-        # place the orbit track on the sheet. For the polar sheets we use the
-        # same pole/colatitude convention as the base-map projection so the
-        # overhead registers; the node sits at sheet-longitude 0 (rotate the
-        # transparency to the EQX longitude in use).
-        if proj.is_south:
-            ca = 90.0 + lat
-            br = (-lon_rel + 360.0) % 360.0
-        else:
-            ca = 90.0 - lat
-            br = (lon_rel + 360.0) % 360.0
+        # place the orbit track on the sheet using the SAME convention as the
+        # base map: colatitude from the relevant pole, bearing = longitude.
+        # The conventional (un-mirrored) handedness is set by the axes, so both
+        # hemispheres use plain longitude here. The node sits at sheet-longitude
+        # 0 (rotate the transparency to the EQX longitude in use).
+        ca = (90.0 + lat) if proj.is_south else (90.0 - lat)
+        br = (lon_rel + 360.0) % 360.0
         if ca > rmax:
             if len(th) > 1:
                 segs.append((th[:], rr[:]))
@@ -455,22 +484,77 @@ def _arc_page(pdf, pred, sat, proj, rmax):
     for sth, srr in segs:
         ax.plot(sth, srr, color="#0033bb", linewidth=LW_TRACK, zorder=4)
 
-    # 1-minute ticks, longer/labelled every 10 minutes
+    # Minute ticks: short straight marks ACROSS the track (perpendicular to the
+    # local track direction) so they read consistently all the way along the
+    # arc. Major ticks (every 10 min) are longer and labelled; the number is
+    # offset to the outside of the curve so it never sits on the line or another
+    # tick. We work in Cartesian (x = rho*sin(theta), y = rho*cos(theta) to match
+    # the N-up/relevant axes) to get a true perpendicular, then convert back.
+    def _xy(theta, rho):
+        return rho * math.sin(theta), rho * math.cos(theta)
+
+    def _rt(x, y):
+        return math.atan2(x, y), math.hypot(x, y)
+
     last_min = None
-    for thb, ca, minute in ticks:
+    minor_len = 1.7          # tick half-length (deg of radius) for minor marks
+    major_len = 3.4          # longer marks every 10 minutes
+    npts = len(ticks)
+    for i, (thb, ca, minute) in enumerate(ticks):
         mm = int(round(minute))
         if mm == last_min:
             continue
-        if abs(minute - mm) <= (sat.period_min / (len(track) - 1)) / 2 + 1e-6:
-            major = (mm % 10 == 0)
-            ax.plot([thb], [ca], marker="o",
-                    markersize=5.0 if major else 2.6,
-                    color="#001f7a" if major else "#2255cc", zorder=5)
-            if major:
-                ax.text(thb, ca - 3, "%d" % mm, fontsize=FS_TICKLABEL,
-                        color="#001f7a", ha="center", va="top",
-                        fontweight="bold", zorder=6)
-            last_min = mm
+        if abs(minute - mm) > (sat.period_min / (len(track) - 1)) / 2 + 1e-6:
+            continue
+        major = (mm % 10 == 0)
+        # local track direction from neighbouring track points
+        j0 = max(i - 1, 0)
+        j1 = min(i + 1, npts - 1)
+        x0, y0 = _xy(ticks[j0][0], ticks[j0][1])
+        x1, y1 = _xy(ticks[j1][0], ticks[j1][1])
+        dx, dy = x1 - x0, y1 - y0
+        dn = math.hypot(dx, dy) or 1.0
+        # unit perpendicular to the track
+        px, py = -dy / dn, dx / dn
+        cx, cy = _xy(thb, ca)
+        hl = major_len if major else minor_len
+        ax_pts_x = [cx - px * hl, cx + px * hl]
+        ax_pts_y = [cy - py * hl, cy + py * hl]
+        seg_t = [_rt(x, y)[0] for x, y in zip(ax_pts_x, ax_pts_y)]
+        seg_r = [_rt(x, y)[1] for x, y in zip(ax_pts_x, ax_pts_y)]
+        ax.plot(seg_t, seg_r, color="#001f7a" if major else "#2255cc",
+                linewidth=3.0 if major else 1.8, zorder=5,
+                solid_capstyle="butt")
+        if major:
+            # place the number just beyond the OUTER end of the tick, pushed a
+            # little further along the perpendicular so it clears the arc
+            lx = cx + px * (hl + 3.2)
+            ly = cy + py * (hl + 3.2)
+            lt, lr = _rt(lx, ly)
+            ax.text(lt, lr, "%d" % mm, fontsize=FS_TICKLABEL + 1,
+                    color="#001f7a", ha="center", va="center",
+                    fontweight="bold", zorder=6)
+        last_min = mm
+
+    # --- EQX alignment marker: minute 0 sits on the equator at sheet-lon 0.
+    # Draw a bold arrowed line from the centre out through that point to the rim
+    # and label it, so the user knows exactly which radial to line up with the
+    # EQX longitude on the base map.
+    node = "descending node" if proj.is_south else "ascending node"
+    eqx_th = 0.0                       # sheet-longitude 0 is the node meridian
+    ax.annotate("", xy=(eqx_th, rmax), xytext=(eqx_th, 0),
+                arrowprops=dict(arrowstyle="-|>", color="#cc0000",
+                                lw=LW_INDICATOR), zorder=7)
+    # Axes are 0deg at the bottom. North map: theta increases CCW, so the
+    # ascending-node track climbs the right/upper side and the clear area is the
+    # LEFT (theta ~250). South map: theta increases CW, so the descending track
+    # climbs the LEFT side and the clear area is the RIGHT (theta ~290).
+    lbl_th = math.radians(290) if proj.is_south else math.radians(250)
+    ax.text(lbl_th, rmax * 0.6, "EQX (0 min)\nline up on map",
+            color="#cc0000", fontsize=FS_BIGLABEL, fontweight="bold",
+            ha="center", va="center", rotation=0, zorder=8,
+            bbox=dict(boxstyle="round,pad=0.2", fc="white", ec="#cc0000",
+                      lw=1.0, alpha=0.9))
 
     ax.plot([0], [0], marker="+", color="black", markersize=14,
             markeredgewidth=2, zorder=6)
@@ -515,15 +599,16 @@ def _arc_page(pdf, pred, sat, proj, rmax):
         note = ("Print on transparency at 100%%. Lay over the polar base map "
                 "with centres aligned and the %s at the EQX longitude, then "
                 "rotate the whole sheet %.1f\u00b0 %s about the centre for each "
-                "successive pass (see the rim arrow). Dots are 1-minute marks; "
-                "larger dots every 10 minutes." % (
+                "successive pass (see the rim arrow). Tick marks count minutes "
+                "after the EQX, with longer labelled marks every 10 minutes." % (
                     node, abs(shift),
                     "westward" if shift < 0 else "eastward"))
     else:
         note = ("Print on transparency at 100%%. Pin the centre cross over the "
                 "station, then rotate the arc %.1f\u00b0 %s about the centre for "
-                "each successive pass (see the rim arrow). Dots are 1-minute "
-                "marks; larger dots every 10 minutes." % (
+                "each successive pass (see the rim arrow). Tick marks count "
+                "minutes after the EQX, with longer labelled marks every 10 "
+                "minutes." % (
                     abs(shift), "westward" if shift < 0 else "eastward"))
     fig.text(0.5, 0.04, note, ha="center", va="bottom", fontsize=FS_NOTE,
              color="#333333", wrap=True)
@@ -567,7 +652,7 @@ def _base_map_with_footprint_page(pdf, proj, obs, qth_name, segments, rmax,
         title = "OSCARLOCATOR \u2014 Map + Footprint at QTH"
         sub = ("Footprint when the satellite is overhead %s (%.3f, %.3f)"
                % (qth_name, obs.lat, obs.lon))
-    ax = _polar_axes(fig, title, sub, rmax=rmax)
+    ax = _polar_axes(fig, title, sub, rmax=rmax, proj=proj)
     _draw_graticule(ax, proj, rmax)
     _draw_coastlines(ax, proj, segments, rmax)
     _draw_az_grid(ax, proj, rmax)
@@ -630,7 +715,12 @@ def generate_oscarlocator_pdf(path, store, sat, when_unix=None,
         rmax = 90.0                       # southern hemisphere: pole to equator
     else:
         proj = _Projection("qth", obs.lat, obs.lon)
-        rmax = MAP_RADIUS_DEG
+        # Cap the QTH map so it doesn't extend far into the opposite hemisphere
+        # (which crowds the equator/EQX line near the rim and distorts heavily).
+        # Reach the equator (|lat| away from the station) plus a 25 deg band so
+        # the EQX longitude line is clearly placeable, but stop well short of the
+        # full 90 deg hemisphere. Clamp to a sensible 50-80 deg window.
+        rmax = max(50.0, min(80.0, abs(obs.lat) + 25.0))
 
     pred = Predictor()
     pred.set_site(obs)

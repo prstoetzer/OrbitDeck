@@ -43,6 +43,7 @@ NAV_ITEMS = [
     ("Pass Progression", "tenday"),
     ("Mutual Windows", "mutual"),
     ("Workable", "grids"),
+    ("OSCARLOCATOR Sim", "oscarsim"),
     ("Sun / Moon", "sunmoon"),
     ("Space Wx", "spacewx"),
     ("Satellites", "satellites"),

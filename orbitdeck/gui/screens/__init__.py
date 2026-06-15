@@ -334,7 +334,7 @@ class KVPanel:
 def make_screen(key, parent, app):
     from . import (home, track, passes, passdetail, groundtrack,
                    orbit, illum, sunmoon, mutual, tenday, satellites, location,
-                   grids, spacewx)
+                   grids, spacewx, oscarsim)
     mapping = {
         "home": home.HomeScreen,
         "track": track.TrackScreen,
@@ -350,6 +350,7 @@ def make_screen(key, parent, app):
         "location": location.LocationScreen,
         "grids": grids.GridsScreen,
         "spacewx": spacewx.SpaceWxScreen,
+        "oscarsim": oscarsim.OscarSimScreen,
     }
     cls = mapping[key]
     return cls(parent, app)

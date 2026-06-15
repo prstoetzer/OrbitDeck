@@ -93,6 +93,10 @@ progression alongside its analysis, passes and EQX sections.
 The **minimum elevation** used for every pass table and report is configurable
 in Settings.
 
+The **OSCARLOCATOR Sim** screen lets you play with a virtual OSCARLOCATOR on-
+screen — rotate the path-arc overlay over the polar or QTH map and watch the
+satellite position and footprint — without printing transparencies.
+
 <p align="center">
   <img src="docs/img/sunmoon.png" width="42%" alt="Sun and Moon sky dome">
   &nbsp;&nbsp;
