@@ -160,8 +160,8 @@ class Screen:
 class MplPanel:
     """A matplotlib Figure embedded in a Tk frame with the dark theme."""
 
-    def __init__(self, parent, figsize=(6, 5), polar=False):
-        self.fig = Figure(figsize=figsize, dpi=100, facecolor=COL_PANEL)
+    def __init__(self, parent, figsize=(6, 5), polar=False, dpi=100):
+        self.fig = Figure(figsize=figsize, dpi=dpi, facecolor=COL_PANEL)
         if polar:
             self.ax = self.fig.add_subplot(111, projection="polar")
         else:

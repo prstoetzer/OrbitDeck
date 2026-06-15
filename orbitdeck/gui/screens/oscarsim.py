@@ -111,7 +111,7 @@ class OscarSimScreen(Screen):
         # --- right: the map
         right = ttk.Frame(body, style="Panel.TFrame")
         right.pack(side="left", fill="both", expand=True)
-        self.map = MplPanel(right, figsize=(6.4, 6.4), polar=True)
+        self.map = MplPanel(right, figsize=(6.4, 6.4), polar=True, dpi=150)
         self.map.pack(fill="both", expand=True, padx=6, pady=6)
 
     # ---- mode handling -----------------------------------------------------
@@ -435,13 +435,28 @@ class OscarSimScreen(Screen):
             prev = theta
         if len(th) > 1:
             ax.plot(th, rr, color=COL_ACCENT, linewidth=2.0, zorder=4)
-        # minute ticks every 10 min
-        for theta, rho, minute in ticks:
-            if abs(minute - round(minute)) < 0.25 and int(round(minute)) % 10 == 0:
-                ax.plot([theta], [rho], marker="o", markersize=4,
-                        color="#9ecbff", zorder=5)
-                ax.text(theta, rho, "  %d" % int(round(minute)), fontsize=7,
-                        color="#9ecbff", zorder=6)
+        # 10-minute labels: draw each one exactly ONCE. The track is sampled
+        # densely, so several consecutive samples fall near the same integer
+        # minute; without de-duping, the same number is drawn on top of itself
+        # slightly offset, which looks blurry. Pick the single sample closest to
+        # each 10-minute mark.
+        if ticks:
+            period = ticks[-1][2]
+            for target in range(0, int(period) + 1, 10):
+                best = min(ticks, key=lambda tk: abs(tk[2] - target))
+                if abs(best[2] - target) > 2.5:
+                    continue
+                theta, rho, _m = best
+                ax.plot([theta], [rho], marker="o", markersize=5,
+                        markerfacecolor="#9ecbff", markeredgecolor=COL_PANEL,
+                        markeredgewidth=0.8, zorder=5)
+                ax.annotate(
+                    "%d" % target, xy=(theta, rho),
+                    xytext=(6, 0), textcoords="offset points",
+                    fontsize=7, color="#cfe6ff", ha="left", va="center",
+                    zorder=6,
+                    bbox=dict(boxstyle="round,pad=0.12", fc=COL_PANEL,
+                              ec="none", alpha=0.7))
 
     def _track_point(self, s, eqx_lon, minute, is_south):
         """Sub-point (lat, lon) ON the drawn pass arc at the given minute after

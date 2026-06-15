@@ -4,6 +4,24 @@ All notable changes to OrbitDeck are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/), and the project aims to follow
 semantic versioning.
 
+## [0.16.8]
+
+### Fixed
+- The minute dots on the OSCARLOCATOR simulator pass arc are drawn once each and
+  now have a crisp edge so they stay defined against the track line. The
+  simulator map also renders at a higher DPI (150), so dots, lines and labels
+  stay sharp when the window is enlarged instead of softening from up-scaling a
+  fixed-size bitmap.
+
+## [0.16.7]
+
+### Fixed
+- The minute-number labels on the OSCARLOCATOR simulator pass arc no longer look
+  blurry. They were being drawn several times on top of themselves (the densely
+  sampled track put multiple points near each 10-minute mark); each label is now
+  drawn exactly once, with a subtle background so it reads clearly over the track
+  and coastlines.
+
 ## [0.16.6]
 
 ### Added
