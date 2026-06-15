@@ -64,38 +64,37 @@ dependencies installed automatically by the commands above. The `accurate`,
 
 ## Features
 
-| Screen | What it shows |
-|---|---|
-| **Home** *(default)* | World map of all **favorited** satellites with their footprints, the day/night terminator and your station; click one to focus it with its ground track. A second tab lists the **next pass of every favorite with a live countdown**. |
-| **Track** | Live azimuth/elevation, slant range, range-rate, sub-point, altitude, transponder selector (with details: FM/linear/beacon/data, passband, baud) and Doppler-corrected RX/TX using the passband **center** for linear transponders, sunlit/eclipse, next AOS/LOS, and a live sky polar plot. You can also **add a manual transponder** and **export a printable OSCARLOCATOR PDF** (an azimuthal-equidistant base map with a lat/lon graticule and full-resolution coastlines; a footprint transparency with 1000 km distance rings and 15° radials; and a classic rotatable any-orbit path-arc transparency with 1-minute tick marks, 10-minute majors, and a per-pass advance diagram) for the selected satellite here. You can choose a **QTH-centred** map (personalised) or a generic **North-pole polar map** in the classic PE1RAH OSCARLATOR style (auto-selecting a North- or South-pole map from your latitude) that anyone can use with the equator-crossing list. Southern stations get descending-node crossings. An optional mode draws the footprint directly on the base map at your QTH (2-page set). |
-| **Next Passes** | Pass table for the next 7 days with selectable minimum elevation; double-click a pass for its detail. |
-| **Pass Detail** | Polar sky-track plus an elevation-vs-time profile for a chosen pass. |
-| **Ground Track** | Forward ground track over 1–8 upcoming orbits. |
-| **Orbital Analysis** | Eleven pages matching (and extending) the source device: **Info** (size/shape, footprint diameter now/apogee/perigee, B\* drag-decay estimate, element age), **Live** (look angles, dual-band Doppler, eclipse depth), **Next Pass** (slant ranges at AOS/TCA/LOS, one-way path delay), **Ground Track**, **Doppler** curve (selectable downlink from the transponder DB; peak shift + max range-rate), **Nodal** (J2 node/perigee drift, sun-sync flag, LTAN, repeat ground-track, longest possible pass), **Sun/Beta** (β now, β\* threshold, eclipse fraction, 60-day plot), **Pass Outlook** (7-day planning summary + best pass), **Orbit Position** (mean/true anomaly, argument of latitude, time to perigee/apogee), **Equ. Crossings** (ascending-node times and longitudes for the next 7 days, charted for an OSCARLocator), and **Crossings List** (the same crossings as a date/time/longitude table). Presented as clean grouped data cards and plots. |
-| **Illumination** | 10/30/60-day sunlit-vs-eclipse raster with mean eclipse fraction. |
-| **Sun / Moon** | Solar and lunar az/el for your site, plus Moon phase and illumination. |
-| **Mutual Windows** | Co-visibility windows between you and a DX station (entered as a grid or lat,lon). |
-| **Workable** | What's inside the footprint — **grids**, **US states**, or **DXCC entities** — live (now) or unioned across the next pass, for grid/state/DX chasing. |
-| **Space Wx** | Solar 10.7 cm flux, planetary Kp, and A index from NOAA SWPC, with plain-language levels and an operating outlook. Cached for offline viewing. |
-| **Multi-Day Pass Progression** | One satellite's passes across 10+ days as a scrollable stack of 24-hour timelines — each pass placed at its time of day, width = duration, shaded by max elevation. |
-| **Satellites** | The catalog: filter, select, favorite (★), fetch transponders, and **add manually-entered satellites** (by GP mean elements) that persist across refreshes. |
-| **Settings** | Set your observer site by lat/lon/altitude or Maidenhead grid, and choose the **GP element source** (AMSAT, a CelesTrak category, or a custom OMM-JSON URL). |
+The table below lists the screens **in the exact order they appear in the
+left-hand navigation menu**.
+
+| # | Screen | What it shows |
+|---|---|---|
+| 1 | **Home** *(default)* | World map of all **favorited** satellites with their footprints, the day/night terminator and your station; click one to focus it with its ground track. A second tab lists the **next pass of every favorite with a live countdown**, and prints a 7-day schedule for all favorites. |
+| 2 | **Track** | Live azimuth/elevation, slant range, range-rate, sub-point, altitude, transponder selector (FM/linear/beacon/data, passband, baud) and Doppler-corrected RX/TX using the passband **center** for linear transponders, sunlit/eclipse, next AOS/LOS, and a live sky polar plot. You can **add a manual transponder** and **export a printable OSCARLOCATOR PDF** for the selected satellite. |
+| 3 | **Next Passes** | Pass table for the next 7 days with selectable minimum elevation; double-click a pass for its detail. Prints a **3-day grid of polar sky tracks**. |
+| 4 | **Pass Detail** | Polar sky-track plus an elevation-vs-time profile for a chosen pass. |
+| 5 | **Ground Track** | Forward ground track over the next 1, 3, 5, or 8 upcoming orbits. |
+| 6 | **Orbital Analysis** | Eleven pages (see the manual): Info, Live, Next Pass, Ground Track, Doppler, Nodal, Sun/Beta, Pass Outlook, Orbit Position, Equ. Crossings, and Crossings List. Clean grouped data cards and plots. |
+| 7 | **Illumination** | Scrollable 30-day sunlit-vs-eclipse raster; prints a 60-day summary with mean eclipse fraction. |
+| 8 | **Pass Progression** | One satellite's passes across 10+ days as a scrollable stack of 24-hour timelines — each pass placed at its time of day, width = duration, shaded by max elevation. |
+| 9 | **Mutual Windows** | Co-visibility windows between you and a DX station (entered as a grid or lat,lon). |
+| 10 | **Workable** | What's inside the footprint — **grids**, **US states**, or **DXCC entities** — live (now) or unioned across the next pass, for grid/state/DX chasing. |
+| 11 | **OSCARLOCATOR Sim** | An interactive on-screen OSCARLOCATOR: rotate the path-arc overlay over a polar or QTH base map and watch the satellite position and QTH footprint move, without printing transparencies. Drive it live, by hand (EQX-longitude and minutes-after-EQX sliders), or seed it to the next pass; a compact next-equator-crossings list is built in. Exports the matching printable PDF. |
+| 12 | **Sun / Moon** | Solar and lunar az/el for your site, plus Moon phase and illumination. |
+| 13 | **Space Wx** | Solar 10.7 cm flux, planetary Kp, and A index from NOAA SWPC, with plain-language levels and an operating outlook. Cached for offline viewing. |
+| 14 | **Satellites** | The catalog: filter, select, favorite (★), fetch transponders, and **add manually-entered satellites** (by GP mean elements) that persist across refreshes. |
+| 15 | **Settings** | Set your observer site by lat/lon/altitude or Maidenhead grid, choose the **GP element source** (AMSAT, a CelesTrak category, or a custom OMM-JSON URL), and set the **minimum elevation** used across pass tables and reports. |
 
 Every satellite-specific screen has a **Report…** button that saves a clean,
-printable PDF for the selected satellite — orbital analysis, the next passes from
-your station, and the equator-crossing schedule. Additional one-click reports
-print a **7-day pass schedule for all favorites** (Home), **mutual windows**
-with a DX station (Mutual Windows), a **60-day illumination** summary
-(Illumination), a **30-day pass progression** (Multi-Day Pass Progression), and
-a **3-day grid of polar sky tracks** (Next Passes). The comprehensive per-
-satellite report also embeds the sky tracks, illumination raster and pass
-progression alongside its analysis, passes and EQX sections.
-The **minimum elevation** used for every pass table and report is configurable
-in Settings.
+printable PDF for the selected satellite — a comprehensive document with orbital
+analysis, next passes, the equator-crossing schedule, a 3-day sky-track grid, the
+60-day illumination raster and the 30-day pass progression. Additional one-click
+reports print a **7-day favorites schedule** (Home), **mutual windows** (Mutual
+Windows), a **60-day illumination** summary (Illumination), a **30-day pass
+progression** (Pass Progression), and a **3-day sky-track grid** (Next Passes).
 
-The **OSCARLOCATOR Sim** screen lets you play with a virtual OSCARLOCATOR on-
-screen — rotate the path-arc overlay over the polar or QTH map and watch the
-satellite position and footprint — without printing transparencies.
+For full, step-by-step documentation of every screen and workflow, see
+**[the OrbitDeck manual](docs/MANUAL.md)**.
 
 <p align="center">
   <img src="docs/img/sunmoon.png" width="42%" alt="Sun and Moon sky dome">

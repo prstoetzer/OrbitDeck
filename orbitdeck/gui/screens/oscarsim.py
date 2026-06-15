@@ -20,7 +20,8 @@ import tkinter as tk
 from tkinter import ttk
 
 from . import (Screen, MplPanel, COL_PANEL, COL_TEXT, COL_MUTED, COL_ACCENT,
-               COL_ACCENT2, COL_WARN, COL_GRID, COL_BG, fmt_utc, now_unix)
+               COL_ACCENT2, COL_WARN, COL_GRID, COL_BG, FONT_MONO, fmt_utc,
+               now_unix)
 from ...data.worldmap_data import COASTLINES
 
 SIDEREAL_DAY_S = 86164.0905
@@ -96,7 +97,16 @@ class OscarSimScreen(Screen):
 
         self._readout = tk.StringVar(value="")
         ttk.Label(ctrl, textvariable=self._readout, style="Muted.TLabel",
-                  justify="left").pack(anchor="w", padx=10, pady=(4, 10))
+                  justify="left").pack(anchor="w", padx=10, pady=(4, 6))
+
+        # --- compact "next EQX" listing so users don't need the EQX page.
+        # Ascending nodes for northern stations, descending for southern.
+        ttk.Separator(ctrl, orient="horizontal").pack(fill="x", pady=6, padx=8)
+        self._eqx_head = tk.StringVar(value="Next equator crossings")
+        ttk.Label(ctrl, textvariable=self._eqx_head, style="TLabel",
+                  font=("DejaVu Sans", 10, "bold")).pack(anchor="w", padx=10)
+        self._eqx_list = ttk.Frame(ctrl, style="Panel.TFrame")
+        self._eqx_list.pack(fill="x", padx=10, pady=(2, 10))
 
         # --- right: the map
         right = ttk.Frame(body, style="Panel.TFrame")
@@ -107,6 +117,7 @@ class OscarSimScreen(Screen):
     # ---- mode handling -----------------------------------------------------
     def on_show(self):
         self._on_mode()
+        self._refresh_eqx_list()
 
     def _on_mode(self):
         mode = self._mode.get()
@@ -143,6 +154,48 @@ class OscarSimScreen(Screen):
             self._eqx_lon.set(lon)
             self._minute.set(0.0)
             self._seed_unix = tc
+
+    def _refresh_eqx_list(self, n=6):
+        """Populate the compact 'next equator crossings' listing: ascending nodes
+        for northern stations, descending nodes for southern. Each row is
+        clickable to drive the overlay to that EQX."""
+        # clear old rows
+        for w in self._eqx_list.winfo_children():
+            w.destroy()
+        s = self.sat()
+        if not s:
+            ttk.Label(self._eqx_list, text="Select a satellite.",
+                      style="Muted.TLabel").pack(anchor="w")
+            return
+        south = self.store.obs.lat < 0
+        self._eqx_head.set("Next equator crossings (%s)"
+                           % ("descending" if south else "ascending"))
+        pred = self.pred()
+        t = now_unix()
+        nodes = (pred.descending_nodes(t, t + 2 * 86400) if south
+                 else pred.ascending_nodes(t, t + 2 * 86400))[:n]
+        if not nodes:
+            ttk.Label(self._eqx_list, text="No crossings in the next 2 days.",
+                      style="Muted.TLabel").pack(anchor="w")
+            return
+        for tc, lon in nodes:
+            hemi = "E" if lon >= 0 else "W"
+            txt = "%s   %6.1f\u00b0%s" % (fmt_utc(tc, "%a %H:%M"), abs(lon), hemi)
+            row = ttk.Label(self._eqx_list, text=txt, style="Muted.TLabel",
+                            cursor="hand2", font=FONT_MONO)
+            row.pack(anchor="w")
+            # clicking a row drives the manual overlay to that EQX
+            row.bind("<Button-1>",
+                     lambda _e, lo=lon, tcc=tc: self._use_eqx(lo, tcc))
+
+    def _use_eqx(self, lon, tc):
+        """Drive the simulator to the chosen EQX (manual mode, minute 0)."""
+        self._mode.set("manual")
+        self._on_mode()
+        self._eqx_lon.set(lon)
+        self._minute.set(0.0)
+        self._seed_unix = tc
+        self._render()
 
     # ---- projection (matches the printable OSCARLOCATOR) -------------------
     def _resolve_proj(self):
@@ -343,26 +396,11 @@ class OscarSimScreen(Screen):
                     zorder=6)
 
     def _canonical_track(self, s, descending):
-        incl = math.radians(s.incl)
-        retro = s.incl > 90.0
-        period_min = s.period_min if s.period_min else 95.0
-        u0 = math.pi if descending else 0.0
-        lon0 = math.degrees(math.atan2(math.cos(incl) * math.sin(u0),
-                                       math.cos(u0)))
-        if retro:
-            lon0 = -lon0
-        pts = []
-        for i in range(241):
-            frac = i / 240.0
-            u = u0 + 2.0 * math.pi * frac
-            lat = math.degrees(math.asin(math.sin(incl) * math.sin(u)))
-            lon = math.degrees(math.atan2(math.cos(incl) * math.sin(u),
-                                          math.cos(u)))
-            if retro:
-                lon = -lon
-            earth = -360.0 * (frac * period_min * 60.0) / SIDEREAL_DAY_S
-            pts.append((lon - lon0 + earth, lat, frac * period_min))
-        return pts
+        # Reuse the printable OSCARLOCATOR's corrected ground-track model
+        # (eccentricity via Kepler, native retrograde handling) so the simulator
+        # and the printout draw exactly the same arc.
+        from ..oscarlocator import _canonical_track as _ct
+        return _ct(s, descending=descending)
 
     def _draw_track(self, ax, mode, rmax, s, eqx_lon):
         is_south = (mode == "polar-south")
@@ -407,25 +445,25 @@ class OscarSimScreen(Screen):
 
     def _track_point(self, s, eqx_lon, minute, is_south):
         """Sub-point (lat, lon) ON the drawn pass arc at the given minute after
-        the EQX. This is the same idealised track the arc is plotted from, so the
-        marker always sits exactly on the line."""
-        incl = math.radians(s.incl)
-        retro = s.incl > 90.0
+        the EQX. Interpolates the same canonical track the arc is plotted from,
+        so the marker always sits exactly on the line."""
+        track = self._canonical_track(s, descending=is_south)
         period_min = s.period_min if s.period_min else 95.0
-        u0 = math.pi if is_south else 0.0
-        lon0 = math.degrees(math.atan2(math.cos(incl) * math.sin(u0),
-                                       math.cos(u0)))
-        if retro:
-            lon0 = -lon0
-        frac = (minute / period_min)
-        u = u0 + 2.0 * math.pi * frac
-        lat = math.degrees(math.asin(math.sin(incl) * math.sin(u)))
-        lon = math.degrees(math.atan2(math.cos(incl) * math.sin(u),
-                                      math.cos(u)))
-        if retro:
-            lon = -lon
-        earth = -360.0 * (frac * period_min * 60.0) / SIDEREAL_DAY_S
-        return lat, (lon - lon0 + earth) + eqx_lon
+        m = minute % period_min
+        # find the bracketing samples and linearly interpolate
+        best = min(range(len(track)), key=lambda i: abs(track[i][2] - m))
+        j = best + 1 if best + 1 < len(track) else best
+        lon0, lat0, m0 = track[best]
+        lon1, lat1, m1 = track[j]
+        if m1 != m0:
+            f = (m - m0) / (m1 - m0)
+        else:
+            f = 0.0
+        lat = lat0 + (lat1 - lat0) * f
+        # interpolate longitude with wraparound safety
+        dlon = ((lon1 - lon0 + 540) % 360) - 180
+        lon_rel = lon0 + dlon * f
+        return lat, lon_rel + eqx_lon
 
     def _to_polar(self, mode, lat, lon):
         if mode == "polar":
@@ -453,11 +491,38 @@ class OscarSimScreen(Screen):
             ax.plot([theta], [rho], marker="o", markersize=9,
                     color=COL_ACCENT2, markeredgecolor="white",
                     markeredgewidth=1.0, zorder=8)
-        # footprint circle, always centred on the QTH
         if self._show_foot.get():
-            foot = self._footprint_deg(alt)
+            # The QTH range reticle covers the MAX ground distance at which this
+            # satellite is ever visible -- i.e. the footprint radius at the
+            # satellite's MEAN orbital altitude. This is a fixed circle (it
+            # doesn't jitter with the live sub-point altitude).
+            reticle = self._footprint_deg(self._mean_alt_km(s))
             self._draw_footprint(ax, mode, rmax, self.store.obs.lat,
-                                 self.store.obs.lon, foot)
+                                 self.store.obs.lon, reticle, color="#d29922")
+            # in live view also show the satellite's ACTUAL coverage circle at
+            # its current sub-point (its instantaneous footprint), so you can see
+            # whether your QTH is inside it
+            if live and rho <= rmax:
+                foot = self._footprint_deg(alt)
+                self._draw_footprint(ax, mode, rmax, lat, lon, foot,
+                                     color=COL_ACCENT2, lw=1.2, dashed=True)
+
+    @staticmethod
+    def _mean_alt_km(s):
+        """Mean orbital altitude (km) from the mean motion: semi-major axis minus
+        Earth radius."""
+        try:
+            from ...engine import analysis as A
+            a = A.semi_major_axis_km(s.mean_motion)
+            if a > 0:
+                return max(a - RE_KM, 1.0)
+        except Exception:
+            pass
+        # fallback: derive from period via Kepler's third law
+        per_s = (s.period_min if s.period_min else 95.0) * 60.0
+        mu = 398600.4418
+        a = (mu * (per_s / (2 * math.pi)) ** 2) ** (1.0 / 3.0)
+        return max(a - RE_KM, 1.0)
 
     @staticmethod
     def _footprint_deg(alt_km):
@@ -465,10 +530,12 @@ class OscarSimScreen(Screen):
         x = re / (re + max(alt_km, 1.0))
         return math.degrees(math.acos(max(-1.0, min(1.0, x))))
 
-    def _draw_footprint(self, ax, mode, rmax, qlat, qlon, foot_deg):
+    def _draw_footprint(self, ax, mode, rmax, qlat, qlon, foot_deg,
+                        color="#d29922", lw=1.4, dashed=False):
         p1 = math.radians(qlat)
         l1 = math.radians(qlon)
         d = math.radians(foot_deg)
+        ls = (0, (4, 3)) if dashed else "solid"
         th, rr = [], []
         prev = None
         for i in range(0, 361, 4):
@@ -491,18 +558,20 @@ class OscarSimScreen(Screen):
                 theta = math.radians(brg2)
             if rho > rmax:
                 if len(th) > 1:
-                    ax.plot(th, rr, color="#d29922", linewidth=1.4, zorder=5)
+                    ax.plot(th, rr, color=color, linewidth=lw, linestyle=ls,
+                            zorder=5)
                 th, rr, prev = [], [], None
                 continue
             if prev is not None and abs(theta - prev) > math.pi:
                 if len(th) > 1:
-                    ax.plot(th, rr, color="#d29922", linewidth=1.4, zorder=5)
+                    ax.plot(th, rr, color=color, linewidth=lw, linestyle=ls,
+                            zorder=5)
                 th, rr = [], []
             th.append(theta)
             rr.append(rho)
             prev = theta
         if len(th) > 1:
-            ax.plot(th, rr, color="#d29922", linewidth=1.4, zorder=5)
+            ax.plot(th, rr, color=color, linewidth=lw, linestyle=ls, zorder=5)
 
     def _update_readout(self, s, t, eqx_lon, minute):
         pred = self.pred()

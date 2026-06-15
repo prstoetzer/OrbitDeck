@@ -318,7 +318,7 @@ def _base_map_page(pdf, proj, qth_name, segments, rmax):
 def _footprint_page(pdf, sat_name, alt_km, proj, rmax):
     foot_deg = A.footprint_radius_deg(alt_km)
     fig = plt.figure(figsize=(PAGE_W_IN, PAGE_H_IN))
-    sub = ("Footprint radius %.1f\u00b0 (~%d km) at %.0f km altitude"
+    sub = ("Footprint radius %.1f\u00b0 (~%d km) at %.0f km mean altitude"
            % (foot_deg, round(foot_deg * KM_PER_DEG, -1), alt_km))
     # IMPORTANT: keep the same angular scale (rmax) as the base map and arc
     # sheets so this transparency registers on top of them. We simply don't draw
@@ -391,6 +391,15 @@ def _node_shift_deg(sat):
     return earth_turn + node_per_orbit
 
 
+def _kepler_E(M, e, iters=8):
+    """Solve Kepler's equation M = E - e*sin(E) for the eccentric anomaly E."""
+    M = (M + math.pi) % (2 * math.pi) - math.pi
+    E = M if e < 0.8 else math.pi
+    for _ in range(iters):
+        E = E - (E - e * math.sin(E) - M) / (1.0 - e * math.cos(E))
+    return E
+
+
 def _canonical_track(sat, descending=False):
     """One orbit of the satellite's ground track as a station-independent set of
     (lon_rel, lat, minute) points. With ``descending`` False the track starts at
@@ -400,33 +409,50 @@ def _canonical_track(sat, descending=False):
     hemisphere sheets. Either way minute 0 sits on the equator at sheet-lon 0, so
     the EQX mark on the overlay lines up with the EQX longitude on the map.
 
-    This is an idealised circular-orbit ground track at the satellite's
-    inclination with Earth rotation removed-then-applied per minute, so it can be
-    pinned at the pole and rotated to any pass."""
-    incl_deg = sat.incl
-    retro = incl_deg > 90.0
-    incl = math.radians(incl_deg)
+    The track is referenced to the chosen node and includes Earth rotation, so it
+    can be pinned at the pole and rotated to any pass. Eccentricity is handled via
+    Kepler's equation (the satellite sweeps the orbit non-uniformly), and the
+    inclination formula handles retrograde (i>90deg) orbits natively -- so this
+    follows the real SGP4 ground track closely for both circular and eccentric,
+    prograde and retrograde orbits.
+    """
+    incl = math.radians(sat.incl)
+    ecc = max(0.0, min(getattr(sat, "ecc", 0.0) or 0.0, 0.95))
+    argp = math.radians(getattr(sat, "argp", 0.0) or 0.0)
     period_min = sat.period_min if sat.period_min else 95.0
+    period_s = period_min * 60.0
+
+    # argument of latitude at the chosen node: u = argp + true_anomaly, and at
+    # the ascending node u = 0 (descending node u = pi). Solve for the true
+    # anomaly nu_node at the node, then its mean anomaly M_node, so we can start
+    # the clock there and advance M uniformly in time.
+    u_node = math.pi if descending else 0.0
+    nu_node = u_node - argp
+    E_node = math.atan2(math.sqrt(1 - ecc * ecc) * math.sin(nu_node),
+                        ecc + math.cos(nu_node))
+    M_node = E_node - ecc * math.sin(E_node)
+
     n = 361
-    # phase offset so minute 0 is at the chosen node: ascending node at u=0,
-    # descending node at u=pi.
-    u0 = math.pi if descending else 0.0
     pts = []
     for i in range(n):
         frac = i / (n - 1)
-        u = u0 + 2.0 * math.pi * frac            # arg of latitude from node
+        dt = frac * period_s
+        # mean anomaly advances uniformly from the node
+        M = M_node + 2.0 * math.pi * dt / period_s
+        E = _kepler_E(M, ecc)
+        nu = math.atan2(math.sqrt(1 - ecc * ecc) * math.sin(E),
+                        math.cos(E) - ecc)
+        u = argp + nu                              # argument of latitude
         lat = math.degrees(math.asin(math.sin(incl) * math.sin(u)))
+        # longitude from the node in the (non-rotating) orbital frame; atan2
+        # handles retrograde natively because cos(incl) < 0 for i > 90 deg
         lon = math.degrees(math.atan2(math.cos(incl) * math.sin(u),
                                       math.cos(u)))
-        if retro:
-            lon = -lon
-        # reference the longitude so the chosen node is at sheet-lon 0
-        lon0 = math.degrees(math.atan2(math.cos(incl) * math.sin(u0),
-                                       math.cos(u0)))
-        if retro:
-            lon0 = -lon0
-        earth = -360.0 * (frac * period_min * 60.0) / SIDEREAL_DAY_S
-        pts.append((lon - lon0 + earth, lat, frac * period_min))
+        # subtract the node's own orbital longitude so the node sits at sheet-0
+        lon_node = math.degrees(math.atan2(math.cos(incl) * math.sin(u_node),
+                                           math.cos(u_node)))
+        earth = -360.0 * dt / SIDEREAL_DAY_S       # Earth rotation (eastward)
+        pts.append((lon - lon_node + earth, lat, frac * period_min))
     return pts
 
 
@@ -725,7 +751,13 @@ def generate_oscarlocator_pdf(path, store, sat, when_unix=None,
     pred = Predictor()
     pred.set_site(obs)
     pred.set_sat(sat)
-    _lat, _lon, alt_km = pred.subpoint_at(when_unix)
+    # Size the footprint / QTH reticle to the MAX ground distance the satellite
+    # is ever visible -- i.e. the footprint radius at the satellite's MEAN
+    # orbital altitude (semi-major axis minus Earth radius), not the
+    # instantaneous altitude at a single moment.
+    _sma = A.semi_major_axis_km(sat.mean_motion)
+    alt_km = max(_sma - RE_KM, 1.0) if _sma > 0 else \
+        pred.subpoint_at(when_unix)[2]
     foot_deg = A.footprint_radius_deg(alt_km)
 
     segments = _coastline_segments()

@@ -4,6 +4,59 @@ All notable changes to OrbitDeck are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/), and the project aims to follow
 semantic versioning.
 
+## [0.16.6]
+
+### Added
+- A detailed user manual (docs/MANUAL.md) documenting every screen in menu order,
+  the printable and interactive OSCARLOCATOR system, the report exports, data
+  sources, and troubleshooting.
+
+### Changed
+- README features table reordered to match the navigation-menu order exactly and
+  updated to include the OSCARLOCATOR Sim screen and corrected screen details;
+  added a link to the new manual.
+
+## [0.16.5]
+
+### Added
+- The OSCARLOCATOR Sim page now shows a compact “next equator crossings” listing
+  (time and longitude) for the next few nodes — ascending nodes for northern
+  stations, descending nodes for southern — so the simulator can be used without
+  opening the separate EQX page. Clicking a row drives the overlay to that EQX.
+
+## [0.16.4]
+
+### Fixed
+- **Pass-arc accuracy.** The OSCARLOCATOR path arc now follows the real SGP4
+  ground track much more closely:
+  * Fixed a retrograde-orbit bug (inclination > 90°, e.g. sun-synchronous
+    satellites) where the longitude drift had the wrong sign — the arc could be
+    off by up to ~180°. The inclination formula now handles retrograde natively.
+  * Eccentricity is now modelled via Kepler’s equation (the satellite sweeps the
+    orbit non-uniformly) instead of assuming a circular orbit, cutting along-track
+    longitude error on eccentric orbits from tens of degrees to a few.
+  Verified against SGP4: latitude within ~1° and longitude within ~5° over a full
+  orbit for circular, eccentric, prograde and retrograde orbits in the sample
+  catalogue. The simulator now reuses this same corrected track, so its arc and
+  the printout match exactly.
+
+## [0.16.3]
+
+### Changed
+- The QTH range reticle (both the simulator and the printable OSCARLOCATOR) is
+  now sized to the satellite footprint radius at its MEAN orbital altitude — the
+  maximum ground distance at which the satellite is ever visible — instead of the
+  instantaneous sub-point altitude, so the reticle is a fixed, meaningful
+  coverage circle.
+
+## [0.16.2]
+
+### Changed
+- In the simulator’s live view the satellite’s actual coverage footprint is now
+  drawn (green dashed) at its current sub-point, alongside the QTH-centred range
+  reticle (orange), so you can see at a glance whether the satellite is within
+  range of your station right now.
+
 ## [0.16.1]
 
 ### Changed

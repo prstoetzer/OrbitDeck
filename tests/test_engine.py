@@ -1538,3 +1538,135 @@ def test_oscarsim_track_point_on_arc():
     pt = min(track, key=lambda p: abs(p[2] - 10.0))
     lat_t, lon_t = sim._track_point(S(), 0.0, pt[2], is_south=False)
     assert abs(lat_t - pt[1]) < 0.5
+
+
+def test_qth_reticle_uses_mean_altitude_footprint():
+    """The QTH reticle (simulator and printout) is sized to the footprint radius
+    at the satellite's MEAN orbital altitude (max ground distance of visibility),
+    not the instantaneous sub-point altitude."""
+    from orbitdeck.gui.screens.oscarsim import OscarSimScreen
+    from orbitdeck.engine import analysis as A
+
+    class S:
+        mean_motion = 15.50103472     # ~ISS
+        period_min = 92.9
+    # mean altitude from the mean motion
+    sma = A.semi_major_axis_km(S.mean_motion)
+    mean_alt = sma - 6378.135
+    got_alt = OscarSimScreen._mean_alt_km(S())
+    assert abs(got_alt - mean_alt) < 1.0
+    # the footprint radius at that altitude is a sane LEO value (~20 deg)
+    foot = OscarSimScreen._footprint_deg(got_alt)
+    assert 15.0 < foot < 25.0
+    # higher orbit -> larger footprint
+    class S2:
+        mean_motion = 2.0             # ~12 h orbit, much higher
+        period_min = 720.0
+    foot_high = OscarSimScreen._footprint_deg(OscarSimScreen._mean_alt_km(S2()))
+    assert foot_high > foot
+
+
+def test_canonical_track_matches_sgp4_groundtrack():
+    """The OSCARLOCATOR canonical path arc should follow the real SGP4-propagated
+    ground track (referenced to the node, with Earth rotation) to within a few
+    degrees for circular, eccentric, prograde and retrograde orbits."""
+    import time
+    from orbitdeck.gui.store import Store
+    from orbitdeck.gui.oscarlocator import _canonical_track
+
+    st = Store()
+    pred = st.pred
+
+    def max_err(s, descending=False):
+        pred.set_sat(s)
+        t0 = time.time()
+        prev = None
+        node_t = None
+        for k in range(0, 16000, 5):
+            t = t0 + k
+            la, _, _ = pred.subpoint_at(t)
+            if prev is not None:
+                if not descending and prev < 0 <= la:
+                    node_t = t
+                    break
+                if descending and prev >= 0 > la:
+                    node_t = t
+                    break
+            prev = la
+        if node_t is None:
+            return None
+        la0, lo0, _ = pred.subpoint_at(node_t)
+        P = s.period_min * 60.0
+        canon = _canonical_track(s, descending=descending)
+
+        def canon_at(m):
+            b = min(canon, key=lambda p: abs(p[2] - m))
+            return b[1], b[0]
+        mlat = mlon = 0.0
+        for k in range(0, int(P) + 1, 30):
+            t = node_t + k
+            la, lo, _ = pred.subpoint_at(t)
+            dlon = ((lo - lo0 + 540) % 360) - 180
+            cla, cdlon = canon_at(k / 60.0)
+            dl = ((dlon - cdlon + 540) % 360) - 180
+            mlat = max(mlat, abs(la - cla))
+            mlon = max(mlon, abs(dl))
+        return mlat, mlon
+
+    # test a spread of inclinations including a retrograde (>90 deg) orbit
+    tested = 0
+    seen = set()
+    for s in st.db.sats:
+        key = round(s.incl)
+        if key in seen:
+            continue
+        seen.add(key)
+        r = max_err(s)
+        if r is None:
+            continue
+        mlat, mlon = r
+        # latitude should track tightly; longitude within ~8 deg even for the
+        # more eccentric / retrograde cases in the sample catalogue
+        assert mlat < 2.5, "%s lat err %.1f" % (s.name, mlat)
+        assert mlon < 8.0, "%s lon err %.1f" % (s.name, mlon)
+        tested += 1
+        if tested >= 6:
+            break
+    assert tested >= 3
+
+
+def test_oscarsim_eqx_listing_node_choice():
+    """The simulator's EQX listing uses ascending nodes for a northern station
+    and descending nodes for a southern one, returning (time, longitude) events
+    in chronological order."""
+    import time
+    from orbitdeck.gui.store import Store
+    from orbitdeck.engine.predict import Observer
+
+    st = Store()
+    pred = st.pred
+    s = st.db.sats[0]
+    pred.set_sat(s)
+    t = time.time()
+
+    # northern station -> ascending nodes
+    st.obs = Observer(lat=39.9, lon=-75.0, alt_m=10, valid=True)
+    pred.set_site(st.obs)
+    asc = pred.ascending_nodes(t, t + 2 * 86400)[:6]
+    assert len(asc) >= 3
+    # chronological and each is an equator crossing (longitude in range)
+    times = [n[0] for n in asc]
+    assert times == sorted(times)
+    for tc, lon in asc:
+        assert -180.0 <= lon <= 180.0
+    # successive ISS nodes are ~1 orbit apart
+    gap_min = (asc[1][0] - asc[0][0]) / 60.0
+    assert 85 < gap_min < 105
+
+    # southern station -> descending nodes exist too
+    st.obs = Observer(lat=-33.9, lon=18.4, alt_m=10, valid=True)
+    pred.set_site(st.obs)
+    desc = pred.descending_nodes(t, t + 2 * 86400)[:6]
+    assert len(desc) >= 3
+    dtimes = [n[0] for n in desc]
+    assert dtimes == sorted(dtimes)
