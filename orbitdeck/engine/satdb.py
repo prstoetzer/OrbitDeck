@@ -109,6 +109,49 @@ class SatEntry:
         return (mu / (n * n)) ** (1.0 / 3.0)
 
 
+# Coarse transponder-based categories for grouping the catalog. Order matters:
+# a satellite that carries several transmitters is filed under the highest-value
+# amateur category it offers (a linear bird with a beacon is "Linear").
+CATEGORIES = ("Linear transponder", "FM transponder", "Digital transponder",
+              "Beacon / CW", "Other", "No transponder data")
+
+_DIGITAL_TAGS = ("BPSK", "GMSK", "FSK", "AFSK", "GFSK", "QPSK", "MSK",
+                 "LORA", "DUV", "APRS", "AX.25", "AX25", "PACKET", "DSTAR",
+                 "DIGITAL", "DATA")
+
+
+def _tp_group(tp) -> str:
+    """Map one transponder to a coarse group label."""
+    if tp.is_linear:
+        return "Linear transponder"
+    m = (tp.mode or "").upper()
+    d = (tp.desc or "").upper()
+    if "FM" in m or "FM" in d:
+        return "FM transponder"
+    for tag in _DIGITAL_TAGS:
+        if tag in m or tag in d:
+            return "Digital transponder"
+    if "CW" in m or "BEACON" in d or "BCN" in m:
+        return "Beacon / CW"
+    return "Other"
+
+
+def satellite_category(sat) -> str:
+    """Classify a satellite for the by-type catalog view using its (SatNOGS)
+    transponders. A satellite is filed under the best amateur category it
+    offers, in the priority order of CATEGORIES. Satellites with no transponder
+    data fall into 'No transponder data'."""
+    tps = getattr(sat, "transponders", None) or []
+    if not tps:
+        return "No transponder data"
+    groups = {_tp_group(tp) for tp in tps}
+    for cat in ("Linear transponder", "FM transponder", "Digital transponder",
+                "Beacon / CW", "Other"):
+        if cat in groups:
+            return cat
+    return "Other"
+
+
 def _gp_epoch_to_unix(s: str) -> float:
     """Parse an OMM EPOCH 'YYYY-MM-DDTHH:MM:SS.ffffff' (or space sep) to unix."""
     s = s.strip().replace('T', ' ')

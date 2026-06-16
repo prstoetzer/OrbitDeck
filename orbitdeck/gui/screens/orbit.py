@@ -67,6 +67,13 @@ class OrbitScreen(Screen):
         xsb = ttk.Scrollbar(self.tablewrap, orient="vertical",
                             command=self.xtable.yview)
         self.xtable.configure(yscrollcommand=xsb.set)
+        # export bar for the crossings list, anchored at the bottom of the
+        # table wrap so it shows whenever the Crossings List page is visible
+        self.xexport = ttk.Frame(self.tablewrap, style="TFrame")
+        self.xexport.pack(side="bottom", fill="x")
+        ttk.Button(self.xexport, text="Export crossings CSV\u2026",
+                   command=self._export_crossings).pack(side="left", padx=4,
+                                                        pady=4)
         xsb.pack(side="right", fill="y")
         self.xtable.pack(side="left", fill="both", expand=True)
         self._table_shown = False
@@ -551,6 +558,8 @@ class OrbitScreen(Screen):
         nodes, kind = self._eqx_nodes(t)
         # reflect the node type in the heading
         self.xtable.heading("lon", text="Longitude (%s node)" % kind)
+        self._xnodes = nodes
+        self._xkind = kind
         for n, (tc, lon) in enumerate(nodes, start=1):
             hemi = "E" if lon >= 0 else "W"
             self.xtable.insert("", "end", values=(
@@ -558,6 +567,19 @@ class OrbitScreen(Screen):
                 fmt_utc(tc, "%Y-%m-%d"),
                 fmt_utc(tc, "%H:%M:%S"),
                 "%.1f\u00b0 %s" % (abs(lon), hemi)))
+
+    def _export_crossings(self):
+        s = self.sat()
+        nodes = getattr(self, "_xnodes", None)
+        if not s or not nodes:
+            return
+        from .. import exports as EX
+        # nodes are (unix, lon) -- exactly what crossings_to_csv expects
+        self.save_text_dialog(
+            EX.crossings_to_csv(nodes, s.name),
+            "crossings_%s.csv" % s.name.replace("/", "-").replace(" ", "_"),
+            title="Export equator crossings", ext=".csv",
+            filetypes=[("CSV", "*.csv")])
 
     def _groundtrack(self, s, t):
         self._show_plot(polar=False)

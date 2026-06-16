@@ -80,7 +80,11 @@ class PassDetailScreen(Screen):
         ax.set_theta_zero_location("N")
         ax.set_theta_direction(-1)
         ax.set_rlim(90, 0)
-        ax.set_rgrids([0, 30, 60, 90], labels=["90", "60", "30", "0"],
+        # rlim runs 90 (centre) -> 0 (rim), so the gridline at radius r must be
+        # labelled with r itself: zenith=90 at the centre, horizon=0 at the rim.
+        # (Previously the labels were reversed, making a high-elevation pass read
+        # as though it skimmed the horizon.)
+        ax.set_rgrids([0, 30, 60, 90], labels=["0", "30", "60", "90"],
                       color=COL_MUTED, fontsize=7)
         ax.set_thetagrids(range(0, 360, 45),
                           labels=["N", "NE", "E", "SE", "S", "SW", "W", "NW"],

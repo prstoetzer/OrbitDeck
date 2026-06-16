@@ -36,6 +36,8 @@ class GridsScreen(Screen):
         ttk.Radiobutton(bar, text="Across next pass", value="pass",
                         variable=self.mode, command=self._recompute).pack(
             side="left", padx=6)
+        ttk.Button(bar, text="Export CSV\u2026",
+                   command=self._export).pack(side="right", padx=2)
 
         self.count_var = tk.StringVar(value="")
         tk.Label(self.frame, textvariable=self.count_var, bg=COL_PANEL,
@@ -86,9 +88,29 @@ class GridsScreen(Screen):
                 "dxcc": "entities"}[kind]
         self.count_var.set("%d %s workable" % (len(items), noun))
         self.subhdr.set("%s \u2014 %s" % (s.name, sub))
+        self._last_items = items
+        self._last_kind = kind
+        self._last_mode = self.mode.get()
         # DXCC entries are wider; use fewer columns for them
         self.ncols = 3 if kind == "dxcc" else 8
         self._fill(items, kind)
+
+    def _export(self):
+        s = self.sat()
+        items = getattr(self, "_last_items", None)
+        if not s or not items:
+            return
+        from .. import exports as EX
+        kind = getattr(self, "_last_kind", "grids")
+        when = "live" if getattr(self, "_last_mode", "live") == "live" \
+            else "next pass union"
+        h, rows = EX.workable_rows(kind, items, s.name, when)
+        self.save_text_dialog(
+            EX.rows_to_csv(h, rows),
+            "workable_%s_%s.csv" % (kind, s.name.replace("/", "-").replace(
+                " ", "_")),
+            title="Export workable list", ext=".csv",
+            filetypes=[("CSV", "*.csv")])
 
     def _fill(self, items, kind="grids"):
         for i in self.tree.get_children():

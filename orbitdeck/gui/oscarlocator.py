@@ -9,8 +9,11 @@ base map:
   1. Base map  (print on paper / card)   - az-equidistant map centred on the QTH
      with a lat/lon graticule, range rings, azimuth spokes and coastlines
      (full-resolution via cartopy when available).
-  2. Footprint (print on transparency)   - the selected satellite's coverage
-     circle with distance rings every 1000 km and radial lines every 15 deg.
+  2. Footprint (print on transparency)   - the selected satellite's range
+     circle, the same radius as its coverage footprint. Pinned over the QTH at
+     the map centre, the satellite is in range whenever its ground track is
+     inside this circle; AOS/LOS are read where the path-arc crosses it. Inner
+     distance rings every 1000 km and radial lines every 15 deg.
   3. Path arc  (print on transparency)   - the classic rotatable any-orbit ground
      -track arc for the satellite's inclination, with tick marks every minute
      (longer every ten minutes) and a small diagram of how many degrees to
@@ -481,8 +484,8 @@ def _base_map_page(pdf, proj, qth_name, segments, rmax, alt_km=None,
     if proj.is_polar:
         note = ("Print on paper or card at 100%% (actual size). Centre is the "
                 "%s Pole; rings are latitude (15\u00b0), spokes are longitude. "
-                "Black rim ticks register stacked overlays. "
-                "Lay the satellite overhead and footprint on top." % pole)
+                "Black rim ticks register stacked overlays. Lay the path-arc "
+                "and range-circle overlays on top." % pole)
     elif alt_km:
         note = ("Print on paper or card at 100% (actual size). Overlays "
                 "register on the centre cross and the black rim ticks; rings "
@@ -571,10 +574,12 @@ def _footprint_page(pdf, sat_name, alt_km, proj, rmax):
     ax.plot([0], [0], marker="+", color="black", markersize=MARK_CROSS,
             markeredgewidth=MEW_CROSS, zorder=5)
     _draw_footer(fig,
-                 "Print on transparency at 100%. Pin the centre cross at the "
-                 "satellite's sub-point; the red circle is the edge of coverage "
-                 "(footprint). Inner rings are distance from the sub-point; "
-                 "spokes are azimuth. Scale matches the base map.")
+                 "Print on transparency at 100%. Pin the centre cross over "
+                 "your QTH at the map centre. The red circle is the range "
+                 "circle: the satellite is in range whenever its ground track "
+                 "(path-arc overlay) is INSIDE the circle. Read AOS and LOS "
+                 "where the arc crosses the red circle; inner rings are ground "
+                 "distance, spokes are azimuth. Scale matches the base map.")
     pdf.savefig(fig)
     plt.close(fig)
 

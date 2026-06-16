@@ -105,6 +105,27 @@ class Screen:
         self.refresh_sat_header()
         return bar
 
+    def save_text_dialog(self, content, default_name, title="Save file",
+                         ext=".csv", filetypes=None):
+        """Prompt for a path and write a text payload (CSV/ICS/JSON). Returns
+        the path written, or None if cancelled/failed."""
+        from tkinter import filedialog, messagebox
+        if filetypes is None:
+            filetypes = [("All files", "*.*")]
+        path = filedialog.asksaveasfilename(
+            title=title, defaultextension=ext, initialfile=default_name,
+            filetypes=filetypes)
+        if not path:
+            return None
+        try:
+            with open(path, "w", encoding="utf-8", newline="") as f:
+                f.write(content)
+        except Exception as e:
+            messagebox.showerror("Export", "Could not write file:\n%s" % e)
+            return None
+        self.app.set_status("Saved: %s" % path)
+        return path
+
     def make_report(self):
         """Generate a printable PDF report for the selected satellite. Shared by
         all satellite screens via the sat_header bar."""
@@ -229,6 +250,84 @@ class Screen:
         messagebox.showinfo(
             "OSCARLOCATOR",
             "Saved an OSCARLOCATOR PDF for %s.\n\n%s" % (s.name, detail))
+
+
+class TabBar:
+    """A flat tabbed container matching the Orbital Analysis screen's look:
+    text labels on a subtle panel-coloured strip, a blue underline on the active
+    tab, no boxes and no client border (unlike ttk.Notebook).
+
+    Usage:
+        tabs = TabBar(parent)
+        page1 = tabs.add("Link budget")
+        page2 = tabs.add("Doppler playbook")
+        tabs.pack(fill="both", expand=True)
+        # build widgets into page1 / page2 (plain tk/ttk frames)
+        tabs.on_change = lambda i: ...   # optional callback
+    """
+
+    def __init__(self, parent, on_change=None):
+        import tkinter as tk
+        from tkinter import ttk
+        self._tk = tk
+        self.on_change = on_change
+        self.outer = ttk.Frame(parent, style="TFrame")
+        # the tab strip itself is panel-coloured, exactly like Orbital Analysis
+        self._bar = tk.Frame(self.outer, bg=COL_PANEL)
+        self._bar.pack(fill="x", pady=(0, 6))
+        self._body = ttk.Frame(self.outer, style="TFrame")
+        self._body.pack(fill="both", expand=True)
+        self._tabs = []          # list of (label_widget, underline, page_frame)
+        self._active = 0
+
+    def add(self, name):
+        tk = self._tk
+        from tkinter import ttk
+        holder = tk.Frame(self._bar, bg=COL_PANEL)
+        holder.pack(side="left", padx=1, pady=2)
+        lbl = tk.Label(holder, text=name, bg=COL_PANEL, fg=COL_MUTED,
+                       font=("DejaVu Sans", 10), padx=10, pady=5,
+                       cursor="hand2")
+        lbl.pack(side="top")
+        ind = tk.Frame(holder, bg=COL_PANEL, height=2)
+        ind.pack(side="top", fill="x")
+        page = ttk.Frame(self._body, style="TFrame")
+        idx = len(self._tabs)
+        lbl.bind("<Button-1>", lambda _e, i=idx: self.select(i))
+        self._tabs.append((lbl, ind, page))
+        if idx == 0:
+            page.pack(fill="both", expand=True)
+            self._highlight(0)
+        return page
+
+    def _highlight(self, active):
+        for i, (lbl, ind, _page) in enumerate(self._tabs):
+            on = (i == active)
+            lbl.configure(fg=COL_ACCENT if on else COL_MUTED,
+                          bg=COL_PANEL,
+                          font=("DejaVu Sans", 10, "bold") if on
+                          else ("DejaVu Sans", 10))
+            ind.configure(bg=COL_ACCENT if on else COL_PANEL)
+
+    def select(self, idx):
+        if idx == self._active:
+            return
+        for i, (_lbl, _ind, page) in enumerate(self._tabs):
+            if i == idx:
+                page.pack(fill="both", expand=True)
+            else:
+                page.pack_forget()
+        self._active = idx
+        self._highlight(idx)
+        if self.on_change:
+            try:
+                self.on_change(idx)
+            except Exception:
+                pass
+
+    def pack(self, **kw):
+        self.outer.pack(**kw)
+        return self
 
 
 class MplPanel:
@@ -408,7 +507,8 @@ class KVPanel:
 def make_screen(key, parent, app):
     from . import (home, track, passes, passdetail, groundtrack,
                    orbit, illum, sunmoon, mutual, tenday, satellites, location,
-                   grids, spacewx, oscarsim)
+                   grids, spacewx, oscarsim, analytics, radio, planning,
+                   exportscreen, sites, celestial)
     mapping = {
         "home": home.HomeScreen,
         "track": track.TrackScreen,
@@ -425,6 +525,13 @@ def make_screen(key, parent, app):
         "grids": grids.GridsScreen,
         "spacewx": spacewx.SpaceWxScreen,
         "oscarsim": oscarsim.OscarSimScreen,
+        "globe": analytics.GlobeScreen,
+        "radar": analytics.RadarScreen,
+        "radio": radio.RadioScreen,
+        "planning": planning.PlanningScreen,
+        "exports": exportscreen.ExportScreen,
+        "sites": sites.SitesScreen,
+        "celestial": celestial.CelestialScreen,
     }
     cls = mapping[key]
     return cls(parent, app)

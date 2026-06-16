@@ -50,7 +50,7 @@ def _draw_sky_polar(ax, pred, p, n=80):
     ax.set_theta_zero_location("N")
     ax.set_theta_direction(-1)
     ax.set_rlim(90, 0)
-    ax.set_rgrids([0, 30, 60, 90], labels=["90", "60", "30", "0"],
+    ax.set_rgrids([0, 30, 60, 90], labels=["0", "30", "60", "90"],
                   color="#888888", fontsize=6)
     ax.set_thetagrids(range(0, 360, 45),
                       labels=["N", "NE", "E", "SE", "S", "SW", "W", "NW"],
@@ -417,6 +417,44 @@ def generate_favorites_passes_report(path, store, when_unix=None, days=7,
     return path
 
 
+def generate_site_comparison_report(path, store, sat, entries, days):
+    """A per-site comparison of one satellite's upcoming passes across the
+    primary site and all secondary sites."""
+    when_unix = time.time()
+    obs = store.obs
+    header = "Site comparison \u2014 generated %s UTC" % _utc(
+        when_unix, "%Y-%m-%d %H:%M")
+    with PdfPages(path) as pdf:
+        pg = _Page(pdf, header)
+        pg.title("%s \u2014 passes by site" % sat.name)
+        pg.subtitle("Primary %s (%.3f, %.3f) + %d secondary site(s) \u2014 next "
+                    "%d day(s) \u2014 min elevation %g\u00b0"
+                    % (store.obs_name, obs.lat, obs.lon, len(store.sites),
+                       days, store.min_el))
+        pg.section("Per-site summary")
+        rows = []
+        for e in entries:
+            nxt = e.get("next_pass")
+            best = e.get("best_pass")
+            rows.append((
+                e["name"],
+                str(e.get("n_passes", 0)),
+                _utc(nxt.aos, "%m-%d %H:%M") if nxt and nxt.aos else "\u2014",
+                "%.0f\u00b0" % nxt.max_el if nxt and nxt.aos else "\u2014",
+                "%.0f\u00b0" % best.max_el if best and best.aos else "\u2014",
+            ))
+        pg.table(["Site", "Passes", "Next AOS", "Next max el", "Best max el"],
+                 rows, col_x=(0.07, 0.34, 0.50, 0.72, 0.93),
+                 aligns=["left", "right", "left", "right", "right"])
+        pg.paragraph("The primary site drives every other screen; secondary "
+                     "sites are compared here only.", color=C_MUTED)
+        pg.finish()
+        d = pdf.infodict()
+        d["Title"] = "OrbitDeck \u2014 site comparison"
+        d["Creator"] = "OrbitDeck"
+    return path
+
+
 def generate_mutual_passes_report(path, store, sat, dx, when_unix=None,
                                   days=10, min_el=0.0, max_n=60):
     """Mutual (co-visibility) windows between the user's station and a DX station
@@ -454,6 +492,9 @@ def generate_mutual_passes_report(path, store, sat, dx, when_unix=None,
             pg.table(["Day", "Start", "End", "Dur", "My max el", "DX max el"],
                      rows, col_x=(0.07, 0.22, 0.36, 0.50, 0.64, 0.80))
         pg.finish()
+        # per-window comparison polar plots (both stations side by side)
+        if wins:
+            _mutual_polar_pages(pdf, store, sat, dx, wins, max_windows=12)
         d = pdf.infodict()
         d["Title"] = "OrbitDeck \u2014 mutual windows \u2014 %s" % sat.name
         d["Creator"] = "OrbitDeck"
@@ -525,6 +566,97 @@ def generate_illumination_report(path, store, sat, when_unix=None, days=60):
         d["Title"] = "OrbitDeck \u2014 illumination \u2014 %s" % sat.name
         d["Creator"] = "OrbitDeck"
     return path
+
+
+def generate_eclipse_report(path, store, sat, periods=None, summary=None,
+                            when_unix=None, days=7):
+    """Printable eclipse ephemeris for ``sat``: an orbit-by-orbit umbral-eclipse
+    table (enter / exit / duration / interval / sun angle) followed by a daily
+    summary (total, longest, percent of day, sun angle). Mirrors the on-screen
+    Eclipse table. If ``periods`` / ``summary`` are not supplied they are
+    computed here so the report can be generated independently."""
+    if when_unix is None:
+        when_unix = time.time()
+    obs = store.obs
+    pred = Predictor()
+    pred.set_site(obs)
+    pred.set_sat(sat)
+    if periods is None:
+        periods = pred.predict_eclipses(when_unix, max_n=10000,
+                                        horizon_days=float(days))
+    if summary is None:
+        summary = pred.eclipse_daily_summary(when_unix, days=days)
+
+    header = "%s  \u2014  eclipse ephemeris  \u2014  generated %s UTC" % (
+        sat.name, _utc(when_unix, "%Y-%m-%d %H:%M"))
+    with PdfPages(path) as pdf:
+        pg = _Page(pdf, header)
+        pg.title("%s \u2014 eclipses" % sat.name)
+        pg.subtitle(
+            "OrbitDeck report \u2014 umbral eclipse (Earth's shadow) \u2014 %s UTC"
+            % _utc(when_unix))
+
+        if not periods:
+            pg.section("Every orbit")
+            pg.paragraph("No eclipses in the next %d days \u2014 the satellite "
+                         "is in continuous sunlight over this window." % days)
+            pg.finish()
+            d = pdf.infodict()
+            d["Title"] = "OrbitDeck \u2014 eclipses \u2014 %s" % sat.name
+            d["Creator"] = "OrbitDeck"
+            return path
+
+        # Every-orbit table
+        pg.section("Every orbit")
+        col_x = (0.07, 0.27, 0.47, 0.62, 0.82)
+        aligns = ("left", "left", "right", "right", "right")
+        heads = ["Enter (UTC)", "Exit (UTC)", "Duration",
+                 "Interval", "Sun angle"]
+        rows = []
+        prev_exit = None
+        total = 0.0
+        for e in periods:
+            intvl = _hms(e.enter - prev_exit) if prev_exit is not None else "\u2014"
+            rows.append([
+                _utc(e.enter, "%m-%d %H:%M:%S"),
+                _utc(e.exit, "%m-%d %H:%M:%S"),
+                _hms(e.duration_s), intvl, "%+.1f\u00b0" % e.sun_angle])
+            prev_exit = e.exit
+            total += e.duration_s
+        pg.table(heads, rows, col_x, aligns)
+        pg.paragraph("%d eclipses, total %s, mean %.1f min."
+                     % (len(periods), _hms(total),
+                        total / len(periods) / 60.0))
+
+        # Daily summary table
+        pg.section("Daily summary")
+        col_x2 = (0.07, 0.30, 0.47, 0.64, 0.79, 0.90)
+        aligns2 = ("left", "right", "right", "right", "right", "right")
+        heads2 = ["Date", "Eclipses", "Total", "Longest", "% day", "Sun ang"]
+        rows2 = []
+        for r in summary:
+            rows2.append([
+                _utc(r["date"], "%Y-%m-%d"), str(r["count"]),
+                _hms(r["total_s"]), _hms(r["longest_s"]),
+                "%.1f%%" % r["percent"], "%+.1f\u00b0" % r["sun_angle"]])
+        pg.table(heads2, rows2, col_x2, aligns2)
+        pg.paragraph("Sun angle is the orbit-plane beta angle; high beta means "
+                     "shallow, short eclipses (or none in continuous sunlight). "
+                     "Useful for spacecraft power-budget planning.",
+                     color=C_MUTED)
+        pg.finish()
+        d = pdf.infodict()
+        d["Title"] = "OrbitDeck \u2014 eclipses \u2014 %s" % sat.name
+        d["Creator"] = "OrbitDeck"
+    return path
+
+
+def _hms(seconds):
+    """Format a duration in seconds as H:MM:SS for report tables."""
+    seconds = int(round(seconds))
+    h, rem = divmod(seconds, 3600)
+    m, s = divmod(rem, 60)
+    return "%d:%02d:%02d" % (h, m, s)
 
 
 def _el_color(el):
@@ -714,6 +846,115 @@ def _pass_polar_grid(pdf, pred, sat, passes, title, subtitle, cols=3, rows=4):
                                   projection="polar")
                 _draw_sky_polar(ax, pred, p)
                 idx += 1
+        pdf.savefig(fig)
+        plt.close(fig)
+
+
+def _draw_mutual_station_polar(ax, pred, w, n=120):
+    """Draw a station's full pass containing mutual window ``w`` on polar axes,
+    with the mutually-visible portion highlighted in orange. ``pred`` must be a
+    Predictor for that station with the satellite already set."""
+    import math
+    # find the full-pass bounds (walk outward from the window while up)
+    step = 10.0
+    aos = w.start
+    t = w.start
+    while pred.azel_at(t)[1] >= 0 and t > w.start - 3600:
+        aos = t
+        t -= step
+    los = w.end
+    t = w.end
+    while pred.azel_at(t)[1] >= 0 and t < w.end + 3600:
+        los = t
+        t += step
+    azs, els, times = [], [], []
+    for i in range(n + 1):
+        tt = aos + (los - aos) * i / n
+        a, e = pred.azel_at(tt)
+        if e >= 0:
+            azs.append(math.radians(a))
+            els.append(e)
+            times.append(tt)
+    ax.set_theta_zero_location("N")
+    ax.set_theta_direction(-1)
+    ax.set_rgrids([0, 30, 60, 90], labels=["0", "30", "60", "90"],
+                  color="#888888", fontsize=6)
+    ax.set_thetagrids(range(0, 360, 45),
+                      labels=["N", "NE", "E", "SE", "S", "SW", "W", "NW"],
+                      color="#444444", fontsize=7)
+    ax.set_rlim(90, 0)
+    ax.grid(True, color="#cccccc", linewidth=0.6)
+    if not azs:
+        return
+    # full pass muted grey
+    ax.plot(azs, els, color="#999999", linewidth=1.6)
+    # mutual portion bold orange
+    maz = [a for a, tt in zip(azs, times) if w.start <= tt <= w.end]
+    mel = [e for e, tt in zip(els, times) if w.start <= tt <= w.end]
+    if maz:
+        ax.plot(maz, mel, color="#d29922", linewidth=3.0, zorder=5)
+    ax.plot([azs[0]], [els[0]], "o", color="#2f81f7", markersize=6, zorder=6)
+    ax.plot([azs[-1]], [els[-1]], "s", color="#2f81f7", markersize=6, zorder=6)
+
+
+def _mutual_polar_pages(pdf, store, sat, dx, wins, max_windows=12):
+    """One row per mutual window: the pass from the user's station (left) and
+    the DX station (right), with the mutual portion highlighted on each."""
+    my = Predictor()
+    my.set_site(store.obs)
+    my.set_sat(sat)
+    dx_pred = Predictor()
+    dx_pred.set_site(dx)
+    dx_pred.set_sat(sat)
+    my_name = getattr(store, "obs_name", "My station")
+    sel = wins[:max_windows]
+    rows_per_page = 3
+    n_pages = max(1, (len(sel) + rows_per_page - 1) // rows_per_page)
+    idx = 0
+    for pageno in range(n_pages):
+        fig = plt.figure(figsize=(PAGE_W_IN, PAGE_H_IN))
+        title = ("%s \u2014 mutual passes by station" % sat.name
+                 if pageno == 0 else
+                 "%s \u2014 mutual passes (cont.)" % sat.name)
+        fig.text(0.07, 0.955, title, fontsize=16, color=C_TITLE,
+                 fontweight="bold", va="top")
+        if pageno == 0:
+            fig.text(0.07, 0.925,
+                     "Left: %s.  Right: DX (%.3f, %.3f).  Grey = full pass; "
+                     "orange = mutually-visible portion.  \u25cb AOS  \u25a1 LOS"
+                     % (my_name, dx.lat, dx.lon),
+                     fontsize=9, color=C_MUTED, va="top", wrap=True)
+        top = 0.89 if pageno == 0 else 0.93
+        row_h = (top - 0.06) / rows_per_page
+        for r in range(rows_per_page):
+            if idx >= len(sel):
+                break
+            w = sel[idx]
+            bottom = top - row_h - r * row_h
+            # caption strip for this window
+            cap = ("%s  %s\u2013%s UTC   mutual %.1f min   "
+                   "my el %.0f\u00b0 / DX el %.0f\u00b0"
+                   % (_utc(w.start, "%a %m-%d"), _utc(w.start, "%H:%M:%S"),
+                      _utc(w.end, "%H:%M:%S"), (w.end - w.start) / 60.0,
+                      w.my_max_el, w.dx_max_el))
+            fig.text(0.5, bottom + row_h - 0.012, cap, ha="center", va="top",
+                     fontsize=8.5, color=C_TEXT, fontweight="bold")
+            ax_h = row_h * 0.74
+            ax_w = ax_h * (PAGE_H_IN / PAGE_W_IN)   # keep circles round
+            ax_bottom = bottom + row_h * 0.10
+            # left = my station, right = DX
+            axL = fig.add_axes([0.32 - ax_w, ax_bottom, ax_w, ax_h],
+                               projection="polar")
+            _draw_mutual_station_polar(axL, my, w)
+            fig.text(0.32 - ax_w / 2, ax_bottom - 0.005, my_name,
+                     ha="center", va="top", fontsize=7.5, color=C_MUTED)
+            axR = fig.add_axes([0.68, ax_bottom, ax_w, ax_h],
+                               projection="polar")
+            _draw_mutual_station_polar(axR, dx_pred, w)
+            fig.text(0.68 + ax_w / 2, ax_bottom - 0.005,
+                     "DX %.2f,%.2f" % (dx.lat, dx.lon),
+                     ha="center", va="top", fontsize=7.5, color=C_MUTED)
+            idx += 1
         pdf.savefig(fig)
         plt.close(fig)
 

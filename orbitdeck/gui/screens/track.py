@@ -158,12 +158,16 @@ class TrackScreen(Screen):
             names = ["(no transponder data \u2014 145.800 MHz default)"]
             self._tp_list = []
         self.tp_combo.configure(values=names)
+        # initialise the selection from the store (shared with the Radio screen)
+        self._tp_index = self.store.selected_tp_index(s)
         if self._tp_index >= len(names):
             self._tp_index = 0
         self.tp_combo.current(self._tp_index)
 
     def _on_tp_change(self, _evt=None):
         self._tp_index = self.tp_combo.current()
+        # remember the choice so other screens (Radio) follow it
+        self.store.set_selected_tp_index(self.sat(), self._tp_index)
         # clear the persistent text selection/highlight and drop focus so the
         # combobox doesn't stay visually "selected" after a pick
         self.tp_combo.selection_clear()
@@ -302,7 +306,9 @@ class TrackScreen(Screen):
         ax.set_theta_zero_location("N")
         ax.set_theta_direction(-1)
         ax.set_rlim(90, 0)
-        ax.set_rgrids([0, 30, 60, 90], labels=["90", "60", "30", "0"],
+        # radius runs 90 (centre) -> 0 (rim); label each ring with its own
+        # value so zenith reads 90 at the centre and the horizon reads 0.
+        ax.set_rgrids([0, 30, 60, 90], labels=["0", "30", "60", "90"],
                       color=COL_MUTED, fontsize=7)
         ax.set_thetagrids(range(0, 360, 45),
                           labels=["N", "NE", "E", "SE", "S", "SW", "W", "NW"],

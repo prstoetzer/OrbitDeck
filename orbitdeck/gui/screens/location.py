@@ -39,7 +39,8 @@ class LocationScreen(Screen):
         ttk.Button(btns, text="Apply grid",
                    command=self._apply_grid).pack(side="left", padx=8)
         self.info = tk.StringVar(value="")
-        ttk.Label(self.frame, textvariable=self.info, style="Muted.TLabel").pack(
+        ttk.Label(self.frame, textvariable=self.info,
+                  style="MutedBg.TLabel").pack(
             anchor="w", padx=16, pady=6)
 
         self._build_gp_source()
@@ -63,7 +64,7 @@ class LocationScreen(Screen):
                                                    pady=(2, 10))
         self.minel_info = tk.StringVar(value="")
         ttk.Label(self.frame, textvariable=self.minel_info,
-                  style="Muted.TLabel").pack(anchor="w", padx=16, pady=(0, 6))
+                  style="MutedBg.TLabel").pack(anchor="w", padx=16, pady=(0, 6))
 
     def _apply_minel(self):
         try:
@@ -121,13 +122,13 @@ class LocationScreen(Screen):
         ttk.Button(b, text="Save GP source",
                    command=self._save_gp_source).pack(side="left")
         self.gp_info = tk.StringVar(value="")
-        ttk.Label(b, textvariable=self.gp_info, style="Muted.TLabel").pack(
+        ttk.Label(b, textvariable=self.gp_info, style="MutedBg.TLabel").pack(
             side="left", padx=12)
         ttk.Label(self.frame,
                   text="Note: CelesTrak rate-limits requests and updates data "
                        "at most every 2 hours. If an update fails, wait a while "
                        "or use AMSAT.",
-                  style="Muted.TLabel", wraplength=560).pack(
+                  style="MutedBg.TLabel", wraplength=560).pack(
             anchor="w", padx=16, pady=(0, 8))
 
     def _gp_kind_changed(self):

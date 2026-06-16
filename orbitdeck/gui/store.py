@@ -50,9 +50,13 @@ class Store:
     def __init__(self):
         self.db = SatDb()
         self.obs = Observer(lat=39.93, lon=-74.89, alt_m=20.0, valid=True)
+        self.obs_name = "Home"              # nickname for the primary site
+        self.sites = []                     # secondary sites: list of dicts
+        #   {"name": str, "lat": float, "lon": float, "alt_m": float}
         self.favorites = set()              # set of NORAD ids
         self.selected_norad = None
         self.min_el = 5.0                   # default pass-prediction minimum
+        self.tp_index_by_norad = {}         # norad -> selected transponder idx
         self.gp_source = {"kind": "amsat"}  # amsat | celestrak | custom
         self.pred = Predictor()
         self._load_config()
@@ -269,6 +273,62 @@ class Store:
     def my_grid(self):
         return latlon_to_grid(self.obs.lat, self.obs.lon)
 
+    # ---- secondary sites ----
+    def set_obs_name(self, name):
+        self.obs_name = name or "Home"
+        self.save_config()
+
+    def add_site(self, name, lat, lon, alt_m=0.0):
+        """Add a secondary observer site. Names are made unique."""
+        base = (name or "Site").strip() or "Site"
+        existing = {s["name"] for s in self.sites} | {self.obs_name}
+        name = base
+        n = 2
+        while name in existing:
+            name = "%s %d" % (base, n)
+            n += 1
+        self.sites.append({"name": name, "lat": float(lat),
+                           "lon": float(lon), "alt_m": float(alt_m)})
+        self.save_config()
+        return name
+
+    def remove_site(self, index):
+        if 0 <= index < len(self.sites):
+            self.sites.pop(index)
+            self.save_config()
+
+    def site_observer(self, site):
+        """Return an Observer for a secondary-site dict."""
+        return Observer(lat=site["lat"], lon=site["lon"],
+                        alt_m=site.get("alt_m", 0.0), valid=True)
+
+    def all_sites(self):
+        """Return [(name, Observer), ...] with the primary first."""
+        out = [(self.obs_name, self.obs)]
+        for s in self.sites:
+            out.append((s["name"], self.site_observer(s)))
+        return out
+
+    # ---- selected transponder (shared between Track and Radio) ----
+    def selected_tp_index(self, sat):
+        if sat is None:
+            return 0
+        idx = self.tp_index_by_norad.get(sat.norad, 0)
+        n = len(getattr(sat, "transponders", []) or [])
+        if n == 0:
+            return 0
+        return idx if 0 <= idx < n else 0
+
+    def set_selected_tp_index(self, sat, idx):
+        if sat is not None:
+            self.tp_index_by_norad[sat.norad] = idx
+
+    def selected_transponder(self, sat):
+        tps = getattr(sat, "transponders", []) or [] if sat else []
+        if not tps:
+            return None
+        return tps[self.selected_tp_index(sat)]
+
     # ---- transponder database (bulk) ----
     def update_transponders_online(self, progress=None):
         """Fetch the entire SatNOGS transmitter DB once, cache it grouped by
@@ -397,6 +457,11 @@ class Store:
             self.obs = Observer(lat=o.get("lat", 39.93),
                                 lon=o.get("lon", -74.89),
                                 alt_m=o.get("alt_m", 20.0), valid=True)
+            self.obs_name = c.get("observer_name", "Home")
+            sites = c.get("sites", [])
+            if isinstance(sites, list):
+                self.sites = [s for s in sites
+                              if isinstance(s, dict) and "lat" in s and "lon" in s]
             self.favorites = set(c.get("favorites", []))
             self.selected_norad = c.get("selected_norad")
             self.min_el = c.get("min_el", 5.0)
@@ -411,6 +476,8 @@ class Store:
         c = {
             "observer": {"lat": self.obs.lat, "lon": self.obs.lon,
                          "alt_m": self.obs.alt_m},
+            "observer_name": self.obs_name,
+            "sites": self.sites,
             "favorites": sorted(self.favorites),
             "selected_norad": self.selected_norad,
             "min_el": self.min_el,

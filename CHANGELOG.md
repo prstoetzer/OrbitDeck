@@ -4,6 +4,246 @@ All notable changes to OrbitDeck are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/), and the project aims to follow
 semantic versioning.
 
+## [0.19.0]
+
+### Added
+- **Mutual windows across all favorites.** The Mutual Windows screen has a new
+  **Satellite** selector: **Selected** (the active satellite, as before) or **All
+  favorites**, which scans every favorited satellite against the DX station and
+  lists all of their co-visibility windows in one chronological table with a
+  **Satellite** column. Double-clicking any window opens the side-by-side
+  per-station pass detail for that window's satellite (not just the selected
+  one), and the whole table exports to **CSV**.
+- **Az/El in the Doppler playbook.** The Radio Doppler-playbook table, its CSV
+  export, and the printable PDF sheet now include the satellite's **azimuth and
+  elevation** at each time step alongside the corrected RX/TX frequencies, so a
+  single sheet drives both antenna pointing and tuning through the pass.
+- **Listings.** A new **Listings** tab on the Exports screen provides Nova-style
+  tabular ephemerides: a **One-observer** stepped position listing
+  (az/el/range/range-rate/sub-point/altitude/sunlit), a compact **AOS/LOS** quick
+  list (many passes at a glance), and a **Two-observer** stepped listing that
+  shows both your station and a chosen secondary site from a single ephemeris.
+  Step (30 s–5 min), span (2–24 h), and a visible-only filter; each sub-listing
+  exports to CSV.
+- **Who's up now.** A new tab on the Satellites screen scans the whole catalog
+  for satellites currently above your horizon, sorted by elevation, with a
+  minimum-elevation floor, one-click "track this satellite", and CSV export.
+- **Satellites by type.** A new **By type** tab on the Satellites screen groups
+  the catalog by SatNOGS transponder kind — **Linear transponder**, **FM
+  transponder**, **Digital transponder**, **Beacon / CW**, **Other**, and **No
+  transponder data** — sortable by name / NORAD / period, filterable to one
+  group, and CSV-exportable.
+- **More data is now exportable.** Added CSV export to **Planning → Work a
+  target** (shared-footprint windows), **Planning → Visible passes** (optically
+  visible passes with estimated magnitude), **Workable** (grids / US states /
+  DXCC under the footprint, live or next-pass), and **Orbital Analysis →
+  Crossings List** (equator-crossing schedule).
+- **Pass scrubber in the Radio link budget.** The Radio link-budget tab now has a
+  **Time in pass** slider that evaluates the geometry anywhere from AOS to LOS
+  (not just TCA), with a **TCA** snap button, plus range-rate and downlink-Doppler
+  readouts. The **Doppler playbook** tab gains its own **passband-position**
+  slider, so for a linear transponder the RX/TX table is built around where you
+  are actually tuned rather than always the band centre.
+
+### Fixed
+- **Reversed elevation on several sky-polar plots.** Pass Detail, Track, Sun/Moon,
+  Mutual Windows and the pass/mutual plots in PDF reports labelled the elevation
+  rings backwards (the rim read "90", the centre "0"), so a high-elevation pass
+  looked like it skimmed the horizon. The ring labels now match the radius —
+  zenith reads 90 at the centre, the horizon reads 0 at the rim. (Celestial,
+  Analytics and the pass card were already correct.)
+- **Day/night terminator on the 3D Globe.** The night shading was built from only
+  the visible points of the anti-solar circle, which shaded roughly the wrong
+  hemisphere (a noon-centred globe came out half-dark) and broke entirely in some
+  view orientations, where the night cap wrapped the projection seam. The
+  terminator is now rendered by testing each point of the visible disc against the
+  subsolar direction directly (a filled contour of the night region), so it is
+  correct from every viewpoint and at every time. The subsolar point itself was
+  already correct.
+- **OSCARLOCATOR footprint overlay instructions.** The printed footprint
+  transparency told you to pin the circle at the satellite's sub-point. It now
+  describes the traditional method: pin the range circle over your QTH at the map
+  centre and read AOS/LOS where the path-arc overlay crosses the circle. (The
+  on-screen OSCARLOCATOR Sim already worked this way.)
+
+## [0.18.5]
+
+### Added
+- **Pass picker for the pass card.** The Exports → Pass card tab now has a **Pass**
+  selector listing upcoming passes; pick any one and the card preview (and the
+  saved PNG) is built for that pass, not just the next one. The card title now
+  shows the pass date.
+- **Satellite transmitter in the link budget.** The Radio link-budget tab now has
+  separate **Your station** and **Satellite** parameter rows. The satellite's
+  **TX power** and **antenna gain** (defaulting to ~1 W into a ~2 dBi simple
+  monopole whip) drive the **downlink** received-power estimate — previously the
+  downlink incorrectly used your ground-station transmit power. The downlink now
+  also shows the satellite EIRP.
+
+## [0.18.4]
+
+### Added
+- **Radio pass picker.** The Radio screen now has a **Plan for pass** selector
+  listing the next several upcoming passes (date, max elevation, duration). Pick
+  one and **both** tabs plan against it: the **link budget** is evaluated at that
+  pass's **TCA** (closest approach / best-case geometry, with the pass's
+  AOS/TCA/LOS shown), and the **Doppler playbook** is generated for that pass.
+  Previously the link budget only used the current instant and the playbook only
+  the very next pass.
+
+## [0.18.3]
+
+### Fixed
+- The shared tab bar (Radio, Planning, Sites, Celestial, Exports) now matches the
+  Orbital Analysis tabs exactly: the tab labels sit on the same subtle
+  panel-coloured strip with the blue underline on the active tab. The previous
+  version placed them on the plain dark background, which read as a different
+  style.
+
+## [0.18.2]
+
+A polish release fixing reported issues on the screens added in 0.18.x and
+tidying the navigation.
+
+### Added
+- **Pass card now renders on screen.** The Exports → Pass card tab shows the
+  card live (sky track, Doppler curve, key facts) with **Refresh** and **Save
+  pass card…** buttons, instead of being save-only.
+- **Radio passband control.** On the Radio link-budget tab, a linear transponder
+  now gets a **Passband position** slider to choose where in the passband to
+  operate (0 % low edge / 50 % centre / 100 % high edge); the displayed
+  downlink/uplink and the link budget update as you slide.
+- **DXCC target** in Planning → Work a target — pick a DXCC entity from a list as
+  the target, alongside grid / US state / lat,lon.
+- **10 GHz (3 cm)** added to the EME band selector on the Celestial screen.
+
+### Changed
+- **Radio follows the Track screen's transponder.** The selected transponder is
+  now shared, so the Radio screen's link budget and Doppler playbook reflect
+  whatever you picked on Track (previously it always used the first transponder).
+- **Tab styling.** The tabbed screens (Radio, Planning, Sites, Celestial,
+  Exports) now use the same flat tab style as Orbital Analysis instead of the
+  default light Notebook tabs that clashed with the dark theme.
+- **Navigation reordered** into logical groups: live view, passes, analysis,
+  operating tools, sky & space, and catalog & configuration.
+
+### Fixed
+- Removed a **stray panel-coloured mark** at the bottom of the Settings screen
+  (empty status labels were using a panel background on the main background).
+- Widened columns/labels to stop text truncation: the Celestial "Sagittarius A*
+  (GC)" body name, and several link-budget / EME / element-trust labels.
+
+## [0.18.1]
+
+### Added
+- **Mutual Windows pass detail.** Double-click any co-visibility window to open a
+  detail view with the pass drawn on a polar sky plot **from each station's
+  perspective side by side** — your station on the left, the DX station on the
+  right. Each plot shows that station's full pass in grey with the
+  **mutually-visible portion highlighted in orange**, plus AOS/LOS markers and
+  each station's max elevation.
+- The **mutual-windows PDF report** now includes the same per-window
+  **dual-station comparison polar plots** (up to 12 windows), after the windows
+  table, so the printed report shows the geometry, not just the times.
+
+## [0.18.0]
+
+A feature release adding multiple observer sites, celestial-body and EME
+analysis, and a fuller two-satellite mutual-visibility tool, closing most of the
+remaining gap to legacy trackers like Nova. Tracking-and-analysis only — radio
+and rotator control remain out of scope.
+
+### Added
+- **Multiple observer sites.** The primary site (which still drives every other
+  screen) can be **nicknamed**, and you can maintain a table of **secondary
+  sites** (club station, portable spots, friends' QTHs), entered by grid or
+  lat/lon and saved across sessions. A new **Sites** screen manages them and
+  compares the selected satellite's upcoming passes across every site at once,
+  exportable to **CSV** or a **PDF report**.
+- **Celestial screen.** Live az/el of the **Sun, Moon, planets** (Mercury–
+  Saturn) and bright **cosmic radio sources** (Cassiopeia A, Cygnus A, Crab,
+  Virgo A, Sagittarius A\*, Orion A, Centaurus A, Fornax A) plus a **cold-sky**
+  reference, on a sky polar plot and table (CSV-exportable) — for antenna
+  calibration and radio astronomy.
+- **EME (Earth-Moon-Earth) analysis panel.** Moon az/el and distance, total
+  path loss by band (≈252 dB on 2 m, matching published figures across
+  50 MHz–10 GHz), self-echo Doppler, echo delay, cold-sky temperature, and
+  **common-Moon-visibility windows** with a second station (CSV-exportable).
+- **Two-satellite mutual visibility** (Planning → Sat ↔ Sat) now resolves the
+  other satellite by **NORAD id or name**, lists line-of-sight windows over a
+  selectable 3–24 h window in a table with **start / end / duration / minimum
+  range**, and exports to CSV.
+- New engine module `celestial.py` (RA/Dec→az/el, planet ephemerides, radio
+  sources, Moon geometry, EME path loss / Doppler / windows, sky temperature,
+  satellite-to-satellite windows) with regression tests.
+
+### Changed
+- The navigation now has **22 screens** (added Celestial and Sites).
+- The on-disk config persists the primary site nickname and the secondary-site
+  table.
+
+## [0.17.2]
+
+### Changed
+- **3D Globe** now shows **all favorite satellites live** — each as a coloured,
+  labelled marker with its coverage footprint — instead of only the selected
+  one. The selected satellite stays emphasized (ground track + brighter
+  footprint), an **All favorites** checkbox toggles the rest, and at "now" the
+  favorites advance in real time. (Favorites on the far side of the globe are
+  hidden until they rotate into view.)
+- **Sky Radar** now defaults to a new **Live (all favorites)** mode that plots
+  the current sky position of every favorite above the horizon and updates in
+  real time. The previous all-passes overlay and sky-coverage heatmap remain as
+  the other two modes.
+
+## [0.17.1]
+
+### Fixed
+- **Doppler playbook PDF sheet:** the intro note no longer runs off the right
+  edge (it now wraps within the page margins), and the "Range-rate (km/s)"
+  column header now fits on one line inside its (widened) cell instead of
+  bleeding into neighbouring columns.
+- **Per-pass card PNG:** the title now auto-scales its font size for long
+  satellite names so it never runs past the card edges.
+
+## [0.17.0]
+
+A large feature release adding new visualization, analysis, and export
+capabilities, plus real-time pass alarms. Tracking-and-analysis only — radio and
+rotator control remain out of scope.
+
+### Added
+- **3D Globe** screen: a rotatable orthographic "view from space" with the
+  satellite, ground track, footprint, day/night terminator and station, driven
+  by a **simulated-time scrubber** (±180 min, play/pause, speed). Views follow
+  the satellite, center on the station, or look down either pole.
+- **Sky Radar** screen: the next N passes overlaid on one polar sky plot, and a
+  **sky-coverage / elevation heatmap** aggregating where in your sky the
+  satellite dwells (for antenna-pattern and obstruction planning).
+- **Radio** screen: a **link budget** (free-space path loss, propagation delay,
+  estimated received power from your station parameters) and a **Doppler tuning
+  playbook** — a per-pass table of corrected RX/TX frequencies. For a linear
+  transponder worked full duplex you can **hold the uplink OR the downlink
+  fixed** and the other leg is round-trip corrected so you keep hearing yourself
+  (the round-trip math follows CardSat v0.9.16). Export to CSV or a printable PDF
+  sheet.
+- **Planning** screen: **best time to work a target** (grid square, US state, or
+  lat/lon) by finding windows where you and the target share the footprint;
+  **visible-pass prediction** with an estimated optical magnitude and a
+  twilight-darkness filter; **satellite-to-satellite** line-of-sight windows; and
+  an **element-set trust** panel (epoch age, trust level, and an along-track
+  drift estimate).
+- **Exports** screen: pass-schedule export to **CSV, Excel (.xlsx), iCal (.ics
+  with reminder alarms), and JSON**; a **multi-satellite comparison** of your
+  favorites (with CSV export); and a shareable **per-pass card** PNG (sky track,
+  Doppler curve, key facts, and a quality score).
+- **Pass alarms**: a top-bar toggle that raises in-app **AOS / TCA / LOS**
+  notifications (with an audible cue) for the selected satellite's next pass.
+- New engine module `linkbudget.py` (path loss, optical magnitude, Doppler
+  playbook incl. round-trip fixed-leg, sat-to-sat line of sight, element drift /
+  trust, pass-quality score) and `planning.py` (best-passes-for-target,
+  sky-coverage grid, horizon-mask trimming), with regression tests.
+
 ## [0.16.20]
 
 ### Fixed

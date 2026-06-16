@@ -82,6 +82,23 @@ class MutualWindow:
     dx_max_el: float = 0.0
 
 
+@dataclass
+class EclipsePeriod:
+    """One umbral eclipse: the satellite passes through the Earth's shadow.
+
+    ``enter`` / ``exit`` are unix times; ``sun_angle`` is the angle between the
+    orbital plane and the Sun (the beta angle) at mid-eclipse, which sets how
+    deep and long the eclipse season runs.
+    """
+    enter: float = 0.0
+    exit: float = 0.0
+    sun_angle: float = 0.0          # beta angle at mid-eclipse (deg)
+
+    @property
+    def duration_s(self) -> float:
+        return max(0.0, self.exit - self.enter)
+
+
 def jd_of(unix: float) -> float:
     return unix / 86400.0 + 2440587.5
 
@@ -540,6 +557,180 @@ class Predictor:
                 break
         return 0.5 * (a + b)
 
+    # ---- stepped position listing (one observer) ----
+    def listing_rows(self, frm: float, step_s: float, count: int,
+                     visible_only: bool = False):
+        """A time-stepped ephemeris from one observer: az/el/range/sub-point/
+        altitude/range-rate/sunlit at ``count`` samples every ``step_s`` seconds
+        from ``frm``. Mirrors Nova's One-Observer listing. Returns a list of
+        dicts. With ``visible_only`` set, samples below the horizon are skipped.
+        """
+        if not self._have:
+            return []
+        out = []
+        for i in range(count):
+            t = frm + i * step_s
+            L = self.look(t)
+            if visible_only and L.el < 0.0:
+                continue
+            out.append({
+                "t": t, "az": L.az, "el": L.el, "range_km": L.range_km,
+                "range_rate": L.range_rate, "sub_lat": L.sub_lat,
+                "sub_lon": L.sub_lon, "alt_km": L.alt_km, "sunlit": L.sunlit,
+            })
+        return out
+
+    def listing_rows_two(self, frm: float, step_s: float, count: int,
+                         dx: "Observer", visible_only: bool = False):
+        """Two-observer stepped listing: for each sample, this station's az/el/
+        range plus the second station's az/el/range to the same satellite, from
+        a single ephemeris evaluation. Mirrors Nova's Two-Observers listing."""
+        if not self._have:
+            return []
+        out = []
+        for i in range(count):
+            t = frm + i * step_s
+            r, v = self._eci_state(t)
+            az1, el1, rng1 = self._azel_range(r, t)
+            lat, lon, alt = _teme_to_ecef_lla(r, jd_of(t))
+            az2, el2, rng2 = self._azel_range_from(dx, r, t)
+            if visible_only and el1 < 0.0 and el2 < 0.0:
+                continue
+            out.append({
+                "t": t,
+                "az1": az1, "el1": el1, "range1_km": rng1,
+                "az2": az2, "el2": el2, "range2_km": rng2,
+                "sub_lat": lat, "sub_lon": lon, "alt_km": alt,
+            })
+        return out
+
+    def _azel_range_from(self, obs: "Observer", r, unix: float):
+        """az/el/range to ECI position ``r`` from an arbitrary observer (used by
+        the two-observer listing so both columns come from one ephemeris)."""
+        jd = jd_of(unix)
+        th = _gmst_rad(jd)
+        ct, st = math.cos(th), math.sin(th)
+        xe, ye, ze = _geodetic_to_ecef(obs.lat, obs.lon, obs.alt_m / 1000.0)
+        ox = xe * ct - ye * st
+        oy = xe * st + ye * ct
+        oz = ze
+        rx, ry, rz = r[0] - ox, r[1] - oy, r[2] - oz
+        rng = math.sqrt(rx * rx + ry * ry + rz * rz)
+        lat = obs.lat * DEG
+        lst = th + obs.lon * DEG
+        slat, clat = math.sin(lat), math.cos(lat)
+        ss, cs = math.sin(lst), math.cos(lst)
+        e = -ss * rx + cs * ry
+        n = -slat * cs * rx - slat * ss * ry + clat * rz
+        u = clat * cs * rx + clat * ss * ry + slat * rz
+        el = math.asin(max(-1.0, min(1.0, u / rng))) / DEG
+        az = math.atan2(e, n) / DEG
+        if az < 0:
+            az += 360.0
+        return az, el, rng
+
+    # ---- eclipse (umbral shadow) ephemeris ----
+    def predict_eclipses(self, frm: float, max_n: int = 64,
+                         horizon_days: float = 1.0,
+                         coarse_step: float = 30.0):
+        """Umbral eclipse periods (enter/exit) starting at ``frm``.
+
+        Mirrors ``predict_passes``: step coarsely watching the sunlit flag,
+        then bisect the sunlit->shadow (enter) and shadow->sunlit (exit)
+        crossings. Returns a list of EclipsePeriod.
+        """
+        if not self._have:
+            return []
+        out = []
+        t = frm
+        end = frm + horizon_days * 86400.0
+        prev_lit = self.sunlit_at(t)
+        # if we start already in shadow, find this eclipse's exit first so we
+        # don't emit a truncated period with a bogus enter time
+        while t < end and len(out) < max_n:
+            t2 = t + coarse_step
+            lit2 = self.sunlit_at(t2)
+            if prev_lit and not lit2:
+                enter = self._bisect_eclipse(t, t2, want_shadow=True)
+                # find the matching exit
+                te = enter
+                tlo = enter
+                while te < end + 7200.0:
+                    te2 = te + coarse_step
+                    if not self.sunlit_at(te) and self.sunlit_at(te2):
+                        ex = self._bisect_eclipse(te, te2, want_shadow=False)
+                        mid = 0.5 * (enter + ex)
+                        out.append(EclipsePeriod(
+                            enter=enter, exit=ex,
+                            sun_angle=self.beta_angle_deg(mid)))
+                        t = ex + coarse_step
+                        prev_lit = self.sunlit_at(t)
+                        break
+                    te = te2
+                else:
+                    break
+                continue
+            prev_lit = lit2
+            t = t2
+        return out
+
+    def _bisect_eclipse(self, t_lo, t_hi, want_shadow):
+        """Refine a sunlit/shadow crossing. want_shadow=True finds the instant
+        the satellite enters shadow (sunlit just before t_hi); False finds the
+        instant it re-emerges into sunlight."""
+        for _ in range(40):
+            mid = 0.5 * (t_lo + t_hi)
+            lit = self.sunlit_at(mid)
+            # we want the boundary where lit transitions; arrange so t_hi is the
+            # "after" side. For enter: before=lit, after=shadow.
+            if want_shadow:
+                if lit:
+                    t_lo = mid
+                else:
+                    t_hi = mid
+            else:
+                if not lit:
+                    t_lo = mid
+                else:
+                    t_hi = mid
+            if t_hi - t_lo < 0.5:
+                break
+        return 0.5 * (t_lo + t_hi)
+
+    def eclipse_daily_summary(self, frm: float, days: int = 7):
+        """Aggregate eclipse periods into per-UTC-day rows.
+
+        Each row is a dict: date (unix at 00:00 of the day), total_s (sum of all
+        eclipse durations that day), longest_s, count, percent (of 24 h),
+        sun_angle (beta at local noon of that day).
+        """
+        if not self._have:
+            return []
+        # gather all eclipses across the window in one sweep
+        ecl = self.predict_eclipses(frm, max_n=10000,
+                                    horizon_days=float(days))
+        # bucket by UTC day of the eclipse-enter time
+        day0 = math.floor(frm / 86400.0) * 86400.0
+        buckets = {}
+        for e in ecl:
+            d = math.floor(e.enter / 86400.0) * 86400.0
+            buckets.setdefault(d, []).append(e)
+        rows = []
+        for i in range(days):
+            d = day0 + i * 86400.0
+            es = buckets.get(d, [])
+            total = sum(e.duration_s for e in es)
+            longest = max((e.duration_s for e in es), default=0.0)
+            rows.append({
+                "date": d,
+                "total_s": total,
+                "longest_s": longest,
+                "count": len(es),
+                "percent": 100.0 * total / 86400.0,
+                "sun_angle": self.beta_angle_deg(d + 43200.0),
+            })
+        return rows
+
     # ---- mutual (co-visibility) windows ----
     def mutual_windows(self, frm: float, dx: Observer, min_el: float,
                        max_n: int, horizon_days: int = 10) -> List[MutualWindow]:
@@ -610,3 +801,31 @@ def grid_to_latlon(grid: str):
         lon += 1.0
         lat += 0.5
     return lat, lon
+
+
+def whos_up(site: Observer, sats, unix: float, min_el: float = 0.0):
+    """Scan a list of satellites and return those currently above ``min_el``
+    from ``site``, sorted by descending elevation. Mirrors Nova's Quick
+    Visibility Check / Who's Up. Each result is a dict with name, norad, az,
+    el, range_km, sub_lat, sub_lon, alt_km. A single Predictor is reused across
+    the catalog so a full scan stays cheap."""
+    out = []
+    pred = Predictor()
+    pred.set_site(site)
+    for s in sats:
+        try:
+            if not pred.set_sat(s):
+                continue
+            L = pred.look(unix)
+        except Exception:
+            continue
+        if L.el >= min_el:
+            out.append({
+                "name": getattr(s, "name", "?"),
+                "norad": getattr(s, "norad", 0),
+                "az": L.az, "el": L.el, "range_km": L.range_km,
+                "sub_lat": L.sub_lat, "sub_lon": L.sub_lon,
+                "alt_km": L.alt_km, "sunlit": L.sunlit,
+            })
+    out.sort(key=lambda d: d["el"], reverse=True)
+    return out

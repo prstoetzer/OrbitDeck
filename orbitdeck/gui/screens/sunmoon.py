@@ -130,7 +130,9 @@ class SunMoonScreen(Screen):
         ax.set_theta_zero_location("N")
         ax.set_theta_direction(-1)
         ax.set_rlim(90, 0)             # zenith centre, horizon rim
-        ax.set_rgrids([0, 30, 60, 90], labels=["90", "60", "30", "0"],
+        # ring labels follow the radius (90 at centre .. 0 at rim) so a body
+        # high in the sky reads as a high elevation rather than near-horizon
+        ax.set_rgrids([0, 30, 60, 90], labels=["0", "30", "60", "90"],
                       color=COL_MUTED, fontsize=7)
         ax.set_thetagrids(range(0, 360, 45),
                           labels=["N", "NE", "E", "SE", "S", "SW", "W", "NW"],

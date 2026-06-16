@@ -22,19 +22,26 @@ sources.
 3. [The navigation menu (in order)](#3-the-navigation-menu-in-order)
    - [1. Home](#31-home)
    - [2. Track](#32-track)
-   - [3. Next Passes](#33-next-passes)
-   - [4. Pass Detail](#34-pass-detail)
-   - [5. Ground Track](#35-ground-track)
-   - [6. Orbital Analysis](#36-orbital-analysis)
-   - [7. Illumination](#37-illumination)
-   - [8. Pass Progression](#38-pass-progression)
-   - [9. Mutual Windows](#39-mutual-windows)
-   - [10. Workable](#310-workable)
-   - [11. OSCARLOCATOR Sim](#311-oscarlocator-sim)
-   - [12. Sun / Moon](#312-sun--moon)
-   - [13. Space Wx](#313-space-wx)
-   - [14. Satellites](#314-satellites)
-   - [15. Settings](#315-settings)
+   - [3. 3D Globe](#33-3d-globe)
+   - [4. Sky Radar](#34-sky-radar)
+   - [5. Next Passes](#35-next-passes)
+   - [6. Pass Detail](#36-pass-detail)
+   - [7. Ground Track](#37-ground-track)
+   - [8. Orbital Analysis](#38-orbital-analysis)
+   - [9. Radio](#39-radio)
+   - [10. Planning](#310-planning)
+   - [11. Illumination](#311-illumination)
+   - [12. Pass Progression](#312-pass-progression)
+   - [13. Mutual Windows](#313-mutual-windows)
+   - [14. Workable](#314-workable)
+   - [15. OSCARLOCATOR Sim](#315-oscarlocator-sim)
+   - [16. Exports](#316-exports)
+   - [17. Sun / Moon](#317-sun--moon)
+   - [18. Celestial](#318-celestial)
+   - [19. Space Wx](#319-space-wx)
+   - [20. Satellites](#320-satellites)
+   - [21. Sites](#321-sites)
+   - [22. Settings](#322-settings)
 4. [The OSCARLOCATOR system](#4-the-oscarlocator-system)
 5. [Reports (printable PDFs)](#5-reports-printable-pdfs)
 6. [Data sources & staying accurate](#6-data-sources--staying-accurate)
@@ -89,10 +96,12 @@ The window has three parts:
 
 - **Top bar** — application-wide actions, including **Update GP** (download a
   fresh element set from your configured source) and **Update Transponders**
-  (refresh the SatNOGS transponder database). A **yellow banner** appears here
-  when the loaded catalog is demo or stale data; it also carries an Update GP
-  button.
-- **Navigation menu** (left) — the 15 screens, described below in order.
+  (refresh the SatNOGS transponder database). A **Pass alarms** toggle raises
+  in-app **AOS / TCA / LOS** notifications (with a gentle audible cue) for the
+  selected satellite's next pass, so you don't miss a rising bird while working
+  in another screen. A **yellow banner** appears here when the loaded catalog is
+  demo or stale data; it also carries an Update GP button.
+- **Navigation menu** (left) — the 22 screens, described below in order.
 - **Content area** (right) — the active screen.
 
 Most screens act on the **currently selected satellite**, shown in a header
@@ -137,26 +146,65 @@ You can **add a manual transponder** if the database lacks one, and **export a
 printable OSCARLOCATOR PDF** for the selected satellite from here (see
 [The OSCARLOCATOR system](#4-the-oscarlocator-system)).
 
-### 3.3 Next Passes
+### 3.3 3D Globe
+
+A rotatable **orthographic "view from space"** of the Earth showing **all your
+favorite satellites at once, live** — each as a coloured dot with its coverage
+footprint and a name label — over the day/night terminator and your station. The
+**selected** satellite is emphasized (it carries its ground track and a brighter
+footprint), and the chosen **View** follows it.
+
+- **View** (radio buttons): **follow the satellite** (it stays centred),
+  **over your station**, or look straight down the **north** or **south** pole.
+- **All favorites** (checkbox): show every favorite live, or untick to show only
+  the selected satellite.
+- **Time scrubber** — a slider spanning **±180 minutes** flies the whole scene
+  forward or backward in time, so you can watch a pass develop or rewind one.
+  **Play** animates it; the **speed** control sets how fast (10× to 1800×). Click
+  **Now** to snap back to the present. At "now", the favorites advance in **real
+  time**.
+
+A favorite on the far side of the globe (over the horizon from the current
+viewpoint) is hidden until it rotates into view. The orange star is your station.
+
+### 3.4 Sky Radar
+
+A polar sky plot (N-up, zenith at centre, rim = horizon) with three modes chosen
+by the radio buttons:
+
+- **Live (all favorites)** *(default)* — the **current sky position** of every
+  favorite satellite that is **above your horizon right now**, each a coloured
+  labelled dot, updating in **real time** as they move. This is the "what can I
+  hear right now" view.
+- **All-passes radar** — the upcoming passes of the **selected** satellite
+  overlaid on one plot (each arc one pass, colour-coded by order, with a dot at
+  AOS), over a selectable window (6–48 h). Good for "what is my sky doing in the
+  next few hours."
+- **Sky-coverage heatmap** — the selected satellite's upcoming passes aggregated
+  into an azimuth × elevation density map: brighter cells are where it spends
+  more time in your sky. Useful for planning antenna patterns or spotting where a
+  treeline or building will block passes.
+
+### 3.5 Next Passes
 
 A table of upcoming passes for the selected satellite over the next 7 days. A
 **minimum-elevation** control filters out passes too low to be useful (presets
 plus whatever you set in Settings). **Double-click** a pass to open it in Pass
 Detail. A button prints a **3-day grid of polar sky tracks** as a PDF.
 
-### 3.4 Pass Detail
+### 3.6 Pass Detail
 
 A detailed look at one chosen pass: a **polar sky-track** (the path across your
 sky, N-up, zenith at center) alongside an **elevation-versus-time** profile.
 Reached by double-clicking a pass on Next Passes.
 
-### 3.5 Ground Track
+### 3.7 Ground Track
 
 The selected satellite's **forward ground track** over the next **1, 3, 5, or 8
 orbits** (selectable with the radio buttons), drawn on the world map so you can
 see where it will pass.
 
-### 3.6 Orbital Analysis
+### 3.8 Orbital Analysis
 
 Eleven pages of detailed analysis for the selected satellite, navigated with the
 page control. Data pages are clean grouped key/value cards; graph pages embed a
@@ -180,31 +228,124 @@ plot.
 10. **Equ. Crossings** — ascending-node times and longitudes for the next 7
     days, charted in the style used to set an OSCARLOCATOR.
 11. **Crossings List** — the same equator crossings as a date/time/longitude
-    table.
+    table, with an **Export crossings CSV** button.
 
-### 3.7 Illumination
+### 3.9 Radio
 
-A **sunlit-versus-eclipse raster** for the selected satellite, showing a 30-day
-window you can **scroll** forward and back through time (buttons or mouse wheel).
-Day runs along one axis and minutes-into-orbit along the other; bright is sunlit,
-dark is eclipse. A **Print 60-day** button exports the full summary, which reports
-the mean eclipse fraction — useful for power-budget reasoning.
+Radio-planning analysis for the selected satellite, in two tabs. (OrbitDeck does
+**not** control a radio — these are calculators that *inform* operating.)
 
-### 3.8 Pass Progression
+A **Plan for pass** selector at the top lists the next several upcoming passes
+(with date, max elevation, and duration); pick one and **both** tabs plan against
+it. **Refresh passes** re-scans. With a pass chosen, the link budget defaults to
+that pass's **TCA** (closest approach — the best-case geometry), and the Doppler
+playbook is generated for that pass's AOS→LOS span.
+
+- **Link budget** — for the chosen geometry: the **slant range**, one-way
+  **propagation delay**, **range rate**, **free-space path loss** on the downlink
+  (and uplink), an **estimated received power**, and the **downlink Doppler** at
+  that instant. You enter two sets of parameters: **Your station** (TX power,
+  TX/RX antenna gains, line loss) drives the uplink and your receive side, and the
+  **Satellite** (its TX power and antenna gain — defaulting to ~1 W into a ~2 dBi
+  *simple monopole whip*) drives the downlink received power, since on the
+  downlink the spacecraft is the transmitter. The figures use the **transponder
+  you selected on the Track screen** (the two screens stay in sync). For a
+  **linear transponder**, a **Passband position** slider lets you choose where in
+  the passband you want to operate (0 % = low edge, 50 % = centre, 100 % = high
+  edge). A **Time in pass** slider scrubs the geometry from **AOS to LOS** so you
+  can watch range, path loss and Doppler change through the pass; the **TCA**
+  button snaps back to closest approach. It's an estimate for "is this pass
+  workable," not a calibrated measurement — override the inputs to match your
+  station and the bird.
+- **Doppler playbook** — a per-pass table of the **corrected RX and TX
+  frequencies** at a chosen interval (30/60/120 s), with the satellite's
+  **azimuth and elevation** at each step, for tuning (and pointing) by hand
+  without a computer in the loop. For an **FM bird** each leg is corrected
+  independently.
+  For a **linear transponder worked full duplex**, choose which leg to **hold
+  fixed** — **Fixed downlink** (you park your receiver and the table tells you
+  where to set the uplink) or **Fixed uplink** (you park your transmitter and it
+  tells you where you'll hear yourself). The non-fixed leg is **round-trip
+  corrected** so you stay on your own signal as the satellite moves. A
+  **Passband position** slider builds the table around where you are actually
+  tuned in a linear bird's passband, rather than always the band centre. Export
+  the table to **CSV** or a **printable PDF sheet**.
+
+### 3.10 Planning
+
+Goal-directed planning and element-status, in four tabs:
+
+- **Work a target** — pick a target as a **grid square**, a **US state**, a
+  **DXCC entity** (chosen from a list), or **lat,lon**, and OrbitDeck finds the
+  upcoming windows (next 72 h) when **both you and the target are inside the
+  satellite's footprint** at once — i.e. a contact through the bird is
+  geometrically possible. Windows are ranked by start time, with a
+  footprint-margin figure (bigger = both stations nearer the centre
+  of coverage). Export the windows to **CSV**.
+- **Visible passes** — the next 5 days of **optically observable** passes: the
+  satellite sunlit while you are in darkness and it is high enough to see. Choose
+  the darkness threshold (**civil / nautical / astronomical** twilight) and a
+  **standard magnitude** for the satellite; each pass shows an **estimated
+  brightness**. Magnitudes are estimates — real satellites flare and tumble.
+  Export the list to **CSV**.
+- **Sat ↔ Sat** — enter a second satellite by **NORAD id or name** and choose a
+  window (3–24 h); OrbitDeck lists the **line-of-sight windows** between the two
+  satellites in a table with each window's **start, end, duration, and minimum
+  range** (the closest the two spacecraft come during that window). A clear line
+  of sight means the chord between them does not pass through the Earth. Export
+  the windows to **CSV**. This is two-satellite **mutual visibility** — useful
+  for inter-satellite link and crosslink planning.
+- **Element trust** — the selected satellite's element-set **epoch age**, a
+  coarse **trust level**, and an **along-track drift estimate**, with guidance on
+  when to refresh. Quantifies the stale-data warning.
+
+### 3.11 Illumination
+
+Two tabs for the selected satellite's illumination.
+
+- **Illumination raster** — a **sunlit-versus-eclipse raster** showing a 30-day
+  window you can **scroll** forward and back through time (buttons or mouse
+  wheel). Day runs along one axis and minutes-into-orbit along the other; bright
+  is sunlit, dark is eclipse. A **Print 60-day** button exports the full summary,
+  which reports the mean eclipse fraction — useful for power-budget reasoning.
+- **Eclipse table** — a tabular **umbral-eclipse ephemeris** over a selectable
+  span (1–14 days), in two sub-tabs. **Every orbit** lists each eclipse's
+  **enter / exit / duration**, the **interval** of sunlight between successive
+  eclipses, and the **sun angle** (the orbit-plane beta angle). **Daily summary**
+  rolls each UTC day up into the **number of eclipses**, **total** eclipse time,
+  the **longest** single eclipse, the **percent of the day** spent in shadow, and
+  the day's sun angle. High beta angles mean shallow, short eclipses — or none at
+  all in continuous sunlight. Both views export to **CSV**, and **Print report**
+  produces a formatted PDF. This is the data you need for spacecraft
+  power-budget planning.
+
+### 3.12 Pass Progression
 
 The selected satellite's passes across **10 or more days**, drawn as a scrollable
 stack of **24-hour timelines** — one row per day. Each pass sits at its time of
 day, its width is its duration, and its shade encodes max elevation. This is the
 "how does my pass time drift day to day" view.
 
-### 3.9 Mutual Windows
+### 3.13 Mutual Windows
 
 **Co-visibility** windows — the times when both you and a **DX station** can see
 the same satellite simultaneously (the requirement for a direct satellite QSO).
-Enter the DX station as a Maidenhead grid or as `lat,lon`. A button prints the
-mutual-windows report.
+Enter the DX station as a Maidenhead grid or as `lat,lon`. The **Satellite**
+selector chooses the scope: **Selected** computes windows for the active
+satellite, or **All favorites** scans every favorited satellite against the DX
+station and lists all their windows together in one chronological table, each
+tagged with its satellite. **Export CSV** saves the table, and a button prints
+the mutual-windows report.
 
-### 3.10 Workable
+**Double-click any window** to open a detail view showing the pass on a polar
+sky plot **from each station's perspective side by side** — your station on the
+left, the DX station on the right. (In All-favorites mode the detail is built for
+that window's own satellite.) Each plot draws that station's full pass in grey
+with the **mutually-visible portion highlighted in bold orange**, and marks AOS
+(circle) and LOS (square). This makes it easy to see when in the pass the
+satellite is workable from both ends and how high it sits in each sky.
+
+### 3.14 Workable
 
 What is **inside the satellite's footprint** — useful for grid-square, US-state,
 and DXCC chasing. Choose the category with the radio buttons:
@@ -218,7 +359,10 @@ And choose the time mode:
 - **Live** — what is under the footprint right now (refreshes every few seconds).
 - **Pass** — the union of everything reachable across the next pass.
 
-### 3.11 OSCARLOCATOR Sim
+**Export CSV** saves the current list (grids, states, or DXCC entities) for the
+chosen category and time mode.
+
+### 3.15 OSCARLOCATOR Sim
 
 An **interactive on-screen OSCARLOCATOR** — play with the classic transparency
 tool without printing anything. The display is a polar (or QTH-centered)
@@ -250,22 +394,78 @@ orbital altitude** — i.e. the **maximum ground distance** at which the satelli
 is ever visible. When the path arc touches or crosses that circle, the satellite
 is above your horizon (within the natural tolerances of an overlay system).
 
-### 3.12 Sun / Moon
+### 3.16 Exports
+
+Data export and sharing, in four tabs:
+
+- **Pass schedule** — the next 1/3/7 days of passes for the selected satellite,
+  exportable to **CSV**, **Excel (.xlsx)**, **iCal (.ics)**, or **JSON**. The
+  iCal events carry a **10-minute reminder alarm**, so passes show up in your
+  calendar app with a heads-up. (Excel export needs the optional `openpyxl`
+  package; CSV needs nothing extra.)
+- **Compare favorites** — a side-by-side table of your favorited satellites over
+  a 1/3/7-day window: how many passes each has and its single best pass (time,
+  max elevation, duration). Exportable to CSV. If you have no favorites, the
+  first few catalog satellites are used.
+- **Pass card** — a shareable single-image summary of a pass: the sky-track
+  polar plot, the Doppler curve, and the key facts (AOS/TCA/LOS, duration,
+  azimuth sweep, and a 0–100 quality score). Pick **which upcoming pass** from
+  the selector; the card is **rendered right on the screen** so you can preview
+  it. **Save pass card…** exports it as a PNG and **Refresh passes** re-scans.
+  Good for dropping into a club chat or attaching to a log entry.
+- **Listings** — Nova-style **tabular ephemerides** for the selected satellite,
+  with a step interval (30 s–5 min), a span (2–24 h), and a **visible-only**
+  filter, in three sub-tabs. **One observer** is a stepped position listing
+  (time, az, el, range, range-rate, sub-point, altitude, sunlit) from your
+  primary site. **AOS / LOS** is a compact pass list (AOS, LOS, duration, max
+  elevation, AOS/LOS azimuths) for seeing many passes at once. **Two observers**
+  is a stepped listing that shows your station *and* a chosen **secondary site**
+  (picked from the sites you set up on the Sites screen) side by side from a
+  single ephemeris. Each sub-listing exports to **CSV**.
+
+### 3.17 Sun / Moon
 
 Solar and lunar **azimuth/elevation** for your site, plus the **Moon phase and
 illumination** percentage. Handy for visual passes and for knowing sky
 conditions.
 
-### 3.13 Space Wx
+### 3.18 Celestial
+
+Tracking and analysis for objects beyond satellites, in two tabs:
+
+- **Bodies** — the live **azimuth/elevation** of the **Sun**, **Moon**, the
+  **planets** (Mercury, Venus, Mars, Jupiter, Saturn) and a set of bright
+  **cosmic radio sources** (Cassiopeia A, Cygnus A, Taurus A / Crab, Virgo A,
+  Sagittarius A\* at the galactic centre, Orion A, Centaurus A, Fornax A), plus a
+  **cold-sky** reference direction. Everything that is above the horizon is
+  plotted on a polar sky map (zenith centre, horizon rim) and listed in a table.
+  Useful for antenna calibration, sun/moon-noise measurements, and radio
+  astronomy. The table exports to **CSV**.
+- **EME** — an **Earth-Moon-Earth (moon-bounce)** analysis panel. Pick a band
+  (6 m / 2 m / 70 cm / 23 cm / 3 cm) and it shows the **Moon's az/el and
+  distance**, the **total path loss** for that band (around 252 dB on 2 m, rising
+  to ~288 dB at 10 GHz), the **self-echo Doppler** on your own returning signal,
+  the round-trip echo delay (~2.5 s), and a **cold-sky temperature** estimate.
+  Enter a second station (grid or lat,lon) to list the **common-Moon-visibility
+  windows** — the times both stations can see the Moon at once, which is the
+  requirement for an EME QSO. Windows export to **CSV**.
+
+Positions are low-precision (good to a fraction of a degree) — enough for
+pointing and planning, not ephemeris-grade work.
+
+### 3.19 Space Wx
 
 Space-weather indices for HF/propagation context: the **solar 10.7 cm flux**,
 planetary **Kp**, and the **A index**, sourced from NOAA SWPC, each with a
 plain-language level and an operating outlook. Cached to disk so it still
 displays offline.
 
-### 3.14 Satellites
+### 3.20 Satellites
 
-The **catalog** screen and the place you choose what everything else acts on:
+The **catalog** screen and the place you choose what everything else acts on, in
+three tabs.
+
+**Catalog** is the main list:
 
 - **Filter** the list by typing.
 - **Select** a satellite (it becomes the active satellite everywhere).
@@ -275,12 +475,41 @@ The **catalog** screen and the place you choose what everything else acts on:
 - **Add a manually-entered satellite** by its GP mean elements; manual sats
   persist across catalog refreshes.
 
-### 3.15 Settings
+**By type** groups the whole catalog by **SatNOGS transponder kind** — **Linear
+transponder**, **FM transponder**, **Digital transponder**, **Beacon / CW**,
+**Other**, and **No transponder data** — with a count per group and the downlink
+and transponder kinds shown for each satellite. Filter to a single group, sort by
+**name / NORAD / period**, double-click to start tracking a bird, and **Export
+CSV**. (Grouping is only as complete as the transponder data you have loaded —
+use **Update Transponders** for the full SatNOGS database.)
+
+**Who's up now** scans the **whole catalog** for satellites currently above your
+horizon, sorted by elevation, with a minimum-elevation floor (0/5/10/20°). It
+shows each satellite's az/el, range, sub-point, altitude and sunlit flag;
+double-click to start tracking one, or **Export CSV**.
+
+### 3.21 Sites
+
+Manage the observer **locations** OrbitDeck works from, in two tabs:
+
+- **Manage sites** — give the **primary site** a nickname (it is the location
+  that drives every other screen — Track, passes, Doppler, footprints, and so
+  on), and build a table of **secondary sites**: a club station, portable spots,
+  or friends' QTHs. Add each by nickname and a Maidenhead grid or `lat,lon`
+  (plus optional altitude); names are kept unique. Secondary sites are saved and
+  persist across sessions, and are used only for comparison — they do not change
+  what the rest of the app tracks.
+- **Compare passes** — the selected satellite's upcoming passes (1–3 days)
+  across **every site at once**: how many passes each gets, the next AOS and its
+  max elevation, and each site's best pass. The primary site is listed first.
+  Export to **CSV** or a printable **PDF report**.
+
+### 3.22 Settings
 
 Configure:
 
 - **Observer site** — latitude, longitude, and altitude, or a Maidenhead grid
-  square.
+  square. (You can nickname this primary site on the **Sites** screen.)
 - **GP element source** — where Update GP fetches elements from: **AMSAT**, a
   **CelesTrak category** (amateur, cubesat, stations, weather, GPS, etc.), or a
   **custom OMM-JSON URL**.
@@ -313,8 +542,13 @@ OrbitDeck supports it two ways:
     conventional, un-mirrored orientation), mirrored on the southern sheet.
   - **QTH-centered** — a personalized map centered on your station, capped so it
     does not over-show the opposite hemisphere.
-- **Footprint transparency** — the coverage circle with distance rings and
-  azimuth radials, sized at the satellite's **mean orbital altitude**.
+- **Footprint transparency** — the **range circle**, the same radius as the
+  satellite's coverage footprint at its **mean orbital altitude**, with distance
+  rings and azimuth radials. Pin it through the centre cross **over your QTH**:
+  the satellite is in range whenever its ground track (the path-arc overlay) is
+  **inside** this circle, so you read AOS and LOS where the arc crosses it. (When
+  the QTH-centred base map is used, the 0° elevation ring is the same circle, so
+  this transparency is mainly for the polar map.)
 - **Path-arc overlay** — the rotatable ground-track transparency, with **minute
   tick marks** (straight marks across the track; longer, labelled marks every 10
   minutes), a bold **"EQX (0 min)"** marker showing which radial to line up with
@@ -361,9 +595,28 @@ Additional one-click reports live on specific screens:
 | 7-day schedule for **all favorites** | Home → Passes tab |
 | 3-day **polar sky-track grid** | Next Passes |
 | **Mutual windows** with a DX station | Mutual Windows |
-| 60-day **illumination** summary | Illumination |
+| 60-day **illumination** summary | Illumination → Illumination raster |
+| **Eclipse ephemeris** (every-orbit + daily) | Illumination → Eclipse table |
 | 30-day **pass progression** | Pass Progression |
 | Printable **OSCARLOCATOR** | Track and OSCARLOCATOR Sim |
+| **Doppler playbook** sheet (PDF) | Radio → Doppler playbook |
+| Pass schedule as **CSV / Excel / iCal / JSON** | Exports → Pass schedule |
+| **Favorites comparison** (CSV) | Exports → Compare favorites |
+| Per-pass **card** (PNG) | Exports → Pass card |
+| **Listings** (one-/two-observer, AOS/LOS) CSV | Exports → Listings |
+| **Eclipse tables** (CSV) | Illumination → Eclipse table |
+| **Work-a-target** / **visible passes** CSV | Planning |
+| **Workable** grids/states/DXCC CSV | Workable |
+| **Equator crossings** CSV | Orbital Analysis → Crossings List |
+| **Satellites by type** / **who's up** CSV | Satellites |
+
+Beyond PDF reports, OrbitDeck can export **data** for use in other tools — pass
+schedules as CSV, Excel, iCal (with reminder alarms), or JSON; the Doppler
+playbook, favorites comparison, eclipse ephemerides, stepped listings, workable
+lists, planning windows, equator crossings, and the satellite catalog (by type or
+who's-up) as CSV; and a shareable per-pass card image. See
+[Exports](#316-exports), [Radio](#39-radio), [Illumination](#311-illumination),
+[Planning](#310-planning), and [Satellites](#320-satellites).
 
 The **minimum elevation** set in Settings is applied throughout.
 

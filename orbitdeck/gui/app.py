@@ -33,20 +33,33 @@ FONT_H = ("DejaVu Sans", 13, "bold")
 
 
 NAV_ITEMS = [
+    # live view & overview
     ("Home", "home"),
     ("Track", "track"),
+    ("3D Globe", "globe"),
+    ("Sky Radar", "radar"),
+    # passes
     ("Next Passes", "passes"),
     ("Pass Detail", "passdetail"),
     ("Ground Track", "groundtrack"),
+    ("Pass Progression", "tenday"),
+    # analysis
     ("Orbital Analysis", "orbit"),
     ("Illumination", "illum"),
-    ("Pass Progression", "tenday"),
     ("Mutual Windows", "mutual"),
     ("Workable", "grids"),
+    # operating tools
+    ("Radio", "radio"),
+    ("Planning", "planning"),
     ("OSCARLOCATOR Sim", "oscarsim"),
+    ("Exports", "exports"),
+    # sky & space environment
     ("Sun / Moon", "sunmoon"),
+    ("Celestial", "celestial"),
     ("Space Wx", "spacewx"),
+    # catalog & configuration
     ("Satellites", "satellites"),
+    ("Sites", "sites"),
     ("Settings", "location"),
 ]
 
@@ -58,6 +71,8 @@ class OrbitDeckApp:
         self.current = None
         self.current_key = None
         self._screen_cache = {}
+        from .alarms import AlarmManager
+        self.alarms = AlarmManager(self)
 
         root.title("OrbitDeck \u2014 Satellite Tracking & Orbital Analysis")
         root.geometry("1180x760")
@@ -103,6 +118,9 @@ class OrbitDeckApp:
         st.configure("TLabel", background=COL_BG, foreground=COL_TEXT)
         st.configure("Panel.TLabel", background=COL_PANEL, foreground=COL_TEXT)
         st.configure("Muted.TLabel", background=COL_PANEL, foreground=COL_MUTED)
+        # muted text that sits directly on the main background (not a panel),
+        # so empty/short status labels don't show a stray panel-coloured sliver
+        st.configure("MutedBg.TLabel", background=COL_BG, foreground=COL_MUTED)
         st.configure("H.TLabel", background=COL_BG, foreground=COL_TEXT, font=FONT_H)
         st.configure("Mono.TLabel", background=COL_PANEL, foreground=COL_TEXT,
                      font=FONT_MONO)
@@ -167,6 +185,17 @@ class OrbitDeckApp:
                      arrowcolor=COL_TEXT)
         st.configure("TSeparator", background=COL_GRID)
 
+        # --- notebook (tabbed) panels: match the orbital-analysis tab look ---
+        st.configure("TNotebook", background=COL_BG, borderwidth=0,
+                     tabmargins=[2, 4, 2, 0])
+        st.configure("TNotebook.Tab", background=COL_PANEL, foreground=COL_MUTED,
+                     padding=[12, 6], borderwidth=0,
+                     font=("DejaVu Sans", 10))
+        st.map("TNotebook.Tab",
+               background=[("selected", COL_BG), ("active", COL_PANEL)],
+               foreground=[("selected", COL_ACCENT), ("active", COL_TEXT)],
+               font=[("selected", ("DejaVu Sans", 10, "bold"))])
+
     def _build_layout(self):
         # top bar
         top = ttk.Frame(self.root, style="Panel.TFrame")
@@ -186,6 +215,11 @@ class OrbitDeckApp:
             side="right", padx=2, pady=6)
         ttk.Button(top, text="Select Satellite\u2026",
                    command=self._quick_select).pack(side="right", padx=6, pady=6)
+        self._alarm_var = tk.BooleanVar(value=False)
+        ttk.Checkbutton(top, text="Pass alarms", variable=self._alarm_var,
+                        command=lambda: self.alarms.set_enabled(
+                            self._alarm_var.get())).pack(
+            side="right", padx=6, pady=6)
 
         # staleness / data-source banner (hidden unless there's something to say)
         self.banner = tk.Frame(self.root, bg=COL_WARN)
@@ -259,6 +293,10 @@ class OrbitDeckApp:
                           (self.store.my_grid(), self.store.obs.lat,
                            self.store.obs.lon))
         self._update_banner()
+        try:
+            self.alarms.tick()
+        except Exception:
+            pass
         if self.current is not None and getattr(self.current, "live", False):
             try:
                 self.current.on_tick(now)
