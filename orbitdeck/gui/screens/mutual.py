@@ -6,7 +6,7 @@ from tkinter import ttk
 
 from . import (Screen, MplPanel, COL_PANEL, COL_BG, COL_TEXT, COL_MUTED,
                COL_ACCENT, COL_ACCENT2, COL_WARN, COL_GRID, FONT_MONO,
-               fmt_hms, fmt_utc, now_unix)
+               fmt_hms, fmt_utc, now_unix, make_scrolled_tree)
 from ...engine import Observer, grid_to_latlon
 from ...engine.predict import Predictor
 
@@ -42,13 +42,13 @@ class MutualScreen(Screen):
         cols = ("sat", "start", "end", "dur", "myel", "dxel")
         heads = ("Satellite", "Start (UTC)", "End", "Duration", "My max el",
                  "DX max el")
-        self.tree = ttk.Treeview(self.frame, columns=cols, show="headings",
-                                 height=16)
+        treewrap, self.tree = make_scrolled_tree(
+            self.frame, cols, show="headings", height=16)
         for c, h in zip(cols, heads):
             self.tree.heading(c, text=h)
             self.tree.column(c, width=150 if c == "start" else
                              (130 if c == "sat" else 105), anchor="center")
-        self.tree.pack(fill="both", expand=True, padx=16, pady=10)
+        treewrap.pack(fill="both", expand=True, padx=16, pady=10)
         self.tree.bind("<Double-1>", self._open_detail)
         self.info = tk.StringVar(value="")
         ttk.Label(self.frame, textvariable=self.info, style="Muted.TLabel").pack(

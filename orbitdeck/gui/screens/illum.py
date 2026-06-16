@@ -15,7 +15,8 @@ from tkinter import ttk
 import numpy as np
 
 from . import (Screen, MplPanel, TabBar, COL_TEXT, COL_MUTED, COL_ACCENT,
-               COL_ACCENT2, COL_WARN, COL_GRID, now_unix, fmt_utc)
+               COL_ACCENT2, COL_WARN, COL_GRID, now_unix, fmt_utc,
+               make_scrolled_tree)
 from .. import exports as EX
 
 WINDOW_DAYS = 30          # days shown at once in the raster
@@ -162,24 +163,24 @@ class IllumScreen(Screen):
         cols = ("enter", "exit", "dur", "intvl", "beta")
         heads = ("Enter (UTC)", "Exit (UTC)", "Duration",
                  "Interval between", "Sun angle")
-        self._tree_orbit = ttk.Treeview(page_orbit, columns=cols,
-                                        show="headings", height=18)
+        ow, self._tree_orbit = make_scrolled_tree(
+            page_orbit, cols, show="headings", height=18)
         widths = (170, 170, 100, 130, 90)
         for c, h, w in zip(cols, heads, widths):
             self._tree_orbit.heading(c, text=h)
             self._tree_orbit.column(c, width=w, anchor="center")
-        self._tree_orbit.pack(fill="both", expand=True, padx=6, pady=6)
+        ow.pack(fill="both", expand=True, padx=6, pady=6)
 
         cols2 = ("date", "n", "total", "longest", "pct", "beta")
         heads2 = ("Date", "Eclipses", "Total", "Longest",
                   "% of day", "Sun angle")
-        self._tree_daily = ttk.Treeview(page_daily, columns=cols2,
-                                        show="headings", height=18)
+        dw, self._tree_daily = make_scrolled_tree(
+            page_daily, cols2, show="headings", height=18)
         widths2 = (110, 90, 100, 100, 90, 90)
         for c, h, w in zip(cols2, heads2, widths2):
             self._tree_daily.heading(c, text=h)
             self._tree_daily.column(c, width=w, anchor="center")
-        self._tree_daily.pack(fill="both", expand=True, padx=6, pady=6)
+        dw.pack(fill="both", expand=True, padx=6, pady=6)
 
         note = ("Umbral eclipse (Earth's shadow). Sun angle is the orbit-plane "
                 "beta angle \u2014 high beta means shallow, short eclipses (or "

@@ -10,7 +10,7 @@ import tkinter as tk
 from tkinter import ttk, messagebox
 
 from . import (Screen, TabBar, COL_MUTED, COL_ACCENT, COL_TEXT, now_unix,
-               fmt_utc)
+               fmt_utc, make_scrolled_tree)
 from ...engine.predict import Predictor, Observer, grid_to_latlon, latlon_to_grid
 from .. import exports as EX
 
@@ -66,13 +66,13 @@ class SitesScreen(Screen):
         # secondary sites table
         cols = ("name", "lat", "lon", "alt", "grid")
         heads = ("Nickname", "Lat", "Lon", "Alt (m)", "Grid")
-        self.tree = ttk.Treeview(parent, columns=cols, show="headings",
-                                 height=10)
+        treewrap, self.tree = make_scrolled_tree(
+            parent, cols, show="headings", height=10)
         for c, h in zip(cols, heads):
             self.tree.heading(c, text=h)
             self.tree.column(c, width=120 if c == "name" else 90,
                              anchor="w" if c == "name" else "center")
-        self.tree.pack(fill="both", expand=True, padx=8, pady=6)
+        treewrap.pack(fill="both", expand=True, padx=8, pady=6)
         bf = ttk.Frame(parent, style="TFrame")
         bf.pack(fill="x", padx=8, pady=(0, 6))
         ttk.Button(bf, text="Remove selected",
@@ -154,13 +154,13 @@ class SitesScreen(Screen):
         cols = ("site", "n", "next", "nextel", "bestel")
         heads = ("Site", "Passes", "Next AOS (UTC)", "Next max el",
                  "Best max el")
-        self.ctree = ttk.Treeview(parent, columns=cols, show="headings",
-                                  height=12)
+        treewrap, self.ctree = make_scrolled_tree(
+            parent, cols, show="headings", height=12)
         for c, h in zip(cols, heads):
             self.ctree.heading(c, text=h)
             self.ctree.column(c, width=150 if c in ("next",) else 110,
                               anchor="w" if c == "site" else "center")
-        self.ctree.pack(fill="both", expand=True, padx=8, pady=6)
+        treewrap.pack(fill="both", expand=True, padx=8, pady=6)
         self.cinfo = tk.StringVar(value="")
         ttk.Label(parent, textvariable=self.cinfo,
                   style="Muted.TLabel").pack(anchor="w", padx=8, pady=(0, 6))

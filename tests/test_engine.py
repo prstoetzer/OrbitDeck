@@ -2809,6 +2809,54 @@ def test_eclipse_export_rows_shapes(iss_predictor):
     assert len(r2) == 2 and all(len(row) == len(h2) for row in r2)
 
 
+def test_all_scrollable_widgets_have_scrollbars():
+    """Every Treeview and Listbox on every screen must have a Scrollbar sibling,
+    so long tables and lists are always scrollable with a visible bar."""
+    import tkinter as tk
+    from tkinter import ttk
+    from orbitdeck.gui.app import OrbitDeckApp, NAV_ITEMS
+    from orbitdeck.gui import screens
+    try:
+        root = tk.Tk()
+    except Exception:
+        return
+    root.withdraw()
+    try:
+        app = OrbitDeckApp(root)
+    except Exception:
+        root.destroy()
+        return
+
+    def walk(w):
+        yield w
+        for c in w.winfo_children():
+            yield from walk(c)
+
+    def has_scrollbar_sibling(widget):
+        parent = widget.nametowidget(widget.winfo_parent())
+        return any(isinstance(s, (ttk.Scrollbar, tk.Scrollbar))
+                   for s in parent.winfo_children())
+
+    missing = []
+    checked = 0
+    for _label, key in NAV_ITEMS:
+        try:
+            scr = screens.make_screen(key, app.content, app)
+            if hasattr(scr, "on_show"):
+                scr.on_show()
+        except Exception:
+            continue
+        root.update_idletasks()
+        for w in walk(scr.frame):
+            if isinstance(w, (ttk.Treeview, tk.Listbox)):
+                checked += 1
+                if not has_scrollbar_sibling(w):
+                    missing.append((key, str(w)))
+    root.destroy()
+    assert checked > 0
+    assert not missing, "scrollable widgets without a scrollbar: %r" % missing
+
+
 def test_playbook_csv_includes_az_el():
     """The Doppler playbook CSV must carry az/el pointing columns when the rows
     have az/el attached (as the Radio screen does)."""

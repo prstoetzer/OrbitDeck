@@ -355,14 +355,17 @@ class OrbitDeckApp:
         cols = ("fav", "name", "norad", "period", "tx")
         heads = ("\u2605", "Name", "NORAD", "Period", "TX")
         widths = {"fav": 30, "name": 230, "norad": 80, "period": 90, "tx": 50}
-        tree = ttk.Treeview(win, columns=cols, show="headings", height=20)
+        _twrap = ttk.Frame(win)
+        _twrap.pack(fill="both", expand=True, padx=8, pady=4)
+        tree = ttk.Treeview(_twrap, columns=cols, show="headings", height=20)
         for c, h in zip(cols, heads):
             tree.heading(c, text=h)
             tree.column(c, width=widths[c],
                         anchor="w" if c == "name" else "center")
-        tree.pack(fill="both", expand=True, padx=8, pady=4)
-        vsb = ttk.Scrollbar(win, orient="vertical", command=tree.yview)
+        vsb = ttk.Scrollbar(_twrap, orient="vertical", command=tree.yview)
         tree.configure(yscrollcommand=vsb.set)
+        vsb.pack(side="right", fill="y")
+        tree.pack(side="left", fill="both", expand=True)
 
         rows = []
 

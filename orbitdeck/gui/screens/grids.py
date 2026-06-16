@@ -10,7 +10,7 @@ import tkinter as tk
 from tkinter import ttk
 
 from . import (Screen, COL_PANEL, COL_TEXT, COL_MUTED, COL_ACCENT, COL_ACCENT2,
-               COL_GRID, FONT_MONO, now_unix)
+               COL_GRID, FONT_MONO, now_unix, make_scrolled_tree)
 from ...engine import analysis as A
 from ...data.us_states import workable_states
 from ...data.dxcc import workable_dxcc
@@ -47,11 +47,11 @@ class GridsScreen(Screen):
         # a grid of cells rendered as a multi-column Treeview
         self.ncols = 8
         cols = tuple("c%d" % i for i in range(self.ncols))
-        self.tree = ttk.Treeview(self.frame, columns=cols, show="",
-                                 height=18)
+        treewrap, self.tree = make_scrolled_tree(
+            self.frame, cols, show="", height=18)
         for c in cols:
             self.tree.column(c, width=120, anchor="w")
-        self.tree.pack(fill="both", expand=True, padx=16, pady=8)
+        treewrap.pack(fill="both", expand=True, padx=16, pady=8)
         self.subhdr = tk.StringVar(value="")
         tk.Label(self.frame, textvariable=self.subhdr, bg=COL_PANEL,
                  fg=COL_MUTED, font=("DejaVu Sans", 9), anchor="w").pack(

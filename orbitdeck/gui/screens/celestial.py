@@ -14,7 +14,8 @@ import tkinter as tk
 from tkinter import ttk, messagebox
 
 from . import (Screen, MplPanel, KVPanel, TabBar, COL_PANEL, COL_TEXT,
-               COL_MUTED, COL_ACCENT, COL_ACCENT2, COL_WARN, now_unix, fmt_utc)
+               COL_MUTED, COL_ACCENT, COL_ACCENT2, COL_WARN, now_unix, fmt_utc,
+               make_scrolled_tree)
 from ...engine import celestial as CE
 from ...engine.predict import grid_to_latlon
 from ...engine.predict import _sun_eci_unit, _gmst_rad, jd_of, DEG
@@ -56,14 +57,20 @@ class CelestialScreen(Screen):
                    command=self._export_bodies).pack(anchor="w", pady=(0, 4))
         cols = ("body", "az", "el")
         heads = ("Body", "Az", "El")
-        self.btree = ttk.Treeview(left, columns=cols, show="headings",
+        _btw = ttk.Frame(left, style="TFrame")
+        _btw.pack(fill="y", expand=True)
+        self.btree = ttk.Treeview(_btw, columns=cols, show="headings",
                                   height=18)
         for c, h in zip(cols, heads):
             self.btree.heading(c, text=h)
             self.btree.column(c, width=180 if c == "body" else 60,
                               minwidth=60,
                               anchor="w" if c == "body" else "center")
-        self.btree.pack(fill="y", expand=False)
+        _btsb = ttk.Scrollbar(_btw, orient="vertical",
+                              command=self.btree.yview)
+        self.btree.configure(yscrollcommand=_btsb.set)
+        _btsb.pack(side="right", fill="y")
+        self.btree.pack(side="left", fill="y", expand=False)
         self.bpanel = MplPanel(parent, figsize=(5.2, 5.2), polar=True)
         self.bpanel.pack(side="left", fill="both", expand=True, padx=4, pady=6)
 
@@ -156,12 +163,12 @@ class CelestialScreen(Screen):
         self.eme_kv.pack(fill="x", padx=8, pady=6)
         cols = ("start", "end", "dur")
         heads = ("Window start (UTC)", "End (UTC)", "Duration (min)")
-        self.eme_tree = ttk.Treeview(parent, columns=cols, show="headings",
-                                     height=8)
+        treewrap, self.eme_tree = make_scrolled_tree(
+            parent, cols, show="headings", height=8)
         for c, h in zip(cols, heads):
             self.eme_tree.heading(c, text=h)
             self.eme_tree.column(c, width=180, anchor="center")
-        self.eme_tree.pack(fill="both", expand=True, padx=8, pady=6)
+        treewrap.pack(fill="both", expand=True, padx=8, pady=6)
         self._eme_windows = []
 
     def _render_eme(self):

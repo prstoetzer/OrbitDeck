@@ -4,7 +4,8 @@ import tkinter as tk
 from tkinter import ttk
 
 from . import (Screen, COL_PANEL, COL_TEXT, COL_MUTED, COL_ACCENT, COL_ACCENT2,
-               FONT_MONO, fmt_hms, fmt_utc, now_unix, compass)
+               FONT_MONO, fmt_hms, fmt_utc, now_unix, compass,
+               make_scrolled_tree)
 
 
 class PassesScreen(Screen):
@@ -29,8 +30,8 @@ class PassesScreen(Screen):
         heads = ("Day", "AOS (UTC)", "Max El", "Duration", "LOS", "Track")
         widths = {"day": 90, "aos": 90, "maxel": 90, "dur": 90, "los": 80,
                   "dir": 130}
-        self.tree = ttk.Treeview(self.frame, columns=cols, show="headings",
-                                 height=18)
+        treewrap, self.tree = make_scrolled_tree(
+            self.frame, cols, show="headings", height=18)
         for c, h in zip(cols, heads):
             self.tree.heading(c, text=h)
             self.tree.column(c, width=widths[c], minwidth=widths[c],
@@ -39,7 +40,7 @@ class PassesScreen(Screen):
         self.tree.tag_configure("hi", foreground=COL_ACCENT2)
         self.tree.tag_configure("vhi", foreground=COL_ACCENT)
         self.tree.tag_configure("odd", background=COL_PANEL)
-        self.tree.pack(fill="both", expand=True, padx=16, pady=10)
+        treewrap.pack(fill="both", expand=True, padx=16, pady=10)
         self.tree.bind("<Double-Button-1>", self._open_detail)
         self.info = tk.StringVar(value="")
         ttk.Label(self.frame, textvariable=self.info, style="Muted.TLabel").pack(

@@ -46,7 +46,11 @@ semantic versioning.
   are actually tuned rather than always the band centre.
 
 ### Fixed
-- **Reversed elevation on several sky-polar plots.** Pass Detail, Track, Sun/Moon,
+- **Scrollbars on every table and list.** All scrollable surfaces now have a
+  visible scrollbar: the pass, comparison, listing, eclipse, mutual-window,
+  workable, planning, sites, celestial, and satellite tables, the Home favorites
+  list, and the Select-satellite dialog (whose scrollbar was created but never
+  shown). Long tables can now be scrolled with a bar, not only the mouse wheel.
   Mutual Windows and the pass/mutual plots in PDF reports labelled the elevation
   rings backwards (the rim read "90", the centre "0"), so a high-elevation pass
   looked like it skimmed the horizon. The ring labels now match the radius —

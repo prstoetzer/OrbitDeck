@@ -11,7 +11,7 @@ import tkinter as tk
 from tkinter import ttk
 
 from . import (Screen, KVPanel, TabBar, COL_MUTED, COL_ACCENT, COL_WARN, now_unix,
-               fmt_utc)
+               fmt_utc, make_scrolled_tree)
 from ...engine import planning as PL
 from ...engine import linkbudget as LB
 from ...engine.predict import grid_to_latlon, Observer
@@ -85,12 +85,12 @@ class PlanningScreen(Screen):
                    command=self._export_work).pack(side="right", padx=2)
         cols = ("start", "dur", "margin")
         heads = ("Start (UTC)", "Duration (min)", "Footprint margin")
-        self.work_tree = ttk.Treeview(parent, columns=cols, show="headings",
-                                      height=14)
+        treewrap, self.work_tree = make_scrolled_tree(
+            parent, cols, show="headings", height=14)
         for c, h in zip(cols, heads):
             self.work_tree.heading(c, text=h)
             self.work_tree.column(c, width=180, anchor="center")
-        self.work_tree.pack(fill="both", expand=True, padx=8, pady=6)
+        treewrap.pack(fill="both", expand=True, padx=8, pady=6)
         self.work_info = tk.StringVar(value="")
         ttk.Label(parent, textvariable=self.work_info,
                   style="Muted.TLabel").pack(anchor="w", padx=8, pady=(0, 6))
@@ -189,12 +189,12 @@ class PlanningScreen(Screen):
                    command=self._export_vis).pack(side="right", padx=2)
         cols = ("aos", "maxel", "mag", "dur")
         heads = ("Start (UTC)", "Max El", "Est. mag", "Duration (min)")
-        self.vis_tree = ttk.Treeview(parent, columns=cols, show="headings",
-                                     height=14)
+        treewrap, self.vis_tree = make_scrolled_tree(
+            parent, cols, show="headings", height=14)
         for c, h in zip(cols, heads):
             self.vis_tree.heading(c, text=h)
             self.vis_tree.column(c, width=160, anchor="center")
-        self.vis_tree.pack(fill="both", expand=True, padx=8, pady=6)
+        treewrap.pack(fill="both", expand=True, padx=8, pady=6)
         self.vis_info = tk.StringVar(value="")
         ttk.Label(parent, textvariable=self.vis_info,
                   style="Muted.TLabel").pack(anchor="w", padx=8, pady=(0, 6))
@@ -279,12 +279,12 @@ class PlanningScreen(Screen):
         cols = ("start", "end", "dur", "range")
         heads = ("Start (UTC)", "End (UTC)", "Duration (min)",
                  "Min range (km)")
-        self.s2s_tree = ttk.Treeview(parent, columns=cols, show="headings",
-                                     height=12)
+        treewrap, self.s2s_tree = make_scrolled_tree(
+            parent, cols, show="headings", height=12)
         for c, h in zip(cols, heads):
             self.s2s_tree.heading(c, text=h)
             self.s2s_tree.column(c, width=160, anchor="center")
-        self.s2s_tree.pack(fill="both", expand=True, padx=8, pady=6)
+        treewrap.pack(fill="both", expand=True, padx=8, pady=6)
         self.s2s_info = tk.StringVar(value="")
         ttk.Label(parent, textvariable=self.s2s_info,
                   style="Muted.TLabel").pack(anchor="w", padx=8, pady=(0, 6))

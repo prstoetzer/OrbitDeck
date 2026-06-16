@@ -5,7 +5,7 @@ import tkinter as tk
 from tkinter import ttk
 
 from . import (Screen, TabBar, COL_TEXT, COL_MUTED, COL_ACCENT, FONT_MONO,
-               now_unix, fmt_utc)
+               now_unix, fmt_utc, make_scrolled_tree)
 from .. import exports as EX
 from ...engine.predict import whos_up
 from ...engine.satdb import satellite_category, CATEGORIES
@@ -48,15 +48,15 @@ class SatellitesScreen(Screen):
 
         cols = ("fav", "name", "norad", "period", "incl", "apo", "tx")
         heads = ("\u2605", "Name", "NORAD", "Period", "Incl", "Apogee", "TX")
-        self.tree = ttk.Treeview(parent, columns=cols, show="headings",
-                                 height=18)
+        treewrap, self.tree = make_scrolled_tree(
+            parent, cols, show="headings", height=18)
         widths = {"fav": 36, "name": 150, "norad": 80, "period": 90,
                   "incl": 80, "apo": 90, "tx": 60}
         for c, h in zip(cols, heads):
             self.tree.heading(c, text=h)
             self.tree.column(c, width=widths[c],
                              anchor="w" if c == "name" else "center")
-        self.tree.pack(fill="both", expand=True, padx=4, pady=10)
+        treewrap.pack(fill="both", expand=True, padx=4, pady=10)
         self.tree.bind("<Double-Button-1>", self._select)
         self.tree.bind("<space>", self._toggle_fav)
 
@@ -177,8 +177,8 @@ class SatellitesScreen(Screen):
 
         cols = ("norad", "period", "incl", "downlink", "tp")
         heads = ("NORAD", "Period", "Incl", "Downlink", "Transponder(s)")
-        self._bt_tree = ttk.Treeview(parent, columns=cols, show="tree headings",
-                                     height=18)
+        treewrap, self._bt_tree = make_scrolled_tree(
+            parent, cols, show="tree headings", height=18)
         self._bt_tree.heading("#0", text="Satellite / group")
         self._bt_tree.column("#0", width=240, anchor="w")
         widths = {"norad": 80, "period": 90, "incl": 70, "downlink": 110,
@@ -187,7 +187,7 @@ class SatellitesScreen(Screen):
             self._bt_tree.heading(c, text=h)
             self._bt_tree.column(c, width=widths[c],
                                  anchor="w" if c == "tp" else "center")
-        self._bt_tree.pack(fill="both", expand=True, padx=4, pady=10)
+        treewrap.pack(fill="both", expand=True, padx=4, pady=10)
         self._bt_tree.bind("<Double-Button-1>", self._select_bytype)
 
         btns = ttk.Frame(parent, style="TFrame")
@@ -315,15 +315,15 @@ class SatellitesScreen(Screen):
         cols = ("name", "el", "az", "rng", "sub", "alt", "sun")
         heads = ("Satellite", "El", "Az", "Range km", "Sub-point",
                  "Alt km", "Sun")
-        self._up_tree = ttk.Treeview(parent, columns=cols, show="headings",
-                                     height=18)
+        treewrap, self._up_tree = make_scrolled_tree(
+            parent, cols, show="headings", height=18)
         widths = {"name": 160, "el": 70, "az": 70, "rng": 100, "sub": 140,
                   "alt": 80, "sun": 50}
         for c, h in zip(cols, heads):
             self._up_tree.heading(c, text=h)
             self._up_tree.column(c, width=widths[c],
                                  anchor="w" if c == "name" else "center")
-        self._up_tree.pack(fill="both", expand=True, padx=4, pady=10)
+        treewrap.pack(fill="both", expand=True, padx=4, pady=10)
         self._up_tree.bind("<Double-Button-1>", self._select_up)
 
         btns = ttk.Frame(parent, style="TFrame")

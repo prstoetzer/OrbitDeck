@@ -53,6 +53,30 @@ def compass(az):
     return dirs[int((az % 360) / 22.5 + 0.5) % 16]
 
 
+def make_scrolled_tree(parent, columns, show="headings", height=16,
+                       horizontal=False, **tree_kwargs):
+    """Create a ttk.Treeview wrapped in a frame with a vertical (and optionally
+    horizontal) scrollbar, so every long table can be scrolled with a visible
+    bar. Returns (container, tree); pack/grid the container where the tree would
+    have gone, and configure columns/headings on the returned tree as usual.
+
+    The scrollbars use the app's themed Vertical/Horizontal.TScrollbar styles.
+    """
+    container = ttk.Frame(parent, style="TFrame")
+    tree = ttk.Treeview(container, columns=columns, show=show, height=height,
+                        **tree_kwargs)
+    vsb = ttk.Scrollbar(container, orient="vertical", command=tree.yview)
+    tree.configure(yscrollcommand=vsb.set)
+    vsb.pack(side="right", fill="y")
+    if horizontal:
+        hsb = ttk.Scrollbar(container, orient="horizontal",
+                            command=tree.xview)
+        tree.configure(xscrollcommand=hsb.set)
+        hsb.pack(side="bottom", fill="x")
+    tree.pack(side="left", fill="both", expand=True)
+    return container, tree
+
+
 class Screen:
     """Base screen. Subclasses build into self.frame and override hooks."""
     live = False

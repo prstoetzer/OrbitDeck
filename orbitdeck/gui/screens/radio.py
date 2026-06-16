@@ -13,7 +13,7 @@ import tkinter as tk
 from tkinter import ttk
 
 from . import (Screen, KVPanel, TabBar, COL_PANEL, COL_TEXT, COL_MUTED,
-               COL_ACCENT, COL_WARN, now_unix, fmt_utc)
+               COL_ACCENT, COL_WARN, now_unix, fmt_utc, make_scrolled_tree)
 from ...engine import linkbudget as LB
 from .. import exports as EX
 
@@ -321,14 +321,14 @@ class RadioScreen(Screen):
         cols = ("min", "az", "el", "rr", "rx", "tx")
         heads = ("Min", "Az", "El", "Range-rate (km/s)", "RX (MHz)",
                  "TX (MHz)")
-        self.tree = ttk.Treeview(parent, columns=cols, show="headings",
-                                 height=16)
+        treewrap, self.tree = make_scrolled_tree(
+            parent, cols, show="headings", height=16)
         widths = {"min": 70, "az": 70, "el": 70, "rr": 140, "rx": 130,
                   "tx": 130}
         for c, h in zip(cols, heads):
             self.tree.heading(c, text=h)
             self.tree.column(c, width=widths[c], anchor="center")
-        self.tree.pack(fill="both", expand=True, padx=8, pady=6)
+        treewrap.pack(fill="both", expand=True, padx=8, pady=6)
         self.pbinfo = tk.StringVar(value="")
         ttk.Label(parent, textvariable=self.pbinfo,
                   style="Muted.TLabel").pack(anchor="w", padx=8, pady=(0, 6))

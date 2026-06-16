@@ -8,7 +8,7 @@ import tkinter as tk
 from tkinter import ttk
 
 from . import (Screen, TabBar, MplPanel, COL_MUTED, COL_ACCENT, now_unix,
-               fmt_utc)
+               fmt_utc, make_scrolled_tree)
 from .. import exports as EX
 from ...engine.predict import Predictor
 
@@ -51,12 +51,12 @@ class ExportScreen(Screen):
             side="right", padx=2)
         cols = ("aos", "maxel", "dur", "los")
         heads = ("AOS (UTC)", "Max El", "Duration (min)", "LOS (UTC)")
-        self.tree = ttk.Treeview(parent, columns=cols, show="headings",
-                                 height=15)
+        treewrap, self.tree = make_scrolled_tree(
+            parent, cols, show="headings", height=15)
         for c, h in zip(cols, heads):
             self.tree.heading(c, text=h)
             self.tree.column(c, width=170, anchor="center")
-        self.tree.pack(fill="both", expand=True, padx=8, pady=6)
+        treewrap.pack(fill="both", expand=True, padx=8, pady=6)
         self.info = tk.StringVar(value="")
         ttk.Label(parent, textvariable=self.info,
                   style="Muted.TLabel").pack(anchor="w", padx=8, pady=(0, 6))
@@ -169,12 +169,12 @@ class ExportScreen(Screen):
         cols = ("sat", "n", "best", "el", "dur")
         heads = ("Satellite", "Passes", "Best pass (UTC)", "Best max el",
                  "Best dur (min)")
-        self.cmp_tree = ttk.Treeview(parent, columns=cols, show="headings",
-                                     height=15)
+        treewrap, self.cmp_tree = make_scrolled_tree(
+            parent, cols, show="headings", height=15)
         for c, h in zip(cols, heads):
             self.cmp_tree.heading(c, text=h)
             self.cmp_tree.column(c, width=140, anchor="center")
-        self.cmp_tree.pack(fill="both", expand=True, padx=8, pady=6)
+        treewrap.pack(fill="both", expand=True, padx=8, pady=6)
         self.cmp_info = tk.StringVar(value="")
         ttk.Label(parent, textvariable=self.cmp_info,
                   style="Muted.TLabel").pack(anchor="w", padx=8, pady=(0, 6))
@@ -369,34 +369,34 @@ class ExportScreen(Screen):
         cols = ("t", "az", "el", "rng", "rr", "sub", "alt", "sun")
         heads = ("Time (UTC)", "Az", "El", "Range km", "Rate km/s",
                  "Sub-point", "Alt km", "Sun")
-        self._lt_one = ttk.Treeview(page_one, columns=cols, show="headings",
-                                    height=16)
+        w1, self._lt_one = make_scrolled_tree(
+            page_one, cols, show="headings", height=16)
         for c, h in zip(cols, heads):
             self._lt_one.heading(c, text=h)
             self._lt_one.column(c, width=96, anchor="center")
-        self._lt_one.pack(fill="both", expand=True, padx=6, pady=6)
+        w1.pack(fill="both", expand=True, padx=6, pady=6)
 
         # AOS/LOS quick list
         cols2 = ("aos", "los", "dur", "maxel", "aaz", "laz")
         heads2 = ("AOS (UTC)", "LOS (UTC)", "Duration", "Max El",
                   "AOS Az", "LOS Az")
-        self._lt_aos = ttk.Treeview(page_aos, columns=cols2, show="headings",
-                                    height=16)
+        w2, self._lt_aos = make_scrolled_tree(
+            page_aos, cols2, show="headings", height=16)
         for c, h in zip(cols2, heads2):
             self._lt_aos.heading(c, text=h)
             self._lt_aos.column(c, width=120, anchor="center")
-        self._lt_aos.pack(fill="both", expand=True, padx=6, pady=6)
+        w2.pack(fill="both", expand=True, padx=6, pady=6)
 
         # two-observer stepped
         cols3 = ("t", "az1", "el1", "r1", "az2", "el2", "r2")
         heads3 = ("Time (UTC)", "Az\u2081", "El\u2081", "Rng\u2081 km",
                   "Az\u2082", "El\u2082", "Rng\u2082 km")
-        self._lt_two = ttk.Treeview(page_two, columns=cols3, show="headings",
-                                    height=16)
+        w3, self._lt_two = make_scrolled_tree(
+            page_two, cols3, show="headings", height=16)
         for c, h in zip(cols3, heads3):
             self._lt_two.heading(c, text=h)
             self._lt_two.column(c, width=110, anchor="center")
-        self._lt_two.pack(fill="both", expand=True, padx=6, pady=6)
+        w3.pack(fill="both", expand=True, padx=6, pady=6)
 
         self._linfo = tk.StringVar(value="")
         ttk.Label(parent, textvariable=self._linfo,

@@ -58,11 +58,17 @@ class HomeScreen(Screen):
         ttk.Label(side, text="Show", style="Muted.TLabel").pack(
             anchor="w", padx=8, pady=(6, 2))
         self.focus_norad = None
-        self._list = tk.Listbox(side, bg=COL_PANEL, fg=COL_TEXT,
+        _listwrap = ttk.Frame(side, style="Panel.TFrame")
+        _listwrap.pack(fill="both", expand=True, padx=4, pady=4)
+        self._list = tk.Listbox(_listwrap, bg=COL_PANEL, fg=COL_TEXT,
                                 font=FONT_MONO, selectbackground=COL_ACCENT,
                                 borderwidth=0, highlightthickness=0,
                                 activestyle="none", exportselection=False)
-        self._list.pack(fill="both", expand=True, padx=4, pady=4)
+        _lsb = ttk.Scrollbar(_listwrap, orient="vertical",
+                             command=self._list.yview)
+        self._list.configure(yscrollcommand=_lsb.set)
+        _lsb.pack(side="right", fill="y")
+        self._list.pack(side="left", fill="both", expand=True)
         self._list.bind("<<ListboxSelect>>", self._on_pick)
         mp = ttk.Frame(mbody, style="Panel.TFrame")
         mp.pack(side="left", fill="both", expand=True, padx=(6, 12), pady=8)
@@ -75,14 +81,20 @@ class HomeScreen(Screen):
         heads = ("Satellite", "AOS (UTC)", "Max El", "Duration", "Countdown")
         widths = {"sat": 130, "aos": 150, "maxel": 90, "dur": 100,
                   "count": 150}
-        self.tree = ttk.Treeview(self.pass_wrap, columns=cols,
+        _twrap = ttk.Frame(self.pass_wrap, style="TFrame")
+        _twrap.pack(fill="both", expand=True, padx=16, pady=10)
+        self.tree = ttk.Treeview(_twrap, columns=cols,
                                  show="headings", height=18)
         for c, h in zip(cols, heads):
             self.tree.heading(c, text=h)
             self.tree.column(c, width=widths[c],
                              anchor="w" if c in ("sat", "count") else "center")
         self.tree.tag_configure("now", foreground=COL_ACCENT2)
-        self.tree.pack(fill="both", expand=True, padx=16, pady=10)
+        _tvsb = ttk.Scrollbar(_twrap, orient="vertical",
+                              command=self.tree.yview)
+        self.tree.configure(yscrollcommand=_tvsb.set)
+        _tvsb.pack(side="right", fill="y")
+        self.tree.pack(side="left", fill="both", expand=True)
         self.tree.bind("<Double-Button-1>", self._on_pass_pick)
         self.pass_info = tk.StringVar(value="")
         ttk.Label(self.pass_wrap, textvariable=self.pass_info,
