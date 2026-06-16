@@ -1,89 +1,146 @@
-"""alarms.py - real-time event alarms for the selected satellite.
+"""alarms.py - real-time pass alarms for all favorite satellites.
 
-Watches the next pass and fires AOS / TCA / LOS notifications (status-bar +
-optional system bell) as those moments arrive. Lightweight: it re-reads the
-next pass when the satellite changes or the current pass elapses, and checks
-once per app tick. No background threads.
+Watches the next pass of every favorited satellite and fires AOS / TCA / LOS
+notifications (status-bar + a distinctive multi-beep cue) as those moments
+arrive. Lightweight: it re-reads each favorite's next pass when the favorites
+set changes or a pass elapses, and checks once per app tick. No background
+threads -- the audible cue is scheduled with root.after so it never blocks.
 """
 
 import time
+
+
+# distinctive beep patterns per event, expressed as a list of millisecond
+# delays at which to ring the bell. A short rising flutter for "soon", a firm
+# double for AOS, a single mid chime for TCA, and a descending pair for LOS, so
+# the four events sound clearly different from one another and from a stray
+# system bell.
+_PATTERNS = {
+    "soon": (0, 90, 180),
+    "aos": (0, 140),
+    "tca": (0,),
+    "los": (0, 220, 440),
+}
 
 
 class AlarmManager:
     def __init__(self, app):
         self.app = app
         self.enabled = False
-        self._sat_norad = None
-        self._pass = None
-        self._fired = set()          # which events fired for the current pass
         self._lead_s = 60.0          # "pass starting soon" lead time
+        # per-norad state: {norad: {"pass": PassPredict, "fired": set()}}
+        self._watch = {}
+        self._fav_key = None         # detects when the favorites set changes
 
     def set_enabled(self, on):
         self.enabled = bool(on)
-        self._reset()
+        self._watch = {}
+        self._fav_key = None
 
-    def _reset(self):
-        self._pass = None
-        self._fired = set()
+    # ---- pass bookkeeping ----
+    def _favorites(self, store):
+        return [s for s in store.db.sats if s.norad in store.favorites]
 
-    def _refresh_pass(self, store):
-        s = store.selected_sat()
-        if not s:
-            self._pass = None
-            return
-        try:
-            pred = store.pred
-            ps = pred.predict_passes(
-                time.time(), getattr(store, "min_el", 5.0), 1)
-        except Exception:
-            ps = []
-        self._pass = ps[0] if ps else None
-        self._fired = set()
-        self._sat_norad = s.norad
+    def _refresh_watch(self, store):
+        """Rebuild the per-favorite next-pass table. Preserves already-fired
+        events for passes that are still the same, so toggling other state
+        doesn't replay alarms."""
+        favs = self._favorites(store)
+        new = {}
+        now = time.time()
+        for s in favs:
+            try:
+                pred = store.predictor_for(s) if hasattr(
+                    store, "predictor_for") else self._pred_for(store, s)
+                ps = pred.predict_passes(now, getattr(store, "min_el", 5.0), 1)
+            except Exception:
+                ps = []
+            p = ps[0] if ps else None
+            if not p:
+                continue
+            prev = self._watch.get(s.norad)
+            # keep fired-state if it's the same pass (same AOS within a second)
+            if prev and prev.get("pass") and abs(
+                    prev["pass"].aos - p.aos) < 1.0:
+                new[s.norad] = {"pass": p, "fired": prev["fired"]}
+            else:
+                new[s.norad] = {"pass": p, "fired": set()}
+        self._watch = new
+
+    def _pred_for(self, store, s):
+        from ..engine.predict import Predictor
+        p = Predictor()
+        p.set_site(store.obs)
+        p.set_sat(s)
+        return p
 
     def tick(self):
-        """Call once per app tick (about 1 Hz). Fires due alarms."""
+        """Call once per app tick (about 1 Hz). Fires due alarms for every
+        favorite satellite."""
         if not self.enabled:
             return
         store = self.app.store
-        s = store.selected_sat()
-        if not s:
-            return
-        # (re)load the pass if the satellite changed or we have none / it elapsed
         now = time.time()
-        if (self._pass is None or s.norad != self._sat_norad
-                or (self._pass.los and now > self._pass.los + 5)):
-            self._refresh_pass(store)
-        p = self._pass
-        if not p:
-            return
-        self._maybe_fire("soon", p.aos - self._lead_s, now,
-                         "%s rising in ~1 min (max el %.0f\u00b0)"
-                         % (s.name, p.max_el))
-        self._maybe_fire("aos", p.aos, now, "%s AOS \u2014 now rising" % s.name)
-        self._maybe_fire("tca", p.tca, now,
-                         "%s TCA \u2014 max elevation %.0f\u00b0"
-                         % (s.name, p.max_el))
-        self._maybe_fire("los", p.los, now, "%s LOS \u2014 pass over" % s.name)
+        # rebuild the watch table if the favorites set changed or a watched pass
+        # has elapsed
+        fav_key = tuple(sorted(store.favorites))
+        need_refresh = (fav_key != self._fav_key)
+        for st in self._watch.values():
+            p = st.get("pass")
+            if p and p.los and now > p.los + 5:
+                need_refresh = True
+                break
+        if need_refresh or not self._watch:
+            self._refresh_watch(store)
+            self._fav_key = fav_key
 
-    def _maybe_fire(self, key, when, now, message):
-        if key in self._fired or when <= 0:
+        for norad, st in self._watch.items():
+            p = st.get("pass")
+            if not p:
+                continue
+            s = store.db.get(norad)
+            if not s:
+                continue
+            fired = st["fired"]
+            self._maybe_fire(fired, "soon", p.aos - self._lead_s, now,
+                             "%s rising in ~1 min (max el %.0f\u00b0)"
+                             % (s.name, p.max_el))
+            self._maybe_fire(fired, "aos", p.aos, now,
+                             "%s AOS \u2014 now rising" % s.name)
+            self._maybe_fire(fired, "tca", p.tca, now,
+                             "%s TCA \u2014 max elevation %.0f\u00b0"
+                             % (s.name, p.max_el))
+            self._maybe_fire(fired, "los", p.los, now,
+                             "%s LOS \u2014 pass over" % s.name)
+
+    def _maybe_fire(self, fired, key, when, now, message):
+        if key in fired or when <= 0:
             return
-        # fire when we've just crossed the event time (within one tick window)
         if now >= when and now - when < 3.0:
-            self._fired.add(key)
-            self._notify(message)
+            fired.add(key)
+            self._notify(key, message)
         elif now >= when:
-            # already past (e.g. app just loaded mid-pass): mark fired silently
-            self._fired.add(key)
+            # already past (e.g. app loaded mid-pass): mark fired silently
+            fired.add(key)
 
-    def _notify(self, message):
+    def _notify(self, key, message):
         try:
             self.app.set_status("\U0001f6f0 " + message)
         except Exception:
             pass
-        try:
-            # a gentle audible cue; harmless if the platform has no bell
-            self.app.root.bell()
-        except Exception:
-            pass
+        self._play(_PATTERNS.get(key, (0,)))
+
+    def _play(self, delays_ms):
+        """Ring the bell in a distinctive rhythm using root.after so the UI is
+        never blocked. Each entry is a delay (ms) from now at which to ring."""
+        root = getattr(self.app, "root", None)
+        if root is None:
+            return
+        for d in delays_ms:
+            try:
+                if d <= 0:
+                    root.bell()
+                else:
+                    root.after(int(d), root.bell)
+            except Exception:
+                pass

@@ -325,7 +325,8 @@ def _draw_graticule(ax, proj, rmax):
         _project_polyline(ax, proj, pts, "#c4c4c4", LW_GRID, 1, rmax)
 
 
-def _draw_az_grid(ax, proj, rmax, alt_km=None, skip_horizon=False):
+def _draw_az_grid(ax, proj, rmax, alt_km=None, skip_horizon=False,
+                  dist_rings=False, dist_max_deg=None):
     if proj.is_polar:
         # polar map: radial spokes are meridians (longitude), rings are
         # parallels of latitude (colatitude from the pole). A spoke drawn at
@@ -428,17 +429,48 @@ def _draw_az_grid(ax, proj, rmax, alt_km=None, skip_horizon=False):
                     fontsize=FS_RINGLABEL,
                     color="#444444" if el == 0 else "#555555", ha="center",
                     va="bottom", fontweight="bold")
-        # a faint distance reference ring + km label at mid-map, so the sheet
-        # still carries a physical scale
-        mid = round(rmax / 2.0 / 10.0) * 10.0
-        if 0 < mid < rmax:
+        # distance rings: concentric great-circle range circles labelled in km,
+        # so the operator can read the ground distance from the QTH to the
+        # sub-point directly off the sheet (the same scale the standalone
+        # footprint overlay carries). Rings are placed on a clean km step out to
+        # the footprint edge (dist_max_deg) and labelled on the 135 deg spoke,
+        # clear of the elevation labels on the 45 deg spoke.
+        if dist_rings:
+            reach_deg = min(dist_max_deg or rmax, rmax)
+            reach_km = reach_deg * KM_PER_DEG
+            if reach_km <= 1500:
+                step_km = 500
+            elif reach_km <= 3500:
+                step_km = 1000
+            elif reach_km <= 7000:
+                step_km = 2000
+            else:
+                step_km = 3000
             th = [math.radians(a) for a in range(0, 361, 2)]
-            ax.plot(th, [mid] * len(th), color="#cccccc", linewidth=LW_GRID,
-                    zorder=1, linestyle=(0, (4, 3)))
-            ax.text(math.radians(225), mid,
-                    "%d km" % round(mid * KM_PER_DEG, -2),
-                    fontsize=FS_RINGLABEL, color="#888888", ha="center",
-                    va="bottom")
+            km = step_km
+            while km < reach_km - step_km * 0.25:
+                rho = km / KM_PER_DEG
+                if rho < rmax * 0.05:
+                    km += step_km
+                    continue
+                ax.plot(th, [rho] * len(th), color="#bdbdbd",
+                        linewidth=LW_GRID, zorder=1, linestyle=(0, (4, 3)))
+                ax.text(math.radians(135), rho, "%d\u00a0km" % km,
+                        fontsize=FS_RINGLABEL, color="#777777", ha="center",
+                        va="bottom", fontweight="bold", zorder=3)
+                km += step_km
+        else:
+            # a single faint distance reference ring + km label at mid-map, so
+            # the sheet still carries a physical scale
+            mid = round(rmax / 2.0 / 10.0) * 10.0
+            if 0 < mid < rmax:
+                th = [math.radians(a) for a in range(0, 361, 2)]
+                ax.plot(th, [mid] * len(th), color="#cccccc", linewidth=LW_GRID,
+                        zorder=1, linestyle=(0, (4, 3)))
+                ax.text(math.radians(225), mid,
+                        "%d km" % round(mid * KM_PER_DEG, -2),
+                        fontsize=FS_RINGLABEL, color="#888888", ha="center",
+                        va="bottom")
     else:
         # generic base map (no satellite bound): plain great-circle range rings
         for rho in range(30, int(rmax) + 1, 30):
@@ -500,6 +532,75 @@ def _base_map_page(pdf, proj, qth_name, segments, rmax, alt_km=None,
     plt.close(fig)
 
 
+def _draw_footprint_overlay(ax, foot_deg, rmax, with_rose=True,
+                            center=(0.0, 0.0)):
+    """Draw the standard OSCARLOCATOR footprint overlay so it looks identical
+    wherever it appears (the standalone 3-sheet transparency AND the combined
+    QTH map): a bold red range circle, a centre cross, and -- when the overlay is
+    concentric with the sheet (``with_rose``) -- the azimuth rose (spokes + degree
+    labels + N/E/S/W cardinals) and the inner km distance rings.
+
+    ``center`` is (rho_deg, bearing_deg) of the footprint centre on the sheet;
+    the rose/rings are only drawn when the centre is the sheet centre (QTH-centred
+    or QTH-on-pole), since they are only meaningful as concentric circles.
+    """
+    fr = min(foot_deg, rmax)
+    c_rho, c_br = center
+    concentric = with_rose and c_rho <= 1e-6
+
+    if concentric:
+        # azimuth rose: spokes every 30 deg out to the footprint edge, with degree
+        # labels and cardinal letters set clear OUTSIDE the red circle.
+        for az in range(0, 360, 30):
+            ax.plot([math.radians(az), math.radians(az)], [0, fr],
+                    color="#a0a0a0", linewidth=LW_SPOKE, zorder=2)
+        edge_cap = rmax * (PAGE_W_IN / PLOT_DIAMETER_IN) * 0.95
+        gap = max(4.0, rmax * 0.06)
+        deg_r = min(fr + gap, edge_cap - gap)
+        card_r = min(fr + gap * 2.2, edge_cap)
+        if card_r <= deg_r:
+            card_r = deg_r + gap
+        for az in range(0, 360, 30):
+            if az % 90 != 0:
+                ax.text(math.radians(az), deg_r, "%d\u00b0" % az, ha="center",
+                        va="center", fontsize=FS_AZLABEL, color="#444444",
+                        fontweight="bold", zorder=3)
+        for az, name in ((0, "N"), (90, "E"), (180, "S"), (270, "W")):
+            ax.text(math.radians(az), card_r, name, ha="center", va="center",
+                    fontsize=FS_CARDINAL, fontweight="bold", zorder=3)
+
+        # inner km distance rings (2-3 rings), labelled on the 135 deg spoke
+        foot_km = foot_deg * KM_PER_DEG
+        if foot_km <= 1500:
+            step_km = 500
+        elif foot_km <= 3500:
+            step_km = 1000
+        elif foot_km <= 7000:
+            step_km = 2000
+        else:
+            step_km = 3000
+        th = [math.radians(a) for a in range(0, 361, 2)]
+        km = step_km
+        while km < foot_km - step_km * 0.25:
+            rho = km / KM_PER_DEG
+            ax.plot(th, [rho] * len(th), color="#9a9a9a", linewidth=LW_RING,
+                    zorder=2)
+            ax.text(math.radians(135), rho, "%d\u00a0km" % km,
+                    fontsize=FS_RINGLABEL, color="#555555", ha="center",
+                    va="bottom", fontweight="bold", zorder=3)
+            km += step_km
+
+    # the footprint circle itself, in the SAME red / weight everywhere. When the
+    # overlay is concentric it's a true circle at radius fr; otherwise the caller
+    # has already drawn the projected locus, so this is skipped.
+    if concentric:
+        th1 = [math.radians(a) for a in range(0, 361, 1)]
+        ax.plot(th1, [fr] * len(th1), color="#cc0000", linewidth=LW_FOOT,
+                zorder=4)
+        ax.plot([0], [0], marker="+", color="black", markersize=MARK_CROSS,
+                markeredgewidth=MEW_CROSS, zorder=5)
+
+
 def _footprint_page(pdf, sat_name, alt_km, proj, rmax):
     foot_deg = A.footprint_radius_deg(alt_km)
     fig = plt.figure(figsize=(PAGE_W_IN, PAGE_H_IN))
@@ -514,65 +615,9 @@ def _footprint_page(pdf, sat_name, alt_km, proj, rmax):
     ax = _polar_axes(fig, _fit_sat_name(sat_name, _fp_suffix) + _fp_suffix,
                      sub, rmax=rmax, show_rim=False)
 
-    # azimuth rose: spokes every 30 deg, drawn out to the footprint edge. Degree
-    # labels and cardinal letters sit well OUTSIDE the red footprint circle so
-    # they don't crowd it (there's room here because the footprint disc is small
-    # relative to the sheet). The numbers go at one radius, the N/E/S/W letters
-    # a bit further out.
-    for az in range(0, 360, 30):
-        ax.plot([math.radians(az), math.radians(az)], [0, fr],
-                color="#a0a0a0", linewidth=LW_SPOKE, zorder=2)
-    # Push labels clear of the red circle. Use an ABSOLUTE gap (in degrees of
-    # sheet radius) rather than a percentage of the footprint, so a small
-    # footprint on a large sheet (e.g. a LEO bird on the rmax=90 polar sheet)
-    # still gets a readable gap instead of labels pressed against the red circle.
-    # Cap the radius so that a LARGE footprint (red circle near the sheet edge)
-    # keeps its labels on the page.
-    edge_cap = rmax * (PAGE_W_IN / PLOT_DIAMETER_IN) * 0.95
-    gap = max(4.0, rmax * 0.06)                  # readable absolute clearance
-    deg_r = min(fr + gap, edge_cap - gap)        # clear of the red circle
-    card_r = min(fr + gap * 2.2, edge_cap)       # letters further out still
-    if card_r <= deg_r:                          # keep the letters outside the #s
-        card_r = deg_r + gap
-    for az in range(0, 360, 30):
-        if az % 90 != 0:
-            ax.text(math.radians(az), deg_r, "%d\u00b0" % az, ha="center",
-                    va="center", fontsize=FS_AZLABEL, color="#444444",
-                    fontweight="bold", zorder=3)
-    for az, name in ((0, "N"), (90, "E"), (180, "S"), (270, "W")):
-        ax.text(math.radians(az), card_r, name, ha="center",
-                va="center", fontsize=FS_CARDINAL, fontweight="bold", zorder=3)
-
-    # a few distance rings INSIDE the footprint only (not out to the sheet edge).
-    # Choose a step that yields ~2-3 rings so the small overlay doesn't get
-    # cluttered, and label them on the lower spokes (135 deg) where the azimuth
-    # numbers (clustered up top near the cardinals) don't crowd them.
-    foot_km = foot_deg * KM_PER_DEG
-    if foot_km <= 1500:
-        step_km = 500
-    elif foot_km <= 3500:
-        step_km = 1000
-    elif foot_km <= 7000:
-        step_km = 2000
-    else:
-        step_km = 3000
-    th = [math.radians(a) for a in range(0, 361, 2)]
-    label_az = 135                          # lower-right spoke: clear of N/E rose
-    km = step_km
-    while km < foot_km - step_km * 0.25:    # strictly inside the footprint
-        rho = km / KM_PER_DEG
-        ax.plot(th, [rho] * len(th), color="#9a9a9a", linewidth=LW_RING,
-                zorder=2)
-        ax.text(math.radians(label_az), rho, "%d\u00a0km" % km,
-                fontsize=FS_RINGLABEL, color="#555555", ha="center",
-                va="bottom", fontweight="bold", zorder=3)
-        km += step_km
-
-    # the footprint circle itself (the outer edge of coverage)
-    th1 = [math.radians(a) for a in range(0, 361, 1)]
-    ax.plot(th1, [fr] * len(th1), color="#cc0000", linewidth=LW_FOOT, zorder=4)
-    ax.plot([0], [0], marker="+", color="black", markersize=MARK_CROSS,
-            markeredgewidth=MEW_CROSS, zorder=5)
+    # the standalone footprint is concentric with the sheet, so it gets the full
+    # rose + km rings + red circle via the shared helper.
+    _draw_footprint_overlay(ax, foot_deg, rmax, with_rose=True)
     _draw_footer(fig,
                  "Print on transparency at 100%. Pin the centre cross over "
                  "your QTH at the map centre. The red circle is the range "
@@ -858,6 +903,21 @@ def _arc_page(pdf, pred, sat, proj, rmax):
     plt.close(fig)
 
 
+def _dest_point(lat, lon, dist_deg, bearing_deg):
+    """Point at angular distance ``dist_deg`` and ``bearing_deg`` from (lat,lon),
+    returned as (lat, lon) in degrees. Same great-circle math as the footprint
+    locus, for a single bearing (used to place ring labels)."""
+    p1 = math.radians(lat)
+    l1 = math.radians(lon)
+    d = math.radians(dist_deg)
+    brg = math.radians(bearing_deg)
+    lat2 = math.asin(math.sin(p1) * math.cos(d) +
+                     math.cos(p1) * math.sin(d) * math.cos(brg))
+    lon2 = l1 + math.atan2(math.sin(brg) * math.sin(d) * math.cos(p1),
+                           math.cos(d) - math.sin(p1) * math.sin(lat2))
+    return math.degrees(lat2), (math.degrees(lon2) + 540.0) % 360.0 - 180.0
+
+
 def _footprint_locus(qlat, qlon, foot_deg, n=361):
     """Return the (lat, lon) points of a small circle of angular radius
     ``foot_deg`` centred on the QTH -- i.e. the footprint edge when the satellite
@@ -876,6 +936,55 @@ def _footprint_locus(qlat, qlon, foot_deg, n=361):
         pts.append((math.degrees(lat2),
                     (math.degrees(lon2) + 540.0) % 360.0 - 180.0))
     return pts
+
+
+def _draw_qth_rings_projected(ax, proj, obs, alt_km, rmax, foot_deg):
+    """Draw the QTH-centred elevation rings (and km distance rings) onto a map
+    where the QTH is NOT at the sheet centre -- e.g. the polar map -- by walking
+    each small circle around the station and projecting it. On the polar map the
+    rings come out as the correct off-centre ovals so the operator can still read
+    elevation and ground distance to the sub-point. Labels are placed where each
+    ring crosses the QTH->due-south bearing so they sit on a tidy line."""
+    if not alt_km:
+        return
+    # elevation rings (skip 0 deg: that's the footprint edge, drawn in red)
+    for el in (10, 30, 60):
+        rho = A.central_angle_for_elevation_deg(el, alt_km)
+        if rho is None or rho >= foot_deg:
+            continue
+        locus = _footprint_locus(obs.lat, obs.lon, rho)
+        _project_polyline(ax, proj, [(lon, lat) for lat, lon in locus],
+                          "#9a9a9a", LW_RING, 3, rmax)
+        # label at the point due south of the QTH on this ring
+        llat, llon = _dest_point(obs.lat, obs.lon, rho, 180.0)
+        lr, lb = proj.project(llat, llon)
+        if lr <= rmax:
+            ax.text(math.radians(lb), lr, "%d\u00b0 el" % el,
+                    fontsize=FS_RINGLABEL, color="#555555", ha="center",
+                    va="bottom", fontweight="bold", zorder=4)
+    # km distance rings out to the footprint edge
+    foot_km = foot_deg * KM_PER_DEG
+    if foot_km <= 1500:
+        step_km = 500
+    elif foot_km <= 3500:
+        step_km = 1000
+    elif foot_km <= 7000:
+        step_km = 2000
+    else:
+        step_km = 3000
+    km = step_km
+    while km < foot_km - step_km * 0.25:
+        rdeg = km / KM_PER_DEG
+        locus = _footprint_locus(obs.lat, obs.lon, rdeg)
+        _project_polyline(ax, proj, [(lon, lat) for lat, lon in locus],
+                          "#bdbdbd", LW_GRID, 3, rmax)
+        llat, llon = _dest_point(obs.lat, obs.lon, rdeg, 135.0)
+        lr, lb = proj.project(llat, llon)
+        if lr <= rmax:
+            ax.text(math.radians(lb), lr, "%d\u00a0km" % km,
+                    fontsize=FS_RINGLABEL, color="#777777", ha="center",
+                    va="bottom", fontweight="bold", zorder=4)
+        km += step_km
 
 
 def _base_map_with_footprint_page(pdf, proj, obs, qth_name, segments, rmax,
@@ -909,25 +1018,42 @@ def _base_map_with_footprint_page(pdf, proj, obs, qth_name, segments, rmax,
     ax = _polar_axes(fig, title, sub, rmax=rmax, proj=proj)
     _draw_graticule(ax, proj, rmax)
     _draw_coastlines(ax, proj, segments, rmax)
-    # elevation rings inside the footprint for the QTH map (the bold red circle
-    # below already marks the horizon / el=0 ring, so don't double it)
-    _draw_az_grid(ax, proj, rmax,
-                  alt_km=None if proj.is_polar else alt_km, skip_horizon=True)
 
-    # draw the footprint centred on the station's position in this projection
-    locus = _footprint_locus(obs.lat, obs.lon, min(foot_deg, rmax))
-    _project_polyline(ax, proj, [(lon, lat) for lat, lon in locus],
-                      "#cc0000", LW_FOOT, 5, rmax)
-    # mark the QTH itself
-    q_rho, q_br = proj.project(obs.lat, obs.lon)
-    if q_rho <= rmax:
-        ax.plot([math.radians(q_br)], [q_rho], marker="*", color="#cc0000",
-                markersize=15, zorder=6)
+    if proj.is_polar:
+        # Polar map with a QTH: the station is OFF the sheet centre, so draw the
+        # graticule spokes/rings of the polar map, then add the QTH-centred
+        # elevation + distance rings as projected (off-centre) loci, and the
+        # footprint as a projected locus too. Keep the red footprint style.
+        _draw_az_grid(ax, proj, rmax, alt_km=None, skip_horizon=True)
+        _draw_qth_rings_projected(ax, proj, obs, alt_km, rmax, foot_deg)
+        locus = _footprint_locus(obs.lat, obs.lon, min(foot_deg, rmax))
+        _project_polyline(ax, proj, [(lon, lat) for lat, lon in locus],
+                          "#cc0000", LW_FOOT, 5, rmax)
+        # QTH-centre marker (cross, to match the standalone overlay's centre)
+        q_rho, q_br = proj.project(obs.lat, obs.lon)
+        if q_rho <= rmax:
+            ax.plot([math.radians(q_br)], [q_rho], marker="+", color="black",
+                    markersize=MARK_CROSS, markeredgewidth=MEW_CROSS, zorder=6)
+            ax.plot([math.radians(q_br)], [q_rho], marker="*", color="#cc0000",
+                    markersize=13, zorder=7)
+    else:
+        # QTH-centred map: the sheet IS azimuthal-equidistant about the station,
+        # so the footprint is concentric. Use the SHARED footprint-overlay helper
+        # so the red circle, azimuth rose and km distance rings look IDENTICAL to
+        # the standalone footprint transparency in the 3-sheet set. Elevation
+        # rings (which the standalone overlay doesn't carry) are added on top.
+        _draw_az_grid(ax, proj, rmax, alt_km=alt_km, skip_horizon=True,
+                      dist_rings=False)
+        _draw_footprint_overlay(ax, foot_deg, rmax, with_rose=True)
+        # mark the QTH itself at the centre
+        ax.plot([0], [0], marker="*", color="#cc0000", markersize=13, zorder=7)
     _draw_footer(fig,
                  "Print on paper or card at 100%. The red circle is the "
                  "satellite's footprint when it is directly over your station "
-                 "(red star). Use the separate path-arc overlay to see when it "
-                 "enters this circle.")
+                 "(red star). Spokes give azimuth, the dashed rings give ground "
+                 "distance (km) to the sub-point, and the solid rings give "
+                 "elevation. Use the separate path-arc overlay to see when the "
+                 "satellite enters this circle.")
     pdf.savefig(fig)
     plt.close(fig)
 

@@ -11,7 +11,7 @@ from tkinter import ttk
 
 from . import (Screen, MplPanel, KVPanel, COL_PANEL, COL_TEXT, COL_MUTED,
                COL_ACCENT, COL_ACCENT2, COL_WARN, COL_GRID, FONT_MONO,
-               fmt_hms, fmt_utc, now_unix, compass)
+               fmt_hms, fmt_utc, now_unix, compass, autohide_scrollbar)
 from ...engine import analysis as A
 from ..mapdraw import draw_basemap
 
@@ -66,7 +66,9 @@ class OrbitScreen(Screen):
                                anchor="center" if c != "lon" else "e")
         xsb = ttk.Scrollbar(self.tablewrap, orient="vertical",
                             command=self.xtable.yview)
-        self.xtable.configure(yscrollcommand=xsb.set)
+        self.xtable.configure(
+            yscrollcommand=autohide_scrollbar(xsb, "right",
+                                              before=self.xtable))
         # export bar for the crossings list, anchored at the bottom of the
         # table wrap so it shows whenever the Crossings List page is visible
         self.xexport = ttk.Frame(self.tablewrap, style="TFrame")

@@ -53,25 +53,66 @@ def compass(az):
     return dirs[int((az % 360) / 22.5 + 0.5) % 16]
 
 
+def autohide_scrollbar(bar, side, before=None):
+    """Return a yscrollcommand/xscrollcommand callback that shows ``bar`` only
+    when its axis has content beyond the visible area and hides it otherwise.
+
+    ``side`` is "right" (vertical) or "bottom" (horizontal); ``before`` is the
+    widget the bar should pack before when it reappears (so it keeps its place).
+    The packed-state is tracked explicitly rather than via winfo_ismapped(), so
+    it behaves correctly even before the window is mapped.
+    """
+    fill = "y" if side == "right" else "x"
+    state = {"packed": True}        # bars are packed by the creator initially
+
+    def _cb(first, last):
+        try:
+            f, l = float(first), float(last)
+        except (TypeError, ValueError):
+            return
+        if f <= 0.0 and l >= 1.0:
+            if state["packed"]:
+                bar.pack_forget()
+                state["packed"] = False
+        elif not state["packed"]:
+            opts = {"side": side, "fill": fill}
+            if before is not None:
+                opts["before"] = before
+            try:
+                bar.pack(**opts)
+            except Exception:
+                bar.pack(side=side, fill=fill)
+            state["packed"] = True
+        bar.set(first, last)
+
+    return _cb
+
+
 def make_scrolled_tree(parent, columns, show="headings", height=16,
                        horizontal=False, **tree_kwargs):
     """Create a ttk.Treeview wrapped in a frame with a vertical (and optionally
-    horizontal) scrollbar, so every long table can be scrolled with a visible
-    bar. Returns (container, tree); pack/grid the container where the tree would
-    have gone, and configure columns/headings on the returned tree as usual.
+    horizontal) scrollbar. Returns (container, tree); pack/grid the container
+    where the tree would have gone, and configure columns/headings on the
+    returned tree as usual.
 
-    The scrollbars use the app's themed Vertical/Horizontal.TScrollbar styles.
+    The scrollbars are *context sensitive*: each one is shown only when its axis
+    actually has content beyond the visible area, and hidden when everything
+    fits. They use the app's themed Vertical/Horizontal.TScrollbar styles.
     """
     container = ttk.Frame(parent, style="TFrame")
     tree = ttk.Treeview(container, columns=columns, show=show, height=height,
                         **tree_kwargs)
+
     vsb = ttk.Scrollbar(container, orient="vertical", command=tree.yview)
-    tree.configure(yscrollcommand=vsb.set)
+    hsb = (ttk.Scrollbar(container, orient="horizontal", command=tree.xview)
+           if horizontal else None)
+
+    tree.configure(yscrollcommand=autohide_scrollbar(vsb, "right",
+                                                     before=tree))
     vsb.pack(side="right", fill="y")
-    if horizontal:
-        hsb = ttk.Scrollbar(container, orient="horizontal",
-                            command=tree.xview)
-        tree.configure(xscrollcommand=hsb.set)
+    if hsb is not None:
+        tree.configure(xscrollcommand=autohide_scrollbar(hsb, "bottom",
+                                                         before=tree))
         hsb.pack(side="bottom", fill="x")
     tree.pack(side="left", fill="both", expand=True)
     return container, tree

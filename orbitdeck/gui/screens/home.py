@@ -15,7 +15,7 @@ from tkinter import ttk
 
 from . import (Screen, MplPanel, COL_BG, COL_PANEL, COL_TEXT, COL_MUTED,
                COL_ACCENT, COL_ACCENT2, COL_WARN, COL_GRID, FONT_MONO,
-               fmt_hms, fmt_utc, now_unix, compass)
+               fmt_hms, fmt_utc, now_unix, compass, autohide_scrollbar)
 from ..mapdraw import draw_basemap
 from ...engine import Predictor
 from ...engine.predict import _sun_eci_unit, _gmst_rad, jd_of
@@ -66,7 +66,8 @@ class HomeScreen(Screen):
                                 activestyle="none", exportselection=False)
         _lsb = ttk.Scrollbar(_listwrap, orient="vertical",
                              command=self._list.yview)
-        self._list.configure(yscrollcommand=_lsb.set)
+        self._list.configure(
+            yscrollcommand=autohide_scrollbar(_lsb, "right", before=self._list))
         _lsb.pack(side="right", fill="y")
         self._list.pack(side="left", fill="both", expand=True)
         self._list.bind("<<ListboxSelect>>", self._on_pick)
@@ -92,7 +93,8 @@ class HomeScreen(Screen):
         self.tree.tag_configure("now", foreground=COL_ACCENT2)
         _tvsb = ttk.Scrollbar(_twrap, orient="vertical",
                               command=self.tree.yview)
-        self.tree.configure(yscrollcommand=_tvsb.set)
+        self.tree.configure(
+            yscrollcommand=autohide_scrollbar(_tvsb, "right", before=self.tree))
         _tvsb.pack(side="right", fill="y")
         self.tree.pack(side="left", fill="both", expand=True)
         self.tree.bind("<Double-Button-1>", self._on_pass_pick)

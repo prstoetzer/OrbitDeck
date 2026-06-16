@@ -71,7 +71,7 @@ class OscarSimScreen(Screen):
         self._eqx_row.pack(fill="x", padx=10, pady=2)
         ttk.Label(self._eqx_row, text="EQX longitude", style="Muted.TLabel").pack(
             anchor="w")
-        self._eqx_scale = ttk.Scale(self._eqx_row, from_=-180, to=180,
+        self._eqx_scale = ttk.Scale(self._eqx_row, from_=-180, to=180, style="Accent.Horizontal.TScale",
                                     variable=self._eqx_lon,
                                     command=lambda *_: self._render())
         self._eqx_scale.pack(fill="x")
@@ -83,7 +83,7 @@ class OscarSimScreen(Screen):
         self._min_row.pack(fill="x", padx=10, pady=2)
         ttk.Label(self._min_row, text="Minutes after EQX",
                   style="Muted.TLabel").pack(anchor="w")
-        self._min_scale = ttk.Scale(self._min_row, from_=0, to=100,
+        self._min_scale = ttk.Scale(self._min_row, from_=0, to=100, style="Accent.Horizontal.TScale",
                                     variable=self._minute,
                                     command=lambda *_: self._render())
         self._min_scale.pack(fill="x")

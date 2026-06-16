@@ -4,7 +4,7 @@ All notable changes to OrbitDeck are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/), and the project aims to follow
 semantic versioning.
 
-## [0.19.0]
+## [0.19.1]
 
 ### Added
 - **Mutual windows across all favorites.** The Mutual Windows screen has a new
@@ -18,6 +18,59 @@ semantic versioning.
   export, and the printable PDF sheet now include the satellite's **azimuth and
   elevation** at each time step alongside the corrected RX/TX frequencies, so a
   single sheet drives both antenna pointing and tuning through the pass.
+- **Edit and delete manual satellites.** The Satellites catalog now has **Edit
+  manual…** and **Delete manual** buttons. You can change any field of a
+  user-entered satellite (the form is pre-filled) or remove it; both update the
+  live catalog and the persisted store, and deleting also clears it from
+  favorites. Downloaded catalog satellites are protected — only manual entries
+  can be edited or deleted.
+- **Distance / azimuth / elevation on the combined OSCARLOCATOR QTH map.** The
+  "Map + Footprint at QTH" sheet now carries the same readouts as the standalone
+  footprint transparency: azimuth spokes and labels, **elevation rings**, and
+  **dashed ground-distance rings labelled in km** out to the footprint edge, so
+  you can read distance, bearing, and elevation to the sub-point directly off the
+  one sheet. The elevation and distance rings now also appear on the **polar**
+  version of this sheet (drawn as the correct off-centre rings around your
+  station), not just the QTH-centred one.
+- **Pass alarms for all favorites.** The top-bar alarm toggle (now **Favorite
+  pass alarms**) watches the next pass of *every* favorited satellite, not just
+  the selected one, firing AOS / TCA / LOS (and a one-minute warning) for each,
+  with its own distinctive beep rhythm per event (a rising three-beep "rising
+  soon", a firm double at AOS, a single chime at TCA, and a descending three-beep
+  at LOS) so the events are clearly distinguishable from one another and from a
+  stray system bell.
+
+### Changed
+- **"Who's up now" is now "What's up now."**
+- **Consistent OSCARLOCATOR footprint style.** The footprint drawn on the
+  combined QTH map now uses the same renderer as the standalone footprint
+  transparency from the 3-sheet set, so the red range circle, azimuth rose and
+  km distance rings look identical wherever the footprint appears.
+- **Dark-theme consistency for sliders and scrollbars.** The time-in-pass and
+  passband **scrub bars** were rendering with the light-grey default theme; they
+  now use a dark trough with an accent handle. Scrollbar thumbs are more visible
+  (with an accent hover), and the combobox drop-down popup is themed dark instead
+  of flashing white.
+- **Context-sensitive scrollbars.** Every table/list scrollbar now appears only
+  when there is content beyond the visible area and hides itself when everything
+  fits.
+- **More room for long satellite names.** The catalog Name column is wider (and
+  has a minimum width) so long designators like "RS-95S(QMR-KWT2)" are no longer
+  squeezed against the next column.
+
+### Fixed
+- **Scrollbars on every table and list.** All scrollable surfaces now have a
+  scrollbar: the pass, comparison, listing, eclipse, mutual-window, workable,
+  planning, sites, celestial, and satellite tables, the Home favorites list, and
+  the Select-satellite dialog (whose scrollbar was created but never shown).
+- **3D Globe day/night terminator.** The night shading is now computed by testing
+  each point of the visible disc against the subsolar direction directly, so it
+  is correct from every viewpoint and at every time (an earlier version could
+  shade the wrong region in some orientations).
+
+## [0.19.0]
+
+### Added
 - **Listings.** A new **Listings** tab on the Exports screen provides Nova-style
   tabular ephemerides: a **One-observer** stepped position listing
   (az/el/range/range-rate/sub-point/altitude/sunlit), a compact **AOS/LOS** quick
@@ -25,7 +78,7 @@ semantic versioning.
   shows both your station and a chosen secondary site from a single ephemeris.
   Step (30 s–5 min), span (2–24 h), and a visible-only filter; each sub-listing
   exports to CSV.
-- **Who's up now.** A new tab on the Satellites screen scans the whole catalog
+- **What's up now.** A new tab on the Satellites screen scans the whole catalog
   for satellites currently above your horizon, sorted by elevation, with a
   minimum-elevation floor, one-click "track this satellite", and CSV export.
 - **Satellites by type.** A new **By type** tab on the Satellites screen groups
@@ -46,11 +99,7 @@ semantic versioning.
   are actually tuned rather than always the band centre.
 
 ### Fixed
-- **Scrollbars on every table and list.** All scrollable surfaces now have a
-  visible scrollbar: the pass, comparison, listing, eclipse, mutual-window,
-  workable, planning, sites, celestial, and satellite tables, the Home favorites
-  list, and the Select-satellite dialog (whose scrollbar was created but never
-  shown). Long tables can now be scrolled with a bar, not only the mouse wheel.
+- **Reversed elevation on several sky-polar plots.** Pass Detail, Track, Sun/Moon,
   Mutual Windows and the pass/mutual plots in PDF reports labelled the elevation
   rings backwards (the rim read "90", the centre "0"), so a high-elevation pass
   looked like it skimmed the horizon. The ring labels now match the radius —
@@ -58,12 +107,8 @@ semantic versioning.
   Analytics and the pass card were already correct.)
 - **Day/night terminator on the 3D Globe.** The night shading was built from only
   the visible points of the anti-solar circle, which shaded roughly the wrong
-  hemisphere (a noon-centred globe came out half-dark) and broke entirely in some
-  view orientations, where the night cap wrapped the projection seam. The
-  terminator is now rendered by testing each point of the visible disc against the
-  subsolar direction directly (a filled contour of the night region), so it is
-  correct from every viewpoint and at every time. The subsolar point itself was
-  already correct.
+  hemisphere (a noon-centred globe came out half-dark). (Further corrected in
+  0.19.1 to be robust from every viewpoint.)
 - **OSCARLOCATOR footprint overlay instructions.** The printed footprint
   transparency told you to pin the circle at the satellite's sub-point. It now
   describes the traditional method: pin the range circle over your QTH at the map

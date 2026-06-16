@@ -14,7 +14,7 @@ from tkinter import ttk
 
 from . import (Screen, COL_BG, COL_PANEL, COL_TEXT, COL_MUTED, COL_ACCENT,
                COL_ACCENT2, COL_WARN, COL_GRID, FONT_MONO,
-               fmt_hms, fmt_utc, now_unix, compass)
+               fmt_hms, fmt_utc, now_unix, compass, autohide_scrollbar)
 
 
 def _el_color(el):
@@ -53,7 +53,9 @@ class TenDayScreen(Screen):
         self.canvas = tk.Canvas(outer, bg=COL_PANEL, highlightthickness=0)
         self.vsb = ttk.Scrollbar(outer, orient="vertical",
                                  command=self.canvas.yview)
-        self.canvas.configure(yscrollcommand=self.vsb.set)
+        self.canvas.configure(
+            yscrollcommand=autohide_scrollbar(self.vsb, "right",
+                                              before=self.canvas))
         self.vsb.pack(side="right", fill="y")
         self.canvas.pack(side="left", fill="both", expand=True)
         self.inner = ttk.Frame(self.canvas, style="Panel.TFrame")

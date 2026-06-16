@@ -15,7 +15,7 @@ from tkinter import ttk, messagebox
 
 from . import (Screen, MplPanel, KVPanel, TabBar, COL_PANEL, COL_TEXT,
                COL_MUTED, COL_ACCENT, COL_ACCENT2, COL_WARN, now_unix, fmt_utc,
-               make_scrolled_tree)
+               make_scrolled_tree, autohide_scrollbar)
 from ...engine import celestial as CE
 from ...engine.predict import grid_to_latlon
 from ...engine.predict import _sun_eci_unit, _gmst_rad, jd_of, DEG
@@ -68,7 +68,9 @@ class CelestialScreen(Screen):
                               anchor="w" if c == "body" else "center")
         _btsb = ttk.Scrollbar(_btw, orient="vertical",
                               command=self.btree.yview)
-        self.btree.configure(yscrollcommand=_btsb.set)
+        self.btree.configure(
+            yscrollcommand=autohide_scrollbar(_btsb, "right",
+                                              before=self.btree))
         _btsb.pack(side="right", fill="y")
         self.btree.pack(side="left", fill="y", expand=False)
         self.bpanel = MplPanel(parent, figsize=(5.2, 5.2), polar=True)

@@ -96,10 +96,14 @@ The window has three parts:
 
 - **Top bar** — application-wide actions, including **Update GP** (download a
   fresh element set from your configured source) and **Update Transponders**
-  (refresh the SatNOGS transponder database). A **Pass alarms** toggle raises
-  in-app **AOS / TCA / LOS** notifications (with a gentle audible cue) for the
-  selected satellite's next pass, so you don't miss a rising bird while working
-  in another screen. A **yellow banner** appears here when the loaded catalog is
+  (refresh the SatNOGS transponder database). A **Favorite pass alarms** toggle
+  raises in-app **AOS / TCA / LOS** notifications — plus a one-minute "rising
+  soon" warning — for the next pass of **every favorited satellite**, so you
+  don't miss a rising bird while working in another screen or watching a
+  different satellite. Each event has its own **distinctive beep rhythm** (a
+  rising three-beep warning, a firm double at AOS, a single chime at TCA, and a
+  descending three-beep at LOS) so you can tell them apart by ear. A **yellow
+  banner** appears here when the loaded catalog is
   demo or stale data; it also carries an Update GP button.
 - **Navigation menu** (left) — the 22 screens, described below in order.
 - **Content area** (right) — the active screen.
@@ -473,7 +477,11 @@ three tabs.
   marks favorites, which populate the Home map and the favorites schedule.
 - **Fetch transponders** for the selected bird (from SatNOGS).
 - **Add a manually-entered satellite** by its GP mean elements; manual sats
-  persist across catalog refreshes.
+  persist across catalog refreshes. You can also **Edit** a manual satellite
+  (the form opens pre-filled with its current elements) or **Delete** it. Only
+  manually-entered satellites can be edited or deleted — satellites from the
+  downloaded catalog are protected — and deleting one also removes it from your
+  favorites.
 
 **By type** groups the whole catalog by **SatNOGS transponder kind** — **Linear
 transponder**, **FM transponder**, **Digital transponder**, **Beacon / CW**,
@@ -483,7 +491,7 @@ and transponder kinds shown for each satellite. Filter to a single group, sort b
 CSV**. (Grouping is only as complete as the transponder data you have loaded —
 use **Update Transponders** for the full SatNOGS database.)
 
-**Who's up now** scans the **whole catalog** for satellites currently above your
+**What's up now** scans the **whole catalog** for satellites currently above your
 horizon, sorted by elevation, with a minimum-elevation floor (0/5/10/20°). It
 shows each satellite's az/el, range, sub-point, altitude and sunlit flag;
 double-click to start tracking one, or **Export CSV**.
@@ -542,6 +550,17 @@ OrbitDeck supports it two ways:
     conventional, un-mirrored orientation), mirrored on the southern sheet.
   - **QTH-centered** — a personalized map centered on your station, capped so it
     does not over-show the opposite hemisphere.
+- **Map + Footprint at QTH** — a single QTH-centered sheet that draws the
+  footprint **range circle** right on the map (centered on your station), so no
+  separate transparency is needed. It carries the full set of readouts inside the
+  circle: **azimuth** spokes and degree labels with N/E/S/W cardinals, **elevation
+  rings** (0/10/30/60°, the 0° ring being the footprint edge), and **dashed
+  ground-distance rings labelled in km** out to the footprint edge — so you can
+  read the bearing, elevation, and ground distance to the sub-point directly off
+  the one sheet. Use the path-arc overlay on top to see when the satellite enters
+  the circle. The **polar** version of this sheet carries the same elevation and
+  distance rings, drawn as the correct off-centre rings around your station, and
+  the footprint uses the identical red-circle style as the standalone overlay.
 - **Footprint transparency** — the **range circle**, the same radius as the
   satellite's coverage footprint at its **mean orbital altitude**, with distance
   rings and azimuth radials. Pin it through the centre cross **over your QTH**:
@@ -608,13 +627,13 @@ Additional one-click reports live on specific screens:
 | **Work-a-target** / **visible passes** CSV | Planning |
 | **Workable** grids/states/DXCC CSV | Workable |
 | **Equator crossings** CSV | Orbital Analysis → Crossings List |
-| **Satellites by type** / **who's up** CSV | Satellites |
+| **Satellites by type** / **what's up** CSV | Satellites |
 
 Beyond PDF reports, OrbitDeck can export **data** for use in other tools — pass
 schedules as CSV, Excel, iCal (with reminder alarms), or JSON; the Doppler
 playbook, favorites comparison, eclipse ephemerides, stepped listings, workable
 lists, planning windows, equator crossings, and the satellite catalog (by type or
-who's-up) as CSV; and a shareable per-pass card image. See
+what's-up) as CSV; and a shareable per-pass card image. See
 [Exports](#316-exports), [Radio](#39-radio), [Illumination](#311-illumination),
 [Planning](#310-planning), and [Satellites](#320-satellites).
 

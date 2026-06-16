@@ -117,7 +117,7 @@ class RadioScreen(Screen):
         ttk.Label(self._pbbar, text="Passband position:",
                   style="TLabel").pack(side="left")
         self._pb_frac = tk.DoubleVar(value=50.0)   # percent across the passband
-        self._pb_scale = ttk.Scale(self._pbbar, from_=0, to=100,
+        self._pb_scale = ttk.Scale(self._pbbar, from_=0, to=100, style="Accent.Horizontal.TScale",
                                    orient="horizontal", variable=self._pb_frac,
                                    command=lambda _v: self._render_link())
         self._pb_scale.pack(side="left", fill="x", expand=True, padx=8)
@@ -134,7 +134,7 @@ class RadioScreen(Screen):
         ttk.Label(self._timebar, text="Time in pass:",
                   style="TLabel").pack(side="left")
         self._t_frac = tk.DoubleVar(value=-1.0)    # -1 => snap to TCA
-        self._t_scale = ttk.Scale(self._timebar, from_=0, to=100,
+        self._t_scale = ttk.Scale(self._timebar, from_=0, to=100, style="Accent.Horizontal.TScale",
                                   orient="horizontal", variable=self._t_frac,
                                   command=lambda _v: self._render_link())
         self._t_scale.pack(side="left", fill="x", expand=True, padx=8)
@@ -310,7 +310,7 @@ class RadioScreen(Screen):
         ttk.Label(self._pbbar2, text="Passband position:",
                   style="TLabel").pack(side="left")
         self._pb_frac2 = tk.DoubleVar(value=50.0)
-        self._pb_scale2 = ttk.Scale(self._pbbar2, from_=0, to=100,
+        self._pb_scale2 = ttk.Scale(self._pbbar2, from_=0, to=100, style="Accent.Horizontal.TScale",
                                     orient="horizontal", variable=self._pb_frac2,
                                     command=lambda _v: self._render_pb())
         self._pb_scale2.pack(side="left", fill="x", expand=True, padx=8)

@@ -18,7 +18,7 @@ class SatellitesScreen(Screen):
         tabs.pack(fill="both", expand=True, padx=12, pady=(2, 8))
         self._t_cat = tabs.add("Catalog")
         self._t_type = tabs.add("By type")
-        self._t_up = tabs.add("Who's up now")
+        self._t_up = tabs.add("What's up now")
         tabs.on_change = self._on_tab
         self._build_catalog(self._t_cat)
         self._build_bytype(self._t_type)
@@ -50,13 +50,18 @@ class SatellitesScreen(Screen):
         heads = ("\u2605", "Name", "NORAD", "Period", "Incl", "Apogee", "TX")
         treewrap, self.tree = make_scrolled_tree(
             parent, cols, show="headings", height=18)
-        widths = {"fav": 36, "name": 150, "norad": 80, "period": 90,
+        # the Name column needs room for long designators like
+        # "RS-95S(QMR-KWT2)"; give it a generous width and a minwidth so it is
+        # never squeezed flush against the next column.
+        widths = {"fav": 36, "name": 220, "norad": 80, "period": 90,
                   "incl": 80, "apo": 90, "tx": 60}
         for c, h in zip(cols, heads):
             self.tree.heading(c, text=h)
-            self.tree.column(c, width=widths[c],
-                             anchor="w" if c == "name" else "center")
-        treewrap.pack(fill="both", expand=True, padx=4, pady=10)
+            self.tree.column(
+                c, width=widths[c],
+                minwidth=widths[c] if c == "name" else 40,
+                anchor="w" if c == "name" else "center")
+        treewrap.pack(fill="both", expand=True, padx=(4, 2), pady=10)
         self.tree.bind("<Double-Button-1>", self._select)
         self.tree.bind("<space>", self._toggle_fav)
 
@@ -68,34 +73,57 @@ class SatellitesScreen(Screen):
                    command=self._toggle_fav).pack(side="left", padx=8)
         ttk.Button(btns, text="Add manual satellite\u2026",
                    command=self._add_manual_sat).pack(side="left", padx=8)
+        ttk.Button(btns, text="Edit manual\u2026",
+                   command=self._edit_manual_sat).pack(side="left")
+        ttk.Button(btns, text="Delete manual",
+                   command=self._delete_manual_sat).pack(side="left", padx=8)
         self.info = tk.StringVar(value="")
         ttk.Label(btns, textvariable=self.info, style="Muted.TLabel").pack(
             side="left", padx=12)
 
-    def _add_manual_sat(self):
-        from ..dialogs import FormDialog, Field
-        from ...engine.satdb import make_manual_sat
+    def _manual_sat_fields(self, sat=None):
+        """Build the manual-satellite form fields, pre-filled from ``sat`` when
+        editing. Returns (fields, parse_epoch)."""
+        from ..dialogs import Field
         import datetime as _dt
 
         def parse_epoch(s):
             d = _dt.datetime.strptime(s, "%Y-%m-%d %H:%M:%S")
             return d.replace(tzinfo=_dt.timezone.utc).timestamp()
 
+        def epoch_str(unix):
+            return _dt.datetime.fromtimestamp(
+                unix, _dt.timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
+
         now = _dt.datetime.now(_dt.timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
         fields = [
-            Field("name", "Name", "", "e.g. MYSAT"),
-            Field("norad", "NORAD ID", "", "catalog number", int),
-            Field("epoch", "Epoch (UTC)", now,
+            Field("name", "Name", sat.name if sat else "", "e.g. MYSAT"),
+            Field("norad", "NORAD ID", str(sat.norad) if sat else "",
+                  "catalog number", int),
+            Field("epoch", "Epoch (UTC)",
+                  epoch_str(sat.epoch_unix) if sat else now,
                   "YYYY-MM-DD HH:MM:SS", parse_epoch),
-            Field("incl", "Inclination", "", "degrees", float),
-            Field("raan", "RAAN", "", "deg (right ascension of node)", float),
-            Field("ecc", "Eccentricity", "", "e.g. 0.0006190", float),
-            Field("argp", "Arg of perigee", "", "degrees", float),
-            Field("ma", "Mean anomaly", "", "degrees", float),
-            Field("mm", "Mean motion", "", "rev/day", float),
-            Field("bstar", "BSTAR", "0", "drag; 0 if unknown", float,
-                  required=False),
+            Field("incl", "Inclination", str(sat.incl) if sat else "",
+                  "degrees", float),
+            Field("raan", "RAAN", str(sat.raan) if sat else "",
+                  "deg (right ascension of node)", float),
+            Field("ecc", "Eccentricity", str(sat.ecc) if sat else "",
+                  "e.g. 0.0006190", float),
+            Field("argp", "Arg of perigee", str(sat.argp) if sat else "",
+                  "degrees", float),
+            Field("ma", "Mean anomaly", str(sat.ma) if sat else "",
+                  "degrees", float),
+            Field("mm", "Mean motion",
+                  str(sat.mean_motion) if sat else "", "rev/day", float),
+            Field("bstar", "BSTAR", str(sat.bstar) if sat else "0",
+                  "drag; 0 if unknown", float, required=False),
         ]
+        return fields
+
+    def _add_manual_sat(self):
+        from ..dialogs import FormDialog
+        from ...engine.satdb import make_manual_sat
+        fields = self._manual_sat_fields()
         res = FormDialog(self.frame, "Add manual satellite", fields,
                          intro="Enter GP mean elements. The satellite is stored "
                                "with the downloaded ones and persists across GP "
@@ -110,6 +138,64 @@ class SatellitesScreen(Screen):
         self._reload()
         self.info.set("Added manual satellite %s (NORAD %d)." %
                       (entry.name, entry.norad))
+
+    def _edit_manual_sat(self):
+        from ..dialogs import FormDialog
+        from ...engine.satdb import make_manual_sat
+        s = self._current()
+        if not s:
+            self.info.set("Select a satellite to edit first.")
+            return
+        if not getattr(s, "is_manual", False):
+            self.info.set("Only manually-entered satellites can be edited "
+                          "(\u201c%s\u201d is from the downloaded catalog)."
+                          % s.name)
+            return
+        old_norad = s.norad
+        fields = self._manual_sat_fields(s)
+        res = FormDialog(self.frame, "Edit manual satellite", fields,
+                         intro="Edit the GP mean elements for this "
+                               "manually-entered satellite.").show()
+        if not res:
+            return
+        entry = make_manual_sat(
+            res["name"], res["norad"], res["epoch"], res["incl"], res["raan"],
+            res["ecc"], res["argp"], res["ma"], res["mm"], res["bstar"])
+        # if the NORAD was changed, remove the old record so we don't leave a
+        # duplicate behind
+        if res["norad"] != old_norad:
+            was_fav = old_norad in self.store.favorites
+            self.store.remove_manual_sat(old_norad)
+            if was_fav:
+                self.store.favorites.add(entry.norad)
+        self.store.update_manual_sat(entry)
+        self.store.save_config()
+        self._reload()
+        self.info.set("Updated manual satellite %s (NORAD %d)." %
+                      (entry.name, entry.norad))
+
+    def _delete_manual_sat(self):
+        from tkinter import messagebox
+        s = self._current()
+        if not s:
+            self.info.set("Select a satellite to delete first.")
+            return
+        if not getattr(s, "is_manual", False):
+            self.info.set("Only manually-entered satellites can be deleted "
+                          "(\u201c%s\u201d is from the downloaded catalog)."
+                          % s.name)
+            return
+        if not messagebox.askyesno(
+                "Delete manual satellite",
+                "Delete the manually-entered satellite \u201c%s\u201d "
+                "(NORAD %d)? This cannot be undone." % (s.name, s.norad)):
+            return
+        name, norad = s.name, s.norad
+        self.store.remove_manual_sat(norad)
+        self.store.save_config()
+        self._reload()
+        self.info.set("Deleted manual satellite %s (NORAD %d)." %
+                      (name, norad))
 
     def _reload(self):
         for i in self.tree.get_children():
@@ -180,7 +266,7 @@ class SatellitesScreen(Screen):
         treewrap, self._bt_tree = make_scrolled_tree(
             parent, cols, show="tree headings", height=18)
         self._bt_tree.heading("#0", text="Satellite / group")
-        self._bt_tree.column("#0", width=240, anchor="w")
+        self._bt_tree.column("#0", width=280, minwidth=220, anchor="w")
         widths = {"norad": 80, "period": 90, "incl": 70, "downlink": 110,
                   "tp": 200}
         for c, h in zip(cols, heads):
@@ -379,6 +465,6 @@ class SatellitesScreen(Screen):
                  round(d["sub_lon"], 2), round(d["alt_km"], 0),
                  "yes" if d["sunlit"] else "no"] for d in self._up_rows]
         self.save_text_dialog(
-            EX.rows_to_csv(headers, rows), "whos_up.csv",
-            title="Export who's-up list", ext=".csv",
+            EX.rows_to_csv(headers, rows), "whats_up.csv",
+            title="Export what's-up list", ext=".csv",
             filetypes=[("CSV", "*.csv")])

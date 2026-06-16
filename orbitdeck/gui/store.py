@@ -168,9 +168,31 @@ class Store:
         self.select(entry.norad)
 
     def remove_manual_sat(self, norad):
+        """Delete a user-entered satellite from the persisted store AND the live
+        catalog. If it was the selected satellite, selection is cleared."""
+        norad = int(norad)
         items = [d for d in self._load_manual_sats()
-                 if int(d.get("norad", -1)) != int(norad)]
+                 if int(d.get("norad", -1)) != norad]
         self._save_manual_sats(items)
+        # also drop any manual transponders attached to it
+        by_norad = self._load_manual_tx()
+        if str(norad) in by_norad:
+            del by_norad[str(norad)]
+            self._save_manual_tx(by_norad)
+        # remove from the live catalog
+        idx = self.db.index_of_norad(norad)
+        if idx >= 0:
+            del self.db.sats[idx]
+        if self.selected_norad == norad:
+            self.selected_norad = (self.db.sats[0].norad
+                                   if self.db.sats else None)
+            self._sync_predictor()
+        self.favorites.discard(norad)
+
+    def update_manual_sat(self, entry):
+        """Update an existing manual satellite in place (same NORAD). This is
+        add_manual_sat with replace semantics; the NORAD is the key."""
+        self.add_manual_sat(entry)
 
     def add_manual_transponder(self, norad, tp):
         """Persist a user-entered Transponder for a satellite and attach it."""

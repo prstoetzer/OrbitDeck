@@ -159,6 +159,14 @@ class OrbitDeckApp:
                foreground=[("readonly", COL_TEXT)],
                selectbackground=[("readonly", COL_PANEL)],
                selectforeground=[("readonly", COL_TEXT)])
+        # the dropdown popup of a combobox is a Tk Listbox that ttk styling does
+        # NOT reach; theme it through the option database so it doesn't flash a
+        # white box on a dark UI.
+        self.root.option_add("*TCombobox*Listbox.background", COL_PANEL)
+        self.root.option_add("*TCombobox*Listbox.foreground", COL_TEXT)
+        self.root.option_add("*TCombobox*Listbox.selectBackground", COL_ACCENT)
+        self.root.option_add("*TCombobox*Listbox.selectForeground", "#ffffff")
+        self.root.option_add("*TCombobox*Listbox.borderWidth", 0)
 
         # --- radio / check: visible indicators on the dark background ---
         st.configure("TRadiobutton", background=COL_BG, foreground=COL_TEXT,
@@ -177,12 +185,37 @@ class OrbitDeckApp:
                                ("pressed", COL_ACCENT)])
 
         # --- scrollbars: match the panels rather than OS default light gray ---
-        st.configure("Vertical.TScrollbar", background=COL_PANEL,
-                     troughcolor=COL_BG, bordercolor=COL_BG,
-                     arrowcolor=COL_TEXT)
-        st.configure("Horizontal.TScrollbar", background=COL_PANEL,
-                     troughcolor=COL_BG, bordercolor=COL_BG,
-                     arrowcolor=COL_TEXT)
+        # The thumb uses the grid colour so it reads as a raised handle against
+        # the darker trough, with an accent hover; arrows are hidden for a clean
+        # modern look (the trough + thumb carry the affordance).
+        for _orient in ("Vertical.TScrollbar", "Horizontal.TScrollbar"):
+            st.configure(_orient, background=COL_GRID, troughcolor=COL_BG,
+                         bordercolor=COL_BG, arrowcolor=COL_MUTED,
+                         borderwidth=0, relief="flat")
+            st.map(_orient,
+                   background=[("active", COL_ACCENT),
+                               ("pressed", COL_ACCENT)],
+                   arrowcolor=[("active", COL_TEXT)])
+
+        # --- scale / scrub bars: dark trough with an accent slider handle so the
+        # time-in-pass and passband sliders match the theme instead of the clam
+        # default light grey ---
+        for _sc in ("Horizontal.TScale", "Vertical.TScale"):
+            st.configure(_sc, background=COL_BG, troughcolor=COL_PANEL,
+                         bordercolor=COL_GRID, lightcolor=COL_GRID,
+                         darkcolor=COL_GRID, borderwidth=0)
+            st.map(_sc,
+                   background=[("active", COL_BG)],
+                   troughcolor=[("active", COL_PANEL)])
+        # the slider handle itself is drawn with the "slider" element colour,
+        # which clam takes from `background`; give the Scale a dedicated style so
+        # the handle is accent-coloured and clearly grabbable
+        st.configure("Accent.Horizontal.TScale", background=COL_ACCENT,
+                     troughcolor=COL_PANEL, bordercolor=COL_GRID,
+                     lightcolor=COL_ACCENT, darkcolor=COL_ACCENT,
+                     borderwidth=0)
+        st.map("Accent.Horizontal.TScale",
+               background=[("active", COL_ACCENT2)])
         st.configure("TSeparator", background=COL_GRID)
 
         # --- notebook (tabbed) panels: match the orbital-analysis tab look ---
@@ -216,7 +249,8 @@ class OrbitDeckApp:
         ttk.Button(top, text="Select Satellite\u2026",
                    command=self._quick_select).pack(side="right", padx=6, pady=6)
         self._alarm_var = tk.BooleanVar(value=False)
-        ttk.Checkbutton(top, text="Pass alarms", variable=self._alarm_var,
+        ttk.Checkbutton(top, text="Favorite pass alarms",
+                        variable=self._alarm_var,
                         command=lambda: self.alarms.set_enabled(
                             self._alarm_var.get())).pack(
             side="right", padx=6, pady=6)
@@ -363,7 +397,9 @@ class OrbitDeckApp:
             tree.column(c, width=widths[c],
                         anchor="w" if c == "name" else "center")
         vsb = ttk.Scrollbar(_twrap, orient="vertical", command=tree.yview)
-        tree.configure(yscrollcommand=vsb.set)
+        tree.configure(
+            yscrollcommand=screens.autohide_scrollbar(vsb, "right",
+                                                      before=tree))
         vsb.pack(side="right", fill="y")
         tree.pack(side="left", fill="both", expand=True)
 

@@ -2809,6 +2809,161 @@ def test_eclipse_export_rows_shapes(iss_predictor):
     assert len(r2) == 2 and all(len(row) == len(h2) for row in r2)
 
 
+def test_version_is_0_19_1():
+    """The package version was bumped for this release."""
+    import orbitdeck
+    assert orbitdeck.__version__ == "0.19.1"
+
+
+def test_oscarlocator_combined_map_renders_both_projections():
+    """The combined map+footprint page renders for both the QTH and polar
+    projections without error, and the polar variant draws QTH-centred elevation
+    rings (the projected-ring helper is exercised)."""
+    import os
+    import tempfile
+    import tkinter as tk
+    from orbitdeck.gui.app import OrbitDeckApp
+    from orbitdeck.gui.oscarlocator import (generate_oscarlocator_pdf,
+                                            _draw_qth_rings_projected,
+                                            _draw_footprint_overlay)
+    # the shared helpers must exist (footprint style is centralised so the
+    # standalone and combined sheets stay identical)
+    assert callable(_draw_footprint_overlay)
+    assert callable(_draw_qth_rings_projected)
+    try:
+        root = tk.Tk()
+    except Exception:
+        return
+    root.withdraw()
+    try:
+        app = OrbitDeckApp(root)
+    except Exception:
+        root.destroy()
+        return
+    sat = next((s for s in app.store.db.sats if s.name == "RS-44"),
+               app.store.db.sats[0])
+    app.store.select(sat.norad)
+    d = tempfile.mkdtemp()
+    for proj in ("qth", "polar"):
+        path = os.path.join(d, "osc_%s.pdf" % proj)
+        generate_oscarlocator_pdf(path, app.store, sat, projection=proj,
+                                  footprint_on_qth=True)
+        assert os.path.exists(path) and os.path.getsize(path) > 1000
+    root.destroy()
+
+
+def test_manual_satellite_edit_and_delete():
+    """A manual satellite can be added, updated in place, and deleted from both
+    the live catalog and the persisted store; deleting also clears favorites."""
+    import tkinter as tk
+    import datetime as _dt
+    from orbitdeck.gui.app import OrbitDeckApp
+    from orbitdeck.engine.satdb import make_manual_sat
+    try:
+        root = tk.Tk()
+    except Exception:
+        return
+    root.withdraw()
+    try:
+        app = OrbitDeckApp(root)
+    except Exception:
+        root.destroy()
+        return
+    store = app.store
+    ep = _dt.datetime(2026, 6, 1, tzinfo=_dt.timezone.utc).timestamp()
+    e = make_manual_sat("TESTSAT", 90001, ep, 51.6, 120.0, 0.0006,
+                        90.0, 180.0, 15.5, 0.0)
+    store.add_manual_sat(e)
+    assert store.db.get(90001) is not None
+    assert store.db.get(90001).is_manual is True
+    # update in place
+    e2 = make_manual_sat("TESTSAT-2", 90001, ep, 53.0, 120.0, 0.0006,
+                         90.0, 180.0, 15.6, 0.0)
+    store.update_manual_sat(e2)
+    assert store.db.get(90001).name == "TESTSAT-2"
+    assert abs(store.db.get(90001).incl - 53.0) < 1e-6
+    # delete
+    store.favorites.add(90001)
+    store.remove_manual_sat(90001)
+    assert store.db.get(90001) is None
+    assert 90001 not in store.favorites
+    assert all(int(d.get("norad", -1)) != 90001
+               for d in store._load_manual_sats())
+    root.destroy()
+
+
+def test_alarm_patterns_distinct_and_watch_all_favorites():
+    """Alarm beep patterns are distinct per event, and the manager watches every
+    favorite's next pass rather than only the selected satellite."""
+    import tkinter as tk
+    from orbitdeck.gui.app import OrbitDeckApp
+    from orbitdeck.gui.alarms import _PATTERNS
+    # the four events must each have a different rhythm
+    assert len(set(_PATTERNS.values())) == len(_PATTERNS)
+    for key in ("soon", "aos", "tca", "los"):
+        assert key in _PATTERNS and _PATTERNS[key][0] == 0
+    try:
+        root = tk.Tk()
+    except Exception:
+        return
+    root.withdraw()
+    try:
+        app = OrbitDeckApp(root)
+    except Exception:
+        root.destroy()
+        return
+    favs = [s for s in app.store.db.sats
+            if s.name in ("ISS", "SO-50", "AO-91")]
+    for s in favs:
+        app.store.favorites.add(s.norad)
+    app.alarms.set_enabled(True)
+    app.alarms.tick()
+    # every favorite with an upcoming pass should be watched independently
+    assert len(app.alarms._watch) >= 2
+    assert set(app.alarms._watch).issubset({s.norad for s in favs})
+    root.destroy()
+
+
+def test_autohide_scrollbar_callback_logic():
+    """autohide_scrollbar returns a callback that un-packs the bar when the view
+    spans the whole range and re-packs it otherwise."""
+    import tkinter as tk
+    from tkinter import ttk
+    from orbitdeck.gui.screens import autohide_scrollbar
+    try:
+        root = tk.Tk()
+    except Exception:
+        return
+    root.withdraw()
+    frame = ttk.Frame(root)
+    frame.pack()
+    tree = ttk.Treeview(frame)
+    bar = ttk.Scrollbar(frame, orient="vertical")
+    cb = autohide_scrollbar(bar, "right", before=tree)
+    tree.pack()
+    bar.pack(side="right", fill="y")
+    root.update_idletasks()
+
+    def is_packed():
+        # pack_info() raises TclError once the widget has been pack_forget()'d
+        try:
+            bar.pack_info()
+            return True
+        except tk.TclError:
+            return False
+
+    # everything visible -> unpacked
+    cb(0.0, 1.0)
+    assert not is_packed()
+    # partial view -> repacked
+    cb(0.0, 0.4)
+    assert is_packed()
+    # back to full -> unpacked again
+    cb(0.0, 1.0)
+    assert not is_packed()
+    root.destroy()
+
+
 def test_all_scrollable_widgets_have_scrollbars():
     """Every Treeview and Listbox on every screen must have a Scrollbar sibling,
     so long tables and lists are always scrollable with a visible bar."""

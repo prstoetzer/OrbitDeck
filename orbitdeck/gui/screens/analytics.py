@@ -55,7 +55,7 @@ class GlobeScreen(Screen):
         sb.pack(fill="x", padx=16, pady=(6, 0))
         ttk.Label(sb, text="Time offset:", style="TLabel").pack(side="left")
         self._offset_min = tk.DoubleVar(value=0.0)
-        self._scrub = ttk.Scale(sb, from_=-180, to=180, orient="horizontal",
+        self._scrub = ttk.Scale(sb, from_=-180, to=180, orient="horizontal", style="Accent.Horizontal.TScale",
                                 variable=self._offset_min, command=self._on_scrub)
         self._scrub.pack(side="left", fill="x", expand=True, padx=8)
         self._tlabel = tk.StringVar(value="now")
