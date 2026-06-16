@@ -148,18 +148,22 @@ class _Page:
 
         _draw_header()
         # rows
+        row_h = 0.022
         for r, row in enumerate(rows):
             self.ensure(0.026)
             if self.y <= 0.07:
                 _draw_header()
             if r % 2 == 1:
+                # the cell text is drawn with va="top" at self.y, so it occupies
+                # the band from roughly (self.y - row_h + a little) up to self.y.
+                # Shade exactly that band so the stripe lines up with the text.
                 self.fig.add_artist(plt.Rectangle(
-                    (0.07, self.y - 0.004), 0.86, 0.02, color=C_ROWALT,
+                    (0.07, self.y - row_h + 0.006), 0.86, row_h, color=C_ROWALT,
                     zorder=-2, transform=self.fig.transFigure))
             for cell, x, al in zip(row, col_x, aligns):
                 self.fig.text(x, self.y, str(cell), fontsize=9, color=C_TEXT,
                               va="top", ha=al)
-            self.y -= 0.022
+            self.y -= row_h
 
     def paragraph(self, text, color=C_TEXT, size=9.5):
         self.ensure(0.03)

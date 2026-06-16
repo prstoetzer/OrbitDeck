@@ -290,7 +290,7 @@ def _base_map_page(pdf, proj, qth_name, segments, rmax):
     if proj.is_polar:
         hemi = "southern" if proj.is_south else "northern"
         pole = "South" if proj.is_south else "North"
-        title = "OSCARLATOR \u2014 Polar Base Map (%s)" % hemi
+        title = "OSCARLOCATOR \u2014 Polar Base Map (%s)" % hemi
         sub = ("Polar great-circle map of the %s hemisphere "
                "(generic \u2014 use with any QTH via the EQX list)" % hemi)
     else:
@@ -325,8 +325,8 @@ def _footprint_page(pdf, sat_name, alt_km, proj, rmax):
     # anything beyond the footprint, so the rest of the sheet is clear and the
     # map shows through.
     fr = min(foot_deg, rmax)
-    ax = _polar_axes(fig, "%s \u2014 Footprint Overlay" % sat_name, sub,
-                     rmax=rmax, show_rim=False)
+    ax = _polar_axes(fig, "%s \u2014 OSCARLOCATOR Footprint Overlay" % sat_name,
+                     sub, rmax=rmax, show_rim=False)
 
     # azimuth rose: spokes every 30 deg, drawn only out to the footprint edge,
     # with degree labels and cardinal letters just outside the footprint circle
@@ -468,8 +468,8 @@ def _arc_page(pdf, pred, sat, proj, rmax):
     """
     fig = plt.figure(figsize=(PAGE_W_IN, PAGE_H_IN))
     shift = _node_shift_deg(sat)
-    title = ("%s \u2014 Overhead (orbit)" % sat.name if proj.is_polar
-             else "%s \u2014 Path Arc Overlay" % sat.name)
+    title = ("%s \u2014 OSCARLOCATOR Path Arc (orbit)" % sat.name if proj.is_polar
+             else "%s \u2014 OSCARLOCATOR Path Arc Overlay" % sat.name)
     sub = ("Ground-track \u2014 inclination %.1f\u00b0, period %.1f min. "
            "Advance %.1f\u00b0 %s per pass." % (
                sat.incl, sat.period_min, abs(shift),
@@ -663,21 +663,26 @@ def _footprint_locus(qlat, qlon, foot_deg, n=361):
 
 
 def _base_map_with_footprint_page(pdf, proj, obs, qth_name, segments, rmax,
-                                  foot_deg):
+                                  foot_deg, sat_name="", alt_km=None):
     """Combined sheet: the base map plus the satellite footprint drawn at the
     station's position. The footprint is always centred on the QTH (when the
     satellite is overhead), so this single sheet shows the coverage directly on
     the map -- no separate transparency needed."""
     fig = plt.figure(figsize=(PAGE_W_IN, PAGE_H_IN))
+    foot_km = round(foot_deg * KM_PER_DEG, -1)
+    name = (sat_name + " \u2014 ") if sat_name else ""
+    size = "footprint radius %.1f\u00b0 (~%d km)" % (foot_deg, foot_km)
+    if alt_km:
+        size += " at %.0f km mean altitude" % alt_km
     if proj.is_polar:
         hemi = "southern" if proj.is_south else "northern"
-        title = "OSCARLATOR \u2014 Map + Footprint at QTH (%s)" % hemi
-        sub = ("Footprint of the satellite when overhead your station "
-               "(%s), on the %s polar map" % (qth_name, hemi))
+        title = "%sOSCARLOCATOR \u2014 Map + Footprint at QTH (%s)" % (name, hemi)
+        sub = ("Footprint over %s on the %s polar map \u2014 %s"
+               % (qth_name, hemi, size))
     else:
-        title = "OSCARLOCATOR \u2014 Map + Footprint at QTH"
-        sub = ("Footprint when the satellite is overhead %s (%.3f, %.3f)"
-               % (qth_name, obs.lat, obs.lon))
+        title = "%sOSCARLOCATOR \u2014 Map + Footprint at QTH" % name
+        sub = ("Footprint over %s (%.3f, %.3f) \u2014 %s"
+               % (qth_name, obs.lat, obs.lon, size))
     ax = _polar_axes(fig, title, sub, rmax=rmax, proj=proj)
     _draw_graticule(ax, proj, rmax)
     _draw_coastlines(ax, proj, segments, rmax)
@@ -765,7 +770,8 @@ def generate_oscarlocator_pdf(path, store, sat, when_unix=None,
         if footprint_on_qth:
             # 2-page set: map+footprint, then the path arc
             _base_map_with_footprint_page(pdf, proj, obs, qth_name, segments,
-                                          rmax, foot_deg)
+                                          rmax, foot_deg, sat_name=sat.name,
+                                          alt_km=alt_km)
             _arc_page(pdf, pred, sat, proj, rmax)
         else:
             # standard 3-page set: map, footprint transparency, path arc

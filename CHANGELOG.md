@@ -4,6 +4,19 @@ All notable changes to OrbitDeck are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/), and the project aims to follow
 semantic versioning.
 
+## [0.16.9]
+
+### Fixed
+- **Simulator live mode now tracks in real time.** The OSCARLOCATOR Sim screen
+  opts into the per-second tick, so in live mode the satellite position and
+  footprint update continuously instead of only when you (re)select the mode.
+- **All OSCARLOCATOR PDF titles are spelled “OSCARLOCATOR”** (some pages read
+  “OSCARLATOR”). When the base map has the satellite footprint printed on it, the
+  title now includes the **satellite name** and the subtitle gives the **footprint
+  size** (radius in degrees and km at mean altitude).
+- **Report table zebra striping is aligned with the rows.** The shaded band sat
+  offset above the text; it now lines up squarely behind each row.
+
 ## [0.16.8]
 
 ### Fixed

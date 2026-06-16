@@ -30,6 +30,8 @@ KM_PER_DEG = math.pi / 180.0 * RE_KM
 
 
 class OscarSimScreen(Screen):
+    live = True            # receive on_tick so the live drive mode tracks in real time
+
     def build(self):
         self.sat_header("OSCARLOCATOR Simulator")
         self._mode = tk.StringVar(value="live")
@@ -606,8 +608,9 @@ class OscarSimScreen(Screen):
                 alt, az % 360, el, vis,
                 fmt_utc(t, "%Y-%m-%d %H:%M:%S")))
 
-    def on_tick(self):
-        # keep the live view moving
+    def on_tick(self, now_dt=None):
+        # keep the live view moving in real time; manual / next-pass modes are
+        # driven by the sliders, so don't redraw under them
         if self._mode.get() == "live":
             self._render()
 

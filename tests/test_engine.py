@@ -1670,3 +1670,42 @@ def test_oscarsim_eqx_listing_node_choice():
     assert len(desc) >= 3
     dtimes = [n[0] for n in desc]
     assert dtimes == sorted(dtimes)
+
+
+def test_oscarlocator_titles_all_say_oscarlocator():
+    """Every OSCARLOCATOR PDF page title uses the correct 'OSCARLOCATOR' spelling
+    (never the old 'OSCARLATOR' typo), and the footprint-on-QTH map includes the
+    satellite name and footprint size."""
+    import os
+    import tempfile
+    import subprocess
+    from orbitdeck.gui.store import Store
+    from orbitdeck.gui.oscarlocator import generate_oscarlocator_pdf
+    from orbitdeck.engine.predict import Observer
+
+    st = Store()
+    st.obs = Observer(lat=39.9, lon=-75.0, alt_m=20, valid=True)
+    s = st.db.sats[0]
+    d = tempfile.mkdtemp()
+    p1 = os.path.join(d, "fp.pdf")
+    generate_oscarlocator_pdf(p1, st, s, projection="qth",
+                              footprint_on_qth=True)
+    txt = subprocess.run(["pdftotext", p1, "-"], capture_output=True,
+                         text=True).stdout
+    assert "OSCARLATOR" not in txt
+    assert "OSCARLOCATOR" in txt
+    # the footprint map names the satellite and gives the footprint size
+    assert s.name in txt
+    assert "footprint radius" in txt.lower()
+
+
+def test_oscarsim_is_a_live_screen():
+    """The simulator must opt into the live tick so its live mode tracks in real
+    time, and its on_tick must accept the timestamp the app passes."""
+    from orbitdeck.gui.screens.oscarsim import OscarSimScreen
+    assert getattr(OscarSimScreen, "live", False) is True
+    import inspect
+    sig = inspect.signature(OscarSimScreen.on_tick)
+    # on_tick(self, now_dt=None) -> accepts being called with one positional arg
+    params = list(sig.parameters.values())
+    assert len(params) >= 2
