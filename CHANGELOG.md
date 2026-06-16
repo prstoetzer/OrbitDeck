@@ -4,6 +4,18 @@ All notable changes to OrbitDeck are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/), and the project aims to follow
 semantic versioning.
 
+## [0.19.2]
+
+### Changed
+- **Cleaner OSCARLOCATOR combined maps.** On the "Map + Footprint at QTH" sheets
+  (both the QTH-centred and polar versions) the footprint circle no longer
+  repeats the azimuth degree numbers / N-E-S-W letters or the numeric elevation
+  labels, since the base map underneath already shows the azimuth spokes/labels
+  and elevation rings. The elevation rings themselves are still drawn inside the
+  footprint — only the duplicative text is removed. The standalone footprint
+  transparency in the 3-sheet set is unchanged (it keeps its full azimuth rose
+  and km labels, since it prints on its own).
+
 ## [0.19.1]
 
 ### Added

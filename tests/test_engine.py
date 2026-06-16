@@ -2809,10 +2809,10 @@ def test_eclipse_export_rows_shapes(iss_predictor):
     assert len(r2) == 2 and all(len(row) == len(h2) for row in r2)
 
 
-def test_version_is_0_19_1():
+def test_version_is_0_19_2():
     """The package version was bumped for this release."""
     import orbitdeck
-    assert orbitdeck.__version__ == "0.19.1"
+    assert orbitdeck.__version__ == "0.19.2"
 
 
 def test_oscarlocator_combined_map_renders_both_projections():

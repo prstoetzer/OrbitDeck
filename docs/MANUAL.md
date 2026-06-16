@@ -557,10 +557,14 @@ OrbitDeck supports it two ways:
   rings** (0/10/30/60°, the 0° ring being the footprint edge), and **dashed
   ground-distance rings labelled in km** out to the footprint edge — so you can
   read the bearing, elevation, and ground distance to the sub-point directly off
-  the one sheet. Use the path-arc overlay on top to see when the satellite enters
-  the circle. The **polar** version of this sheet carries the same elevation and
-  distance rings, drawn as the correct off-centre rings around your station, and
-  the footprint uses the identical red-circle style as the standalone overlay.
+  the one sheet. The footprint circle itself is kept clean — the azimuth labels
+  and the elevation rings come from the base map underneath, so they aren't
+  repeated on the footprint. Use the path-arc overlay on top to see when the
+  satellite enters the circle. The **polar** version of this sheet carries the
+  same elevation and distance rings, drawn as the correct off-centre rings around
+  your station, and the footprint uses the identical red-circle style. (The
+  standalone footprint transparency in the 3-sheet set keeps its own full azimuth
+  rose and km labels, since it prints on its own.)
 - **Footprint transparency** — the **range circle**, the same radius as the
   satellite's coverage footprint at its **mean orbital altitude**, with distance
   rings and azimuth radials. Pin it through the centre cross **over your QTH**:

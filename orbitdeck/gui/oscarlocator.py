@@ -326,7 +326,7 @@ def _draw_graticule(ax, proj, rmax):
 
 
 def _draw_az_grid(ax, proj, rmax, alt_km=None, skip_horizon=False,
-                  dist_rings=False, dist_max_deg=None):
+                  dist_rings=False, dist_max_deg=None, label_el=True):
     if proj.is_polar:
         # polar map: radial spokes are meridians (longitude), rings are
         # parallels of latitude (colatitude from the pole). A spoke drawn at
@@ -416,10 +416,14 @@ def _draw_az_grid(ax, proj, rmax, alt_km=None, skip_horizon=False,
             ax.plot(th, [rho] * len(th), color=col, linewidth=lw, zorder=1)
         # draw the labels after the rings so they sit on top; suppress any that
         # would overlap a neighbour on the shared radial (keep the lower-el one,
-        # since the outer rings have more room)
+        # since the outer rings have more room). Skipped entirely when label_el
+        # is False (e.g. the combined QTH map, where a number on the footprint
+        # circle would duplicate the base map's elevation rings).
         min_gap = rmax * 0.05
         placed = []
         for el, rho in sorted(ring_specs, key=lambda r: r[1], reverse=True):
+            if not label_el:
+                break
             if rho < rmax * 0.06:                 # too close to the centre cross
                 continue
             if any(abs(rho - pr) < min_gap for pr in placed):
@@ -536,19 +540,22 @@ def _draw_footprint_overlay(ax, foot_deg, rmax, with_rose=True,
                             center=(0.0, 0.0)):
     """Draw the standard OSCARLOCATOR footprint overlay so it looks identical
     wherever it appears (the standalone 3-sheet transparency AND the combined
-    QTH map): a bold red range circle, a centre cross, and -- when the overlay is
-    concentric with the sheet (``with_rose``) -- the azimuth rose (spokes + degree
-    labels + N/E/S/W cardinals) and the inner km distance rings.
+    QTH map): a bold red range circle and a centre cross. When ``with_rose`` is
+    set (the standalone transparency, which prints on its own with nothing
+    underneath) it also draws the azimuth rose (spokes + degree labels + N/E/S/W
+    cardinals) and the inner km distance rings. On the combined map the base map
+    already carries the azimuth spokes/labels and elevation rings, so the overlay
+    is drawn with ``with_rose=False`` -- just the clean red circle and cross --
+    to avoid duplicating those markings on top of the footprint.
 
     ``center`` is (rho_deg, bearing_deg) of the footprint centre on the sheet;
-    the rose/rings are only drawn when the centre is the sheet centre (QTH-centred
-    or QTH-on-pole), since they are only meaningful as concentric circles.
+    the rose/rings are only meaningful when the centre is the sheet centre.
     """
     fr = min(foot_deg, rmax)
     c_rho, c_br = center
-    concentric = with_rose and c_rho <= 1e-6
+    concentric = c_rho <= 1e-6
 
-    if concentric:
+    if with_rose and concentric:
         # azimuth rose: spokes every 30 deg out to the footprint edge, with degree
         # labels and cardinal letters set clear OUTSIDE the red circle.
         for az in range(0, 360, 30):
@@ -590,9 +597,9 @@ def _draw_footprint_overlay(ax, foot_deg, rmax, with_rose=True,
                     va="bottom", fontweight="bold", zorder=3)
             km += step_km
 
-    # the footprint circle itself, in the SAME red / weight everywhere. When the
-    # overlay is concentric it's a true circle at radius fr; otherwise the caller
-    # has already drawn the projected locus, so this is skipped.
+    # the footprint circle + centre cross, in the SAME red / weight everywhere.
+    # Drawn whenever the footprint is concentric with the sheet, regardless of
+    # whether the rose was drawn, so the combined QTH map gets a clean red circle.
     if concentric:
         th1 = [math.radians(a) for a in range(0, 361, 1)]
         ax.plot(th1, [fr] * len(th1), color="#cc0000", linewidth=LW_FOOT,
@@ -955,13 +962,8 @@ def _draw_qth_rings_projected(ax, proj, obs, alt_km, rmax, foot_deg):
         locus = _footprint_locus(obs.lat, obs.lon, rho)
         _project_polyline(ax, proj, [(lon, lat) for lat, lon in locus],
                           "#9a9a9a", LW_RING, 3, rmax)
-        # label at the point due south of the QTH on this ring
-        llat, llon = _dest_point(obs.lat, obs.lon, rho, 180.0)
-        lr, lb = proj.project(llat, llon)
-        if lr <= rmax:
-            ax.text(math.radians(lb), lr, "%d\u00b0 el" % el,
-                    fontsize=FS_RINGLABEL, color="#555555", ha="center",
-                    va="bottom", fontweight="bold", zorder=4)
+        # (no numeric elevation label here -- the ring itself is the cue, and a
+        # number on the footprint duplicates the base map's elevation rings)
     # km distance rings out to the footprint edge
     foot_km = foot_deg * KM_PER_DEG
     if foot_km <= 1500:
@@ -1038,21 +1040,23 @@ def _base_map_with_footprint_page(pdf, proj, obs, qth_name, segments, rmax,
                     markersize=13, zorder=7)
     else:
         # QTH-centred map: the sheet IS azimuthal-equidistant about the station,
-        # so the footprint is concentric. Use the SHARED footprint-overlay helper
-        # so the red circle, azimuth rose and km distance rings look IDENTICAL to
-        # the standalone footprint transparency in the 3-sheet set. Elevation
-        # rings (which the standalone overlay doesn't carry) are added on top.
+        # so the footprint is concentric. Draw the elevation rings (still useful
+        # as the visual cue) but WITHOUT their numeric labels, and draw the
+        # footprint with with_rose=False so it's a clean red circle + cross -- the
+        # base map underneath already carries the azimuth spokes/labels and the
+        # elevation rings, so repeating the azimuth numbers/letters and the
+        # "deg el" labels on the footprint would just duplicate that.
         _draw_az_grid(ax, proj, rmax, alt_km=alt_km, skip_horizon=True,
-                      dist_rings=False)
-        _draw_footprint_overlay(ax, foot_deg, rmax, with_rose=True)
+                      dist_rings=False, label_el=False)
+        _draw_footprint_overlay(ax, foot_deg, rmax, with_rose=False)
         # mark the QTH itself at the centre
         ax.plot([0], [0], marker="*", color="#cc0000", markersize=13, zorder=7)
     _draw_footer(fig,
                  "Print on paper or card at 100%. The red circle is the "
                  "satellite's footprint when it is directly over your station "
-                 "(red star). Spokes give azimuth, the dashed rings give ground "
-                 "distance (km) to the sub-point, and the solid rings give "
-                 "elevation. Use the separate path-arc overlay to see when the "
+                 "(red star). The base map's spokes give azimuth and the rings "
+                 "inside the footprint give elevation and ground distance to the "
+                 "sub-point. Use the separate path-arc overlay to see when the "
                  "satellite enters this circle.")
     pdf.savefig(fig)
     plt.close(fig)
