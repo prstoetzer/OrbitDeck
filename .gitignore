@@ -83,3 +83,8 @@ Thumbs.db
 /G2_*.png
 /H_*.pdf
 /H_*.png
+/verify_rs44.py
+/debug_rs44.py
+/debug_nextpass*.py
+/render_np.py
+/np_iss.png

@@ -4,6 +4,31 @@ All notable changes to OrbitDeck are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/), and the project aims to follow
 semantic versioning.
 
+## [0.16.20]
+
+### Fixed
+- **OSCARLOCATOR Simulator: “Next pass from QTH” now shows the arc at the
+  correct longitude.** It previously seeded the overlay to the next *equator
+  crossing*, which is almost always a different orbit than the next *visible*
+  pass over the station — so the arc was drawn at the wrong longitude and didn't
+  cross over the QTH (failing for the ISS and RS-44, among others). It now finds
+  the next pass that actually rises above the horizon at the station (via the
+  pass predictor) and references the arc to the equator-crossing node of *that*
+  pass's orbit, so the track runs across the QTH as expected.
+
+## [0.16.19]
+
+### Fixed
+- **OSCARLOCATOR Simulator: the live arc now advances at the equator crossing
+  for long-period satellites (e.g. RS-44, ~122 min period).** The live
+  equator-crossing search used a fixed ±2-hour window; for a satellite whose
+  period exceeds ~2 hours, the most-recent node could fall just outside that
+  window, so at a crossing the code lost its node reference and the arc went
+  stale (it stopped tracking the new crossing). The window now scales with the
+  orbital period (~1.6 periods), and a small forward look-ahead lets a
+  just-happened crossing be recognised immediately, so the arc updates to the
+  current equator crossing the moment the satellite crosses, at any period.
+
 ## [0.16.18]
 
 ### Fixed

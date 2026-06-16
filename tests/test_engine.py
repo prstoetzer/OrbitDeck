@@ -2071,3 +2071,143 @@ def test_oscarsim_live_shows_next_eqx_arc_when_out_of_view():
         assert abs(((eqx_lon - nxt[0][1] + 540) % 360) - 180) < 1.0
     finally:
         OS.now_unix = orig
+
+def test_oscarsim_live_arc_advances_for_long_period_sat():
+    """Regression (RS-44, ~121 min period): the live arc must reference the
+    correct equator-crossing node at EVERY phase of the orbit, including right at
+    a crossing. The node-search window must exceed one full period, or a
+    long-period satellite's most-recent node falls outside a too-narrow window
+    and the arc fails to advance at the crossing."""
+    import math
+    from orbitdeck.gui.store import Store
+    from orbitdeck.gui.screens import oscarsim as OS
+    from orbitdeck.gui.screens.oscarsim import OscarSimScreen
+    from orbitdeck.engine.predict import Observer
+
+    st = Store()
+    st.obs = Observer(lat=38.9, lon=-77.0, alt_m=10, valid=True)
+    # find RS-44 (or any sat with period > 2 h) in the bundled catalogue
+    rs = next((x for x in st.db.sats if x.norad == 44909), None)
+    if rs is None:
+        rs = next((x for x in st.db.sats if x.period_min > 120.0), None)
+    assert rs is not None, "need a long-period satellite for this test"
+    assert rs.period_min > 120.0
+    st.select(rs.norad)
+    st.pred.set_site(st.obs)
+    st.pred.set_sat(rs)
+
+    class _V:
+        def get(self):
+            return "live"
+    sim = OscarSimScreen.__new__(OscarSimScreen)
+    sim.store = st
+    sim._mode = _V()
+
+    P = rs.period_min * 60.0
+    orig = OS.now_unix
+    try:
+        t0 = orig()
+        # anchor on a descending node; the bug appeared in the minutes JUST
+        # AFTER a crossing, when the satellite is in view on the south sheet but
+        # the most-recent descending node is one full period back -- outside a
+        # window narrower than the period, so _current_state fell back to the
+        # bare sub-point and the arc went stale.
+        desc = st.pred.descending_nodes(t0, t0 + P * 2)
+        assert desc
+        tc = desc[0][0]
+
+        # offsets spanning the whole orbit, with extra density LATE in the
+        # in-view pass (near +period min), where the satellite has been in view
+        # for almost a full period and the most-recent node ages past a window
+        # narrower than the period -- the exact stale-arc condition reported.
+        offsets_min = [0.5, 1, 2, 3, 5]
+        offsets_min += list(range(10, int(rs.period_min) + 4))
+        for off in offsets_min:
+            OS.now_unix = lambda o=off: tc + o * 60.0
+            now = OS.now_unix()
+            lat = st.pred.subpoint_at(now)[0]
+            _t, eqx_lon, minute = sim._current_state(rs, "polar-south")
+            # The bug degraded to the bare sub-point fallback (return t, sp[1],
+            # 0.0) when the most-recent node fell outside a too-narrow window:
+            # minute exactly 0.0 AND eqx equal to the current sub-longitude.
+            # That must never happen while the satellite is in view mid-pass.
+            sub_lon = st.pred.subpoint_at(now)[1]
+            is_fallback = (abs(minute) < 1e-9 and
+                           abs(((eqx_lon - sub_lon + 540) % 360) - 180) < 0.05)
+            if lat < -2.0:          # solidly in view on the south sheet
+                assert not is_fallback, (
+                    "arc fell back to the sub-point (stale) at +%g min, lat "
+                    "%.1f -- node-search window too narrow for period %.0f min"
+                    % (off, lat, rs.period_min))
+            # and the referenced EQX should be a real descending node
+            ref_t = now - minute * 60.0
+            near = st.pred.descending_nodes(ref_t - 400, ref_t + 400)
+            assert near, "no descending node near referenced time at +%g min" % off
+            assert any(abs(((eqx_lon - lon + 540) % 360) - 180) < 1.0
+                       for _tc, lon in near), (
+                "eqx longitude not a real node at +%g min" % off)
+    finally:
+        OS.now_unix = orig
+
+def test_oscarsim_next_pass_seeds_visible_pass_node():
+    """'Next pass from QTH' must reference the arc to the equator-crossing node
+    of the next VISIBLE pass (the one that rises above the horizon at the
+    station), not merely the next equator crossing -- which is almost always a
+    different orbit, putting the arc at the wrong longitude.
+
+    Regression: failed for ISS (next EQX ~89 min out vs visible pass ~2 min) and
+    RS-44 (next EQX vs a visible pass hours later)."""
+    import math
+    from orbitdeck.gui.store import Store
+    from orbitdeck.gui.screens import oscarsim as OS
+    from orbitdeck.gui.screens.oscarsim import OscarSimScreen
+    from orbitdeck.engine.predict import Observer
+
+    class _V:
+        def __init__(self, v):
+            self._v = v
+
+        def get(self):
+            return self._v
+
+        def set(self, v):
+            self._v = v
+
+    for norad in (25544, 44909):     # ISS, RS-44
+        st = Store()
+        sat = next((x for x in st.db.sats if x.norad == norad), None)
+        if sat is None:
+            continue
+        st.obs = Observer(lat=38.9, lon=-77.0, alt_m=10, valid=True)
+        st.pred.set_site(st.obs)
+        st.pred.set_sat(sat)
+        sim = OscarSimScreen.__new__(OscarSimScreen)
+        sim.store = st
+        sim.pred = lambda p=st.pred: p
+        sim.sat = lambda s=sat: s
+        sim._mode = _V("nextpass")
+        sim._proj_mode = _V("qth")
+        sim._eqx_lon = _V(0.0)
+        sim._minute = _V(0.0)
+
+        sim._seed_next_pass()
+        t = OS.now_unix()
+        passes = st.pred.predict_passes(t, 5.0, 1)
+        assert passes, "expected a visible pass for %d" % norad
+        aos = passes[0].aos
+        tca = passes[0].tca
+        # the seeded node is the ascending node of the VISIBLE pass's orbit
+        node = st.pred.ascending_nodes(aos - sat.period_min * 60, aos + 60)
+        assert node
+        want_lon = node[-1][1]
+        assert abs(((sim._eqx_lon.get() - want_lon + 540) % 360) - 180) < 1.5
+
+        # and the arc, referenced to that node, passes over the real ground
+        # track near closest approach (proves it's the right orbit/longitude)
+        track = sim._canonical_track(sat, descending=False)
+        tc = sim._seed_unix
+        tca_min = (tca - tc) / 60.0
+        cp = min(track, key=lambda p: abs(p[2] - tca_min))
+        canon_lon = ((cp[0] + sim._eqx_lon.get() + 540) % 360) - 180
+        _rla, rlo, _ = st.pred.subpoint_at(tca)
+        assert abs(((canon_lon - rlo + 540) % 360) - 180) < 3.0

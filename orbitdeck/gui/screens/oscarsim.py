@@ -144,12 +144,45 @@ class OscarSimScreen(Screen):
         self._render()
 
     def _seed_next_pass(self):
+        """Seed the overlay to the next pass that is actually VISIBLE from the
+        station (rises above the horizon), referencing the arc to the equator-
+        crossing node of THAT pass's orbit.
+
+        Previously this just grabbed the next equator crossing, which is almost
+        always a different orbit than the next visible pass -- so the arc was
+        drawn at the wrong longitude (it didn't correspond to the pass the user
+        is waiting for). We now find the next visible pass via the pass
+        predictor, then take the node (ascending for a northern station,
+        descending for a southern one) of that pass's orbit.
+        """
         s = self.sat()
         if not s:
             return
         pred = self.pred()
         t = now_unix()
         south = self.store.obs.lat < 0
+        period_s = (s.period_min or 95.0) * 60.0
+        min_el = getattr(self.store, "min_el", 5.0)
+
+        # the next pass that actually clears the horizon at the QTH
+        passes = pred.predict_passes(t, min_el, 1)
+        if passes:
+            aos = passes[0].aos
+            # the matching node of that pass's orbit: the most recent node of the
+            # right type at or before AOS (search back a little over one period)
+            win = max(2.5 * 3600.0, period_s * 1.6)
+            cand = (pred.descending_nodes(aos - win, aos + 600) if south
+                    else pred.ascending_nodes(aos - win, aos + 600))
+            cand = [n for n in cand if n[0] <= aos + 60.0]
+            if cand:
+                tc, lon = cand[-1]
+                self._eqx_lon.set(lon)
+                self._minute.set(0.0)
+                self._seed_unix = tc
+                return
+
+        # fallback: no visible pass found in range -> next equator crossing
+        win = max(2.5 * 3600.0, period_s * 1.6)
         nodes = (pred.descending_nodes(t, t + 3 * 86400) if south
                  else pred.ascending_nodes(t, t + 3 * 86400))
         if nodes:
@@ -323,13 +356,28 @@ class OscarSimScreen(Screen):
         if mode == "live":
             t = now_unix()
             south = (view_mode == "polar-south")
+            # The search window must comfortably exceed ONE orbital period, or a
+            # long-period satellite's most-recent (or next) matching node can
+            # fall outside a fixed window -- which happened for RS-44 (period
+            # ~121 min > a fixed 120 min window): right at an equator crossing
+            # the window found no node and the arc failed to advance. Use ~1.6
+            # periods, with a floor for short-period birds.
+            period_s = (s.period_min or 95.0) * 60.0
+            win = max(2.5 * 3600.0, period_s * 1.6)
             # is the satellite currently in the hemisphere this sheet shows?
             cur_lat = pred.subpoint_at(t)[0]
             in_view = (cur_lat < 0) if south else (cur_lat >= 0)
             if in_view:
-                # the pass in progress: most recent matching node in the past
-                nodes = (pred.descending_nodes(t - 2 * 3600, t) if south
-                         else pred.ascending_nodes(t - 2 * 3600, t))
+                # The pass in progress: the most recent matching node at or
+                # before now. We search a little PAST `t` as well, because the
+                # node-finder brackets crossings with a coarse (~period/12) scan
+                # and a crossing that happened only a minute ago may not be
+                # bracketed by a window that stops exactly at `t` -- which left
+                # the arc referencing the PREVIOUS node for a few minutes right
+                # after a crossing. Take the last node at or before now.
+                look = (pred.descending_nodes(t - win, t + 600) if south
+                        else pred.ascending_nodes(t - win, t + 600))
+                nodes = [n for n in look if n[0] <= t + 30.0]
                 if nodes:
                     tc, lon = nodes[-1]
                     return t, lon, (t - tc) / 60.0
@@ -337,8 +385,8 @@ class OscarSimScreen(Screen):
                 # no live pass on this sheet -> show the NEXT pass into view:
                 # the upcoming matching node, with the clock counting up to it
                 # (negative "minutes since node" means the pass hasn't started).
-                fwd = (pred.descending_nodes(t, t + 2 * 3600) if south
-                       else pred.ascending_nodes(t, t + 2 * 3600))
+                fwd = (pred.descending_nodes(t, t + win) if south
+                       else pred.ascending_nodes(t, t + win))
                 if fwd:
                     tc, lon = fwd[0]
                     return t, lon, (t - tc) / 60.0
