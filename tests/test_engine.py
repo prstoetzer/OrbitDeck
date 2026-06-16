@@ -1709,3 +1709,27 @@ def test_oscarsim_is_a_live_screen():
     # on_tick(self, now_dt=None) -> accepts being called with one positional arg
     params = list(sig.parameters.values())
     assert len(params) >= 2
+
+
+def test_oscarlocator_title_shrinks_for_long_names():
+    """A long satellite name in an OSCARLOCATOR page title is auto-shrunk so it
+    stays within the page margins (rather than spilling off the edges)."""
+    from orbitdeck.gui.oscarlocator import _fit_title_fontsize, FS_TITLE
+    short = "ISS \u2014 OSCARLOCATOR \u2014 Base Map"
+    long = ("VERY LONG SATELLITE NAME 2024-099ZZ \u2014 OSCARLOCATOR \u2014 "
+            "Map + Footprint at QTH")
+    assert _fit_title_fontsize(short) == FS_TITLE
+    assert _fit_title_fontsize(long) < FS_TITLE
+
+
+def test_oscarlocator_footer_wraps_to_margin():
+    """Long footer/subtitle text is wrapped to the page margin, not the figure
+    edge, so it does not run off the page."""
+    from orbitdeck.gui.oscarlocator import _wrap_to_width
+    note = ("Print on transparency at 100%. Lay over the polar base map with "
+            "centres aligned and the ascending node at the EQX longitude, then "
+            "rotate the whole sheet about the centre for each successive pass.")
+    wrapped = _wrap_to_width(note, 9)
+    assert "\n" in wrapped               # it actually wrapped
+    # no single line is absurdly long
+    assert max(len(line) for line in wrapped.splitlines()) < 110

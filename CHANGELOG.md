@@ -4,6 +4,22 @@ All notable changes to OrbitDeck are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/), and the project aims to follow
 semantic versioning.
 
+## [0.16.11]
+
+### Fixed
+- OSCARLOCATOR footprint subtitle now breaks at a natural point: value+unit
+  groups (e.g. “2240 km”, “416 km”, “(~2240 km)”) use non-breaking spaces so the
+  line wrapper keeps them intact instead of splitting them across lines.
+
+## [0.16.10]
+
+### Fixed
+- OSCARLOCATOR PDF text no longer spills off the page. Titles, subtitles and
+  footer notes are kept inside proper page margins: long subtitles and footers
+  wrap to the margin (previously they ran edge-to-edge, since matplotlib only
+  wraps at the figure boundary), and a long satellite name in a page title is
+  measured and auto-shrunk to fit instead of overrunning the edges.
+
 ## [0.16.9]
 
 ### Fixed

@@ -66,6 +66,77 @@ FS_BIGLABEL = 11         # rotation-indicator label
 MARK_CROSS = 16          # centre cross marker size
 MEW_CROSS = 2.4          # centre cross line width
 
+# Page margins as a fraction of the figure width/height. Titles, subtitles and
+# footer notes must stay inside these so nothing spills off the printed page.
+MARGIN_X = 0.08          # left/right margin (about 0.68" on an 8.5" page)
+TEXT_L = MARGIN_X
+TEXT_R = 1.0 - MARGIN_X
+TEXT_W = TEXT_R - TEXT_L
+
+
+def _wrap_to_width(s, fontsize, width_frac=TEXT_W):
+    """Wrap a string to fit within ``width_frac`` of the page width at the given
+    font size, returning a string with embedded newlines. Uses an estimate of
+    the average character width so we wrap to a margin rather than to the figure
+    edge (matplotlib's wrap=True wraps only at the figure boundary)."""
+    import textwrap
+    avg_char_in = fontsize * 0.0090          # ~ average glyph advance, inches
+    usable_in = width_frac * PAGE_W_IN
+    ncols = max(12, int(usable_in / max(avg_char_in, 0.01)))
+    # protect non-breaking spaces (\u00a0) from textwrap, which otherwise treats
+    # them as ordinary break points, then restore them after wrapping so
+    # value+unit groups like "2240 km" never split across lines
+    sentinel = "\x00"
+    lines = textwrap.wrap(s.replace("\u00a0", sentinel), width=ncols)
+    out = "\n".join(ln.replace(sentinel, "\u00a0") for ln in lines)
+    return out or s
+
+
+def _fit_title_fontsize(s, base=FS_TITLE, width_frac=TEXT_W):
+    """Shrink the title font size just enough that the (single-line) title fits
+    within the margins, so long satellite names don't push it off the page.
+    Titles are bold, whose glyphs are wider, so the per-character estimate is
+    deliberately generous."""
+    avg_char_in = base * 0.0102          # bold title glyph advance, inches/pt
+    usable_in = width_frac * PAGE_W_IN
+    max_chars = max(1, usable_in / max(avg_char_in, 0.01))
+    if len(s) <= max_chars:
+        return base
+    return max(10.0, base * max_chars / len(s))
+
+
+def _draw_title(fig, title, subtitle):
+    """Draw a centred title (auto-shrunk to fit the margins) and a wrapped
+    subtitle, both kept inside the page margins."""
+    t = fig.text(0.5, 0.955, title, ha="center", va="top", fontsize=FS_TITLE,
+                 fontweight="bold")
+    # measure the rendered width and shrink the font until it fits the margins
+    try:
+        fig.canvas.draw()
+        renderer = fig.canvas.get_renderer()
+        fig_w = fig.get_size_inches()[0] * fig.dpi
+        max_w = TEXT_W * fig_w
+        bb = t.get_window_extent(renderer=renderer)
+        fs = FS_TITLE
+        while bb.width > max_w and fs > 9:
+            fs -= 0.5
+            t.set_fontsize(fs)
+            bb = t.get_window_extent(renderer=renderer)
+    except Exception:
+        # headless / no renderer: fall back to the character-width estimate
+        t.set_fontsize(_fit_title_fontsize(title))
+    if subtitle:
+        wrapped = _wrap_to_width(subtitle, FS_SUBTITLE)
+        fig.text(0.5, 0.917, wrapped, ha="center", va="top",
+                 fontsize=FS_SUBTITLE, color="#222222", linespacing=1.3)
+
+
+def _draw_footer(fig, note, y=0.05):
+    """Draw a centred footer note wrapped to the page margins."""
+    wrapped = _wrap_to_width(note, FS_NOTE)
+    fig.text(0.5, y, wrapped, ha="center", va="bottom", fontsize=FS_NOTE,
+             color="#333333", linespacing=1.3)
+
 
 def _central_angle_bearing(qlat, qlon, lat, lon):
     p1, l1 = math.radians(qlat), math.radians(qlon)
@@ -154,11 +225,7 @@ def _polar_axes(fig, title, subtitle, rmax=MAP_RADIUS_DEG, show_rim=True,
         # hide the outer boundary circle so only the drawn content inks the
         # sheet (used by the footprint overlay, which is its own boundary)
         ax.spines["polar"].set_visible(False)
-    fig.text(0.5, 0.95, title, ha="center", va="top", fontsize=FS_TITLE,
-             fontweight="bold")
-    if subtitle:
-        fig.text(0.5, 0.915, subtitle, ha="center", va="top",
-                 fontsize=FS_SUBTITLE, color="#222222")
+    _draw_title(fig, title, subtitle)
     return ax
 
 
@@ -309,8 +376,7 @@ def _base_map_page(pdf, proj, qth_name, segments, rmax):
         note = ("Print on paper or card at 100% (actual size). Overlays "
                 "register on the centre cross; rings are great-circle distance, "
                 "spokes are azimuth, grey graticule is lat/lon (15\u00b0).")
-    fig.text(0.5, 0.05, note, ha="center", va="bottom", fontsize=FS_NOTE,
-             color="#333333", wrap=True)
+    _draw_footer(fig, note)
     pdf.savefig(fig)
     plt.close(fig)
 
@@ -366,13 +432,11 @@ def _footprint_page(pdf, sat_name, alt_km, proj, rmax):
     ax.plot(th1, [fr] * len(th1), color="#cc0000", linewidth=LW_FOOT, zorder=4)
     ax.plot([0], [0], marker="+", color="black", markersize=MARK_CROSS,
             markeredgewidth=MEW_CROSS, zorder=5)
-    fig.text(0.5, 0.05,
-             "Print on transparency at 100%. Pin the centre cross at the "
-             "satellite's sub-point; the red circle is the edge of coverage "
-             "(footprint). Inner rings are distance from the sub-point; spokes "
-             "are azimuth. Scale matches the base map.",
-             ha="center", va="bottom", fontsize=FS_NOTE, color="#333333",
-             wrap=True)
+    _draw_footer(fig,
+                 "Print on transparency at 100%. Pin the centre cross at the "
+                 "satellite's sub-point; the red circle is the edge of coverage "
+                 "(footprint). Inner rings are distance from the sub-point; "
+                 "spokes are azimuth. Scale matches the base map.")
     pdf.savefig(fig)
     plt.close(fig)
 
@@ -636,8 +700,7 @@ def _arc_page(pdf, pred, sat, proj, rmax):
                 "minutes after the EQX, with longer labelled marks every 10 "
                 "minutes." % (
                     abs(shift), "westward" if shift < 0 else "eastward"))
-    fig.text(0.5, 0.04, note, ha="center", va="bottom", fontsize=FS_NOTE,
-             color="#333333", wrap=True)
+    _draw_footer(fig, note, y=0.04)
     pdf.savefig(fig)
     plt.close(fig)
 
@@ -671,9 +734,11 @@ def _base_map_with_footprint_page(pdf, proj, obs, qth_name, segments, rmax,
     fig = plt.figure(figsize=(PAGE_W_IN, PAGE_H_IN))
     foot_km = round(foot_deg * KM_PER_DEG, -1)
     name = (sat_name + " \u2014 ") if sat_name else ""
-    size = "footprint radius %.1f\u00b0 (~%d km)" % (foot_deg, foot_km)
+    # use non-breaking spaces (\u00a0) inside value+unit groups so the line
+    # wrapper never breaks "2240 km", "20.2 deg" or "(~2240 km)" across lines
+    size = "footprint radius %.1f\u00b0 (~%d\u00a0km)" % (foot_deg, foot_km)
     if alt_km:
-        size += " at %.0f km mean altitude" % alt_km
+        size += " at %.0f\u00a0km mean altitude" % alt_km
     if proj.is_polar:
         hemi = "southern" if proj.is_south else "northern"
         title = "%sOSCARLOCATOR \u2014 Map + Footprint at QTH (%s)" % (name, hemi)
@@ -697,12 +762,11 @@ def _base_map_with_footprint_page(pdf, proj, obs, qth_name, segments, rmax,
     if q_rho <= rmax:
         ax.plot([math.radians(q_br)], [q_rho], marker="*", color="#cc0000",
                 markersize=15, zorder=6)
-    fig.text(0.5, 0.05,
-             "Print on paper or card at 100%. The red circle is the satellite's "
-             "footprint when it is directly over your station (red star). Use "
-             "the separate path-arc overlay to see when it enters this circle.",
-             ha="center", va="bottom", fontsize=FS_NOTE, color="#333333",
-             wrap=True)
+    _draw_footer(fig,
+                 "Print on paper or card at 100%. The red circle is the "
+                 "satellite's footprint when it is directly over your station "
+                 "(red star). Use the separate path-arc overlay to see when it "
+                 "enters this circle.")
     pdf.savefig(fig)
     plt.close(fig)
 
