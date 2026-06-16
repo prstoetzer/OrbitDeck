@@ -5,7 +5,7 @@ Thanks for your interest in improving OrbitDeck!
 ## Development setup
 
 ```bash
-git clone https://github.com/USER/orbitdeck
+git clone https://github.com/prstoetzer/orbitdeck
 cd orbitdeck
 python -m venv .venv && source .venv/bin/activate   # Windows: .venv\Scripts\activate
 pip install -e ".[dev,full]"

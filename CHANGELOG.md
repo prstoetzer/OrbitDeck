@@ -4,6 +4,130 @@ All notable changes to OrbitDeck are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/), and the project aims to follow
 semantic versioning.
 
+## [0.16.18]
+
+### Fixed
+- **Footprint-overlay azimuth labels now clear the coverage circle on the polar
+  sheets too.** The earlier fix used a clearance proportional to the footprint
+  radius, which was too small when a low-altitude footprint is drawn on the
+  large (pole-to-equator) polar sheet — the degree labels still touched the red
+  circle. The clearance is now an absolute gap (scaled to the sheet), so the
+  labels are comfortably outside the circle on every projection, while a large
+  footprint still keeps its labels on the page.
+- **Path-arc sheet: the “EQX — 0 min” box no longer overlaps the outer rim.** It
+  has been made more compact (shorter wrapped wording, smaller font) and moved a
+  little inboard so it sits clear of the boundary circle.
+
+## [0.16.17]
+
+### Changed
+- **Footprint-overlay azimuth labels no longer crowd the footprint circle.** The
+  degree labels (30°, 60°, …) and the N/E/S/W letters are pushed further outside
+  the red coverage circle so they don't touch it, with the radius capped so that
+  a large footprint (red circle near the sheet edge, e.g. a high-altitude
+  satellite) keeps its labels on the page instead of running off the edge. Degree
+  labels now also carry the degree symbol, matching the other sheets.
+
+## [0.16.16]
+
+### Changed
+- **Polar OSCARLOCATOR base maps: outer labels no longer crowd the rim.** The
+  longitude labels (e.g. 90°E, 120°W) are pushed further outside the boundary
+  circle so they don't touch it, and the latitude-ring labels (75° … 15°) now
+  sit on a quiet spoke with a small white backing so they read clearly over the
+  rings instead of being cramped against the edge. The equator/rim ring is no
+  longer given a redundant “0°” label (it is the map boundary, and its longitude
+  labels already sit just outside it).
+
+## [0.16.15]
+
+### Changed
+- **OSCARLOCATOR Simulator live mode: when the satellite is in the hemisphere
+  opposite the viewed sheet, the view now shows the arc for the NEXT equator
+  crossing into that hemisphere** (the upcoming pass), instead of the stale
+  most-recent node. While the satellite is in the viewed hemisphere the arc is
+  the pass in progress and the live marker rides it; while it's in the opposite
+  hemisphere there is no live marker on the sheet (correct — the satellite isn't
+  there yet) and the displayed arc is the next pass's track. As the satellite
+  crosses the equator into view, that same arc seamlessly becomes the current
+  pass. This pairs with the auto N/S hemisphere flip from 0.16.14.
+
+## [0.16.14]
+
+### Added
+- **OSCARLOCATOR Simulator: live auto-flip across the equator.** In live mode
+  with “Polar (auto N/S)” selected, the displayed sheet now follows the
+  *satellite* — it shows the north sheet while the satellite is north of the
+  equator and the south sheet while it's south, flipping automatically as the
+  satellite crosses the equator. The path arc advances to the relevant
+  equator-crossing node at the same time, so the active pass is always the one
+  drawn and the live marker stays on the arc throughout the orbit (it previously
+  drifted from the arc when the satellite was in the hemisphere opposite the
+  shown sheet).
+
+### Changed
+- **OSCARLOCATOR printout labelling is less crowded.** The map disc is slightly
+  smaller so the outer azimuth/longitude labels clear the page edge; the
+  QTH-map cardinals no longer print a degree number on top of the N/E/S/W letter
+  (e.g. “270°” over “W”); polar longitude labels sit clear of the rim; and the
+  footprint-overlay distance rings use wider spacing (2–3 rings instead of a
+  dense stack) with their km labels moved to a clear spoke away from the azimuth
+  rose.
+- The elevation-ring labels on the QTH map now read consistently as “0° el / 10°
+  el / 30° el / 60° el”, aligned along a single radial, with “0° el” replacing
+  the earlier “horizon” wording.
+
+### Removed
+- The “N SHEET / S SHEET” corner badges on the polar map sheets (the hemisphere
+  is already obvious from the map content and title). The north/south
+  distinction is now stated only where it has to be acted on: at the EQX
+  indicator on the path-arc sheet, which names the node (“Ascending node
+  (northern sheet)” / “Descending node (southern sheet)”).
+
+## [0.16.13]
+
+### Added
+- **Elevation rings on the QTH-centred OSCARLOCATOR base map.** The range rings
+  are now elevation contours for the selected satellite (horizon / 10° / 30° /
+  60°), so an operator reads the satellite's elevation directly off the sheet
+  (“the track crosses the 10° ring → 10° elevation”). The horizon ring is the
+  satellite's footprint edge. Ring labels are staggered so they stay legible for
+  both low (small-footprint) and higher orbits, and a faint dashed distance ring
+  keeps a physical-scale (km) reference. The QTH base map is now titled with the
+  satellite name and its subtitle states the altitude the rings assume. New
+  geometry helpers `elevation_for_central_angle_deg` and
+  `central_angle_for_elevation_deg` back this.
+- **N/S sheet badge on the polar sheets.** Northern sheets carry a blue
+  “N SHEET” badge and southern sheets a red “S SHEET” badge, so the two
+  hemispheres' transparencies can't be mixed up.
+- **Cardinal registration ticks** on every base-map and arc sheet (at N/E/S/W on
+  the QTH map and at 0/90/180/270° on the polar maps), giving fixed rim marks to
+  align stacked transparencies by eye.
+
+## [0.16.12]
+
+### Fixed
+- **OSCARLOCATOR Simulator live mode now tracks correctly across both
+  hemispheres.** In live mode the equator-crossing reference is now chosen to
+  match the on-screen view (the north sheet references the ascending node, the
+  south sheet the descending node) instead of being keyed to the station's own
+  hemisphere. Previously a northern station viewing the south sheet (or vice
+  versa) pinned the path arc to the wrong node, so the live satellite marker was
+  offset from the drawn arc by ~15–20° until the QTH was moved to the matching
+  hemisphere. A pass can now be followed accurately on either sheet from any
+  station.
+- **Path-arc overlay subtitle no longer collides with the rotate annotation.**
+  The subtitle is more compact and keeps value+unit groups (“92.9 min”, “23.6° W”)
+  together, so it stays on one line for typical satellites; the red “rotate
+  sheet …” label was also given more vertical clearance.
+
+### Changed
+- **The “Make printable OSCARLOCATOR” action on the Simulator screen now behaves
+  exactly like the one on the Track screen.** Both prompt for the base-map style
+  (polar/generic vs. QTH-centred) and whether to draw the footprint directly on
+  the QTH map, use a descriptive filename, and show tailored print instructions.
+  The workflow is now defined once and shared by both screens.
+
 ## [0.16.11]
 
 ### Fixed

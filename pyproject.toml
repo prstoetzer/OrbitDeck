@@ -4,12 +4,12 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "orbitdeck"
-version = "0.16.11"
+version = "0.16.18"
 description = "Cross-platform desktop satellite tracking and orbital-analysis tool for amateur-radio operators"
 readme = "README.md"
 requires-python = ">=3.8"
 license = { text = "MIT" }
-authors = [{ name = "OrbitDeck contributors" }]
+authors = [{ name = "Paul Stoetzer, N8HM" }]
 keywords = ["satellite", "tracking", "orbital", "sgp4", "amateur-radio",
             "ham-radio", "doppler", "tle", "pass-prediction"]
 classifiers = [
@@ -44,9 +44,9 @@ full = ["sgp4>=2.20", "cartopy>=0.21"]
 dev = ["pytest>=7", "ruff>=0.1"]
 
 [project.urls]
-Homepage = "https://github.com/USER/orbitdeck"
-Repository = "https://github.com/USER/orbitdeck"
-Issues = "https://github.com/USER/orbitdeck/issues"
+Homepage = "https://github.com/prstoetzer/orbitdeck"
+Repository = "https://github.com/prstoetzer/orbitdeck"
+Issues = "https://github.com/prstoetzer/orbitdeck/issues"
 
 [project.scripts]
 orbitdeck = "orbitdeck.gui.app:main"

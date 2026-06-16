@@ -24,7 +24,7 @@ coastline set ship as fallbacks.
 ## Quick start
 
 ```bash
-git clone https://github.com/USER/orbitdeck
+git clone https://github.com/prstoetzer/orbitdeck
 cd orbitdeck
 pip install -e .
 orbitdeck

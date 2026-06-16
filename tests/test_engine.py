@@ -1472,9 +1472,9 @@ def test_qth_map_radius_capped():
     captured = {}
     orig = OL._base_map_page
 
-    def spy(pdf, proj, qth_name, segments, rmax):
+    def spy(pdf, proj, qth_name, segments, rmax, *args, **kwargs):
         captured["rmax"] = rmax
-        return orig(pdf, proj, qth_name, segments, rmax)
+        return orig(pdf, proj, qth_name, segments, rmax, *args, **kwargs)
     OL._base_map_page = spy
     try:
         st = Store()
@@ -1672,6 +1672,88 @@ def test_oscarsim_eqx_listing_node_choice():
     assert dtimes == sorted(dtimes)
 
 
+def test_oscarsim_live_eqx_follows_view_not_qth():
+    """In live mode the EQX node reference follows the VIEW (north sheet ->
+    ascending node, south sheet -> descending node), NOT the station hemisphere.
+
+    Two cases, controlled by sampling a known point in the orbit:
+      * satellite IN the viewed hemisphere -> arc references the pass in
+        progress (most recent matching node, minute >= 0) and the live marker
+        sits on that arc;
+      * satellite in the OPPOSITE hemisphere -> there is no live pass on this
+        sheet, so the arc references the NEXT matching node (minute < 0), i.e.
+        the upcoming pass into view.
+
+    Regression: previously the node was chosen from the QTH latitude, so a
+    northern station viewing the south sheet pinned the arc to the wrong node.
+
+    Built without a full app/Tk root (just the screen object + a real predictor)
+    so it can't be perturbed by global GUI state left over from other tests.
+    """
+    import math
+    from orbitdeck.gui.store import Store
+    from orbitdeck.gui.screens import oscarsim as OS
+    from orbitdeck.gui.screens.oscarsim import OscarSimScreen
+    from orbitdeck.engine.predict import Observer
+
+    st = Store()
+    st.obs = Observer(lat=38.9, lon=-77.0, alt_m=10, valid=True)  # northern QTH
+    s = st.selected_sat()
+    st.pred.set_site(st.obs)
+    st.pred.set_sat(s)
+
+    class _Var:
+        def get(self):
+            return "live"
+    sim = OscarSimScreen.__new__(OscarSimScreen)
+    sim.store = st
+    sim._mode = _Var()
+
+    orig_now = OS.now_unix
+    try:
+        t0 = orig_now()
+        asc = st.pred.ascending_nodes(t0 - 2 * 3600, t0 + 3600)
+        assert asc
+        tc = asc[-1][0]
+        P = s.period_min * 60.0
+
+        def gap_at(view_mode, t):
+            _t, eqx_lon, minute = sim._current_state(s, view_mode)
+            la, lo, _ = st.pred.subpoint_at(t)
+            track = sim._canonical_track(
+                s, descending=(view_mode == "polar-south"))
+            best = min(
+                math.hypot(la - lat, ((lo - (lr + eqx_lon) + 540) % 360) - 180)
+                for lr, lat, _m in track)
+            return best, minute
+
+        # --- north sheet, satellite NORTH (quarter orbit after asc node) ---
+        OS.now_unix = lambda: tc + P * 0.25
+        assert st.pred.subpoint_at(OS.now_unix())[0] > 0
+        gap, minute = gap_at("polar", OS.now_unix())
+        assert minute >= 0          # current pass (past node)
+        assert gap < 6.0            # marker on the arc
+
+        # --- north sheet, satellite SOUTH (three-quarter orbit) ---
+        OS.now_unix = lambda: tc + P * 0.75
+        assert st.pred.subpoint_at(OS.now_unix())[0] < 0
+        _gap, minute = gap_at("polar", OS.now_unix())
+        assert minute < 0           # NEXT pass into view (future node)
+
+        # --- south sheet, satellite SOUTH -> current pass, marker on arc ---
+        OS.now_unix = lambda: tc + P * 0.75
+        gap, minute = gap_at("polar-south", OS.now_unix())
+        assert minute >= 0
+        assert gap < 6.0
+
+        # --- south sheet, satellite NORTH -> next pass into view ---
+        OS.now_unix = lambda: tc + P * 0.25
+        _gap, minute = gap_at("polar-south", OS.now_unix())
+        assert minute < 0
+    finally:
+        OS.now_unix = orig_now
+
+
 def test_oscarlocator_titles_all_say_oscarlocator():
     """Every OSCARLOCATOR PDF page title uses the correct 'OSCARLOCATOR' spelling
     (never the old 'OSCARLATOR' typo), and the footprint-on-QTH map includes the
@@ -1733,3 +1815,259 @@ def test_oscarlocator_footer_wraps_to_margin():
     assert "\n" in wrapped               # it actually wrapped
     # no single line is absurdly long
     assert max(len(line) for line in wrapped.splitlines()) < 110
+
+
+def test_oscarlocator_export_is_shared_by_track_and_sim():
+    """The 'Make printable OSCARLOCATOR' action is defined once on the base
+    Screen class and used unchanged by both the Track and Simulator screens, so
+    the two entry points behave identically (same base-map + footprint choices
+    and the same saved output)."""
+    from orbitdeck.gui.screens import Screen
+    from orbitdeck.gui.screens.track import TrackScreen
+    from orbitdeck.gui.screens.oscarsim import OscarSimScreen
+
+    # the workflow lives on the base class
+    assert hasattr(Screen, "make_oscarlocator_pdf")
+    # neither subclass defines its OWN copy -- they inherit the base method
+    # (checked via __dict__ so it's robust to module re-import identity quirks)
+    assert "make_oscarlocator_pdf" not in TrackScreen.__dict__
+    assert "make_oscarlocator_pdf" not in OscarSimScreen.__dict__
+    assert "make_oscarlocator_pdf" in Screen.__dict__
+    # the old per-screen implementations are gone
+    assert not hasattr(TrackScreen, "_make_oscarlocator")
+    assert not hasattr(OscarSimScreen, "_print")
+
+
+def test_oscarlocator_arc_subtitle_fits_one_line():
+    """The path-arc subtitle for a typical satellite fits on a single line (so
+    it can't wrap down into the red 'rotate sheet' annotation below it)."""
+    from orbitdeck.gui.oscarlocator import _wrap_to_width, FS_SUBTITLE
+    # the subtitle as built in _arc_page for an ISS-like satellite
+    sub = ("Ground-track \u2014 incl. 51.6\u00b0, period 92.9\u00a0min "
+           "\u2014 advance 23.6\u00b0\u00a0W per pass.")
+    wrapped = _wrap_to_width(sub, FS_SUBTITLE)
+    assert "\n" not in wrapped            # stays on one line
+
+def test_elevation_central_angle_geometry():
+    """The elevation/central-angle helpers are self-consistent: elevation is 0
+    exactly at the footprint edge, +90 at the sub-point, and the forward and
+    inverse functions round-trip."""
+    from orbitdeck.engine import analysis as A
+    alt = 420.0
+    fr = A.footprint_radius_deg(alt)
+    assert abs(A.elevation_for_central_angle_deg(fr, alt)) < 1e-6
+    assert abs(A.elevation_for_central_angle_deg(0.0, alt) - 90.0) < 1e-6
+    for el in (0, 5, 10, 20, 30, 45, 60):
+        gamma = A.central_angle_for_elevation_deg(el, alt)
+        assert gamma is not None
+        back = A.elevation_for_central_angle_deg(gamma, alt)
+        assert abs(back - el) < 1e-3
+    assert abs(A.central_angle_for_elevation_deg(0.0, alt) - fr) < 1e-6
+    # higher elevation is closer to the station (smaller central angle)
+    assert (A.central_angle_for_elevation_deg(60, alt)
+            < A.central_angle_for_elevation_deg(10, alt))
+
+
+def test_oscarlocator_qth_map_has_elevation_rings():
+    """The QTH base map names the satellite and its subtitle reports that the
+    rings are elevation contours at the satellite's altitude."""
+    import os
+    import subprocess
+    import tempfile
+    from orbitdeck.gui.store import Store
+    from orbitdeck.gui.oscarlocator import generate_oscarlocator_pdf
+
+    st = Store()
+    s = st.selected_sat()
+    out = os.path.join(tempfile.mkdtemp(), "qth.pdf")
+    generate_oscarlocator_pdf(out, st, s, projection="qth")
+    txt = subprocess.run(["pdftotext", out, "-"], capture_output=True,
+                         text=True).stdout
+    assert s.name in txt
+    assert "elevation" in txt.lower()
+    # rings are labelled with explicit elevation angles; the 0 deg ring is the
+    # footprint edge (no more "horizon" wording)
+    assert "0\u00b0 el" in txt or "0 el" in txt
+    assert "horizon" not in txt.lower()
+
+
+def test_oscarlocator_arc_sheet_names_node_and_hemisphere():
+    """The hemisphere/node distinction matters on the ARC sheet (the arc is
+    built from the ascending node for northern sheets, the descending node for
+    southern), so each arc sheet states it at the EQX indicator. The map sheets
+    do NOT carry a redundant N/S badge (the map content makes the hemisphere
+    obvious)."""
+    import os
+    import subprocess
+    import tempfile
+    from orbitdeck.gui.store import Store
+    from orbitdeck.gui.oscarlocator import generate_oscarlocator_pdf
+
+    st = Store()
+    s = st.selected_sat()
+    d = tempfile.mkdtemp()
+    pn = os.path.join(d, "n.pdf")
+    ps = os.path.join(d, "s.pdf")
+    generate_oscarlocator_pdf(pn, st, s, projection="polar")
+    generate_oscarlocator_pdf(ps, st, s, projection="polar-south")
+    tn = subprocess.run(["pdftotext", pn, "-"], capture_output=True,
+                        text=True).stdout
+    ts = subprocess.run(["pdftotext", ps, "-"], capture_output=True,
+                        text=True).stdout
+    # the old corner badges are gone
+    assert "N SHEET" not in tn
+    assert "S SHEET" not in ts
+    # the arc sheet states the node + hemisphere at the EQX indicator (compact
+    # wording: "ascending node (N sheet)" / "descending node (S sheet)")
+    assert "ascending node" in tn
+    assert "(N sheet)" in tn
+    assert "descending node" in ts
+    assert "(S sheet)" in ts
+
+def test_oscarlocator_long_sat_name_truncates():
+    """A very long satellite name is truncated with an ellipsis so the title
+    keeps its descriptive suffix at a readable size, while short names pass
+    through unchanged."""
+    from orbitdeck.gui.oscarlocator import _fit_sat_name
+    suffix = " \u2014 OSCARLOCATOR Base Map"
+    # short names are untouched
+    assert _fit_sat_name("ISS", suffix) == "ISS"
+    assert _fit_sat_name("AO-91", suffix) == "AO-91"
+    # a very long name is shortened and ends with an ellipsis
+    longname = "OSCAR-100 / QO-100 GEOSTATIONARY TRANSPONDER (ES HAIL 2) WIDEBAND"
+    got = _fit_sat_name(longname, suffix)
+    assert got.endswith("\u2026")
+    assert len(got) < len(longname)
+    # the truncated name plus suffix is not absurdly long
+    assert len(got) + len(suffix) < 60
+
+
+def test_oscarlocator_long_name_pdf_renders():
+    """A long satellite name doesn't break PDF generation on any projection."""
+    import copy
+    import os
+    import tempfile
+    from orbitdeck.gui.store import Store
+    from orbitdeck.gui.oscarlocator import generate_oscarlocator_pdf
+
+    st = Store()
+    s = copy.deepcopy(st.selected_sat())
+    s.name = "OSCAR-100 / QO-100 GEOSTATIONARY TRANSPONDER (ES HAIL 2) WIDEBAND"
+    d = tempfile.mkdtemp()
+    for proj in ("qth", "polar", "polar-south"):
+        out = os.path.join(d, proj + ".pdf")
+        generate_oscarlocator_pdf(out, st, s, projection=proj)
+        assert os.path.getsize(out) > 1000
+    # the footprint-on-QTH 2-page variant too
+    out = os.path.join(d, "fp.pdf")
+    generate_oscarlocator_pdf(out, st, s, projection="qth",
+                              footprint_on_qth=True)
+    assert os.path.getsize(out) > 1000
+
+def test_oscarsim_live_auto_sheet_follows_satellite_hemisphere():
+    """In LIVE mode with 'Polar (auto N/S)' selected, the displayed sheet
+    follows the SATELLITE's current hemisphere (north sheet while it's north of
+    the equator, south sheet while south), flipping automatically as it crosses
+    the equator -- so the active pass is always the one drawn. In non-live modes
+    the auto sheet falls back to the station hemisphere."""
+    import math
+    from orbitdeck.gui.store import Store
+    from orbitdeck.gui.screens import oscarsim as OS
+    from orbitdeck.gui.screens.oscarsim import OscarSimScreen
+    from orbitdeck.engine.predict import Observer
+
+    st = Store()
+    st.obs = Observer(lat=38.9, lon=-77.0, alt_m=10, valid=True)  # northern QTH
+    s = st.selected_sat()
+    st.pred.set_site(st.obs)
+    st.pred.set_sat(s)
+
+    class _Var:
+        def __init__(self, v):
+            self._v = v
+
+        def get(self):
+            return self._v
+    sim = OscarSimScreen.__new__(OscarSimScreen)
+    sim.store = st
+    sim._mode = _Var("live")
+    sim._proj_mode = _Var("polar-auto")
+
+    # drive _resolve_proj against a controlled "current sub-latitude" by
+    # monkeypatching now_unix to land on a known north/south time
+    orig_now = OS.now_unix
+    try:
+        # find a recent ascending node, then sample a time clearly AFTER it
+        # (northbound -> sat is north) and clearly before the next descending
+        t0 = orig_now()
+        asc = st.pred.ascending_nodes(t0 - 2 * 3600, t0 + 3600)
+        assert asc, "need an ascending node to anchor the test"
+        tc = asc[-1][0] if asc[-1][0] <= t0 + 1800 else asc[0][0]
+        period_s = s.period_min * 60.0
+
+        # ~quarter orbit after an ascending node -> satellite is north
+        OS.now_unix = lambda: tc + period_s * 0.25
+        lat_n = st.pred.subpoint_at(OS.now_unix())[0]
+        assert lat_n > 0
+        assert sim._resolve_proj() == "polar"
+
+        # ~three-quarter orbit after an ascending node -> satellite is south
+        OS.now_unix = lambda: tc + period_s * 0.75
+        lat_s = st.pred.subpoint_at(OS.now_unix())[0]
+        assert lat_s < 0
+        assert sim._resolve_proj() == "polar-south"
+    finally:
+        OS.now_unix = orig_now
+
+    # in MANUAL mode the auto sheet falls back to the (northern) station
+    sim._mode = _Var("manual")
+    assert sim._resolve_proj() == "polar"
+
+def test_oscarsim_live_shows_next_eqx_arc_when_out_of_view():
+    """When the satellite is in the hemisphere OPPOSITE the viewed sheet, the
+    live view shows the arc for the NEXT equator crossing into the viewed
+    hemisphere (the upcoming pass), referenced to the upcoming node -- so the
+    user always sees the next pass's arc even though there's no live marker on
+    this sheet yet. As the satellite crosses into view, that same arc becomes
+    the current pass."""
+    import math
+    from orbitdeck.gui.store import Store
+    from orbitdeck.gui.screens import oscarsim as OS
+    from orbitdeck.gui.screens.oscarsim import OscarSimScreen
+    from orbitdeck.engine.predict import Observer
+
+    st = Store()
+    st.obs = Observer(lat=38.9, lon=-77.0, alt_m=10, valid=True)
+    s = st.selected_sat()
+    st.pred.set_site(st.obs)
+    st.pred.set_sat(s)
+
+    class _Var:
+        def get(self):
+            return "live"
+    sim = OscarSimScreen.__new__(OscarSimScreen)
+    sim.store = st
+    sim._mode = _Var()
+
+    orig = OS.now_unix
+    try:
+        t0 = orig()
+        asc = st.pred.ascending_nodes(t0 - 2 * 3600, t0 + 3600)
+        assert asc
+        tc = asc[-1][0]
+        P = s.period_min * 60.0
+
+        # satellite SOUTH, viewing the NORTH sheet: the referenced node must be
+        # the NEXT ascending node (in the future), and it must match the EQX the
+        # engine reports as upcoming.
+        OS.now_unix = lambda: tc + P * 0.75
+        now = OS.now_unix()
+        assert st.pred.subpoint_at(now)[0] < 0          # sat is south
+        _t, eqx_lon, minute = sim._current_state(s, "polar")
+        assert minute < 0                               # arc is the next pass
+        nxt = st.pred.ascending_nodes(now, now + 2 * 3600)
+        assert nxt
+        # the EQX longitude shown is the upcoming ascending node's longitude
+        assert abs(((eqx_lon - nxt[0][1] + 540) % 360) - 180) < 1.0
+    finally:
+        OS.now_unix = orig

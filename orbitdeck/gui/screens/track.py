@@ -112,7 +112,7 @@ class TrackScreen(Screen):
         act = ttk.Frame(left, style="Panel.TFrame")
         act.pack(fill="x", padx=14, pady=(8, 12))
         ttk.Button(act, text="Make OSCARLOCATOR PDF\u2026",
-                   command=self._make_oscarlocator).pack(side="left")
+                   command=self.make_oscarlocator_pdf).pack(side="left")
 
         right = ttk.Frame(body, style="Panel.TFrame")
         right.pack(side="left", fill="both", expand=True)
@@ -169,75 +169,6 @@ class TrackScreen(Screen):
         self.tp_combo.selection_clear()
         self.frame.focus_set()
         self._refresh(now_unix(), force_plot=True)
-
-    def _make_oscarlocator(self):
-        s = self.sat()
-        if not s:
-            return
-        from tkinter import filedialog, messagebox
-        from ..oscarlocator import generate_oscarlocator_pdf
-        # choose the base-map style: polar (generic, PE1RAH OSCARLATOR) or a
-        # personalised map centred on the station
-        polar = messagebox.askyesno(
-            "OSCARLOCATOR base map",
-            "Choose the base map style:\n\n"
-            "\u2022 YES \u2014 Polar map (North/South-pole-centred, generic). The "
-            "classic OSCARLATOR sheet that works for any QTH using the "
-            "equator-crossing list.\n\n"
-            "\u2022 NO \u2014 QTH-centred map, personalised to your station "
-            "(azimuth/range from your location).")
-        # optional: draw the footprint right on the base map at the QTH, giving a
-        # 2-page set (map+footprint, then path arc) instead of separate sheets
-        fp_on_qth = messagebox.askyesno(
-            "Footprint placement",
-            "Draw the satellite footprint directly on the base map at your "
-            "station?\n\n"
-            "\u2022 YES \u2014 2-page set: the map already shows the footprint at "
-            "your QTH (one less transparency to align).\n\n"
-            "\u2022 NO \u2014 3-page set: the footprint prints on a separate "
-            "transparency you place over the map.")
-        projection = "polar-auto" if polar else "qth"
-        suffix = "polar" if polar else "qth"
-        if fp_on_qth:
-            suffix += "_fpqth"
-        default = "oscarlocator_%s_%s.pdf" % (
-            s.name.replace("/", "-").replace(" ", "_"), suffix)
-        path = filedialog.asksaveasfilename(
-            title="Save OSCARLOCATOR PDF",
-            defaultextension=".pdf",
-            initialfile=default,
-            filetypes=[("PDF", "*.pdf")])
-        if not path:
-            return
-        try:
-            generate_oscarlocator_pdf(path, self.store, s,
-                                      projection=projection,
-                                      footprint_on_qth=fp_on_qth)
-        except Exception as e:
-            messagebox.showerror("OSCARLOCATOR", "Could not generate PDF:\n%s"
-                                 % e)
-            return
-        self.app.set_status("Saved OSCARLOCATOR PDF: %s" % path)
-        if fp_on_qth:
-            detail = ("Page 1 (base map with footprint at your QTH): print on "
-                      "paper or card.\nPage 2 (orbit path arc): print on "
-                      "transparency film.\n\nThe footprint is already on the "
-                      "map; use the path overlay to see when the satellite "
-                      "enters it.")
-        elif polar:
-            detail = ("Page 1 (polar base map): print on paper or card.\n"
-                      "Pages 2 & 3 (footprint + orbit overhead): print on "
-                      "transparency film.\n\nLay the overlays on the base map "
-                      "with centres aligned and rotate to the equator-crossing "
-                      "longitude (see the Orbital Analysis \u2192 Crossings List).")
-        else:
-            detail = ("Page 1 (base map): print on paper or card.\n"
-                      "Pages 2 & 3 (footprint + path arc): print on "
-                      "transparency film.\n\nPin the overlays through the centre "
-                      "cross over your station on the base map.")
-        messagebox.showinfo(
-            "OSCARLOCATOR",
-            "Saved an OSCARLOCATOR PDF for %s.\n\n%s" % (s.name, detail))
 
     def _add_manual_tp(self):
         s = self.sat()

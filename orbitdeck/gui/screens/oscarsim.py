@@ -95,7 +95,8 @@ class OscarSimScreen(Screen):
         ttk.Checkbutton(ctrl, text="Show footprint", variable=self._show_foot,
                         command=self._render).pack(anchor="w", padx=14)
         ttk.Button(ctrl, text="Make printable OSCARLOCATOR\u2026",
-                   command=self._print).pack(anchor="w", padx=12, pady=10)
+                   command=self.make_oscarlocator_pdf).pack(anchor="w",
+                                                            padx=12, pady=10)
 
         self._readout = tk.StringVar(value="")
         ttk.Label(ctrl, textvariable=self._readout, style="Muted.TLabel",
@@ -203,6 +204,19 @@ class OscarSimScreen(Screen):
     def _resolve_proj(self):
         mode = self._proj_mode.get()
         if mode == "polar-auto":
+            # In LIVE mode the auto sheet follows the SATELLITE: show the north
+            # sheet while the satellite is in the northern hemisphere and the
+            # south sheet while it's in the southern, flipping automatically as
+            # it crosses the equator so the active pass is always the one drawn.
+            # Otherwise (manual / next-pass) fall back to the station hemisphere.
+            if self._mode.get() == "live":
+                s = self.sat()
+                if s is not None:
+                    try:
+                        lat = self.pred().subpoint_at(now_unix())[0]
+                        return "polar-south" if lat < 0 else "polar"
+                    except Exception:
+                        pass
             mode = "polar-south" if self.store.obs.lat < 0 else "polar"
         return mode
 
@@ -273,8 +287,12 @@ class OscarSimScreen(Screen):
         self._draw_coastlines(ax, mode, rmax)
         self._draw_qth(ax, mode, rmax)
 
-        # figure out the time / EQX to display
-        t, eqx_lon, minute = self._current_state(s)
+        # figure out the time / EQX to display. The EQX node reference must
+        # follow the VIEW (north sheet -> ascending node, south sheet ->
+        # descending node), not the QTH hemisphere, so that a pass can be
+        # followed accurately across either sheet regardless of where the
+        # station is.
+        t, eqx_lon, minute = self._current_state(s, mode)
         live = (self._mode.get() == "live")
 
         # draw the rotated path arc + the satellite marker + footprint
@@ -284,19 +302,46 @@ class OscarSimScreen(Screen):
         self.map.draw()
         self._update_readout(s, t, eqx_lon, minute)
 
-    def _current_state(self, s):
-        """Return (display_time, eqx_lon, minute) for the active mode."""
+    def _current_state(self, s, view_mode):
+        """Return (display_time, eqx_lon, minute) for the active mode.
+
+        ``view_mode`` is the resolved projection ("polar", "polar-south", or a
+        QTH-centred mode). The EQX node is chosen to MATCH the view so the arc
+        and the live satellite share one reference: the south sheet uses
+        descending nodes, every other view ascending nodes.
+
+        In live mode, if the satellite is currently IN the viewed hemisphere we
+        reference the most recent matching node (the pass in progress). If it is
+        in the OPPOSITE hemisphere -- so there's no live pass to follow on this
+        sheet -- we instead reference the NEXT matching node, i.e. the arc for
+        the upcoming pass into the viewed hemisphere. (With "Polar (auto N/S)"
+        the sheet follows the satellite, so the in-progress pass is the common
+        case; this rule matters for a fixed sheet, or for the QTH view.)
+        """
         pred = self.pred()
         mode = self._mode.get()
         if mode == "live":
             t = now_unix()
-            # find the most recent node and the minutes since
-            south = self.store.obs.lat < 0
-            nodes = (pred.descending_nodes(t - 2 * 3600, t) if south
-                     else pred.ascending_nodes(t - 2 * 3600, t))
-            if nodes:
-                tc, lon = nodes[-1]
-                return t, lon, (t - tc) / 60.0
+            south = (view_mode == "polar-south")
+            # is the satellite currently in the hemisphere this sheet shows?
+            cur_lat = pred.subpoint_at(t)[0]
+            in_view = (cur_lat < 0) if south else (cur_lat >= 0)
+            if in_view:
+                # the pass in progress: most recent matching node in the past
+                nodes = (pred.descending_nodes(t - 2 * 3600, t) if south
+                         else pred.ascending_nodes(t - 2 * 3600, t))
+                if nodes:
+                    tc, lon = nodes[-1]
+                    return t, lon, (t - tc) / 60.0
+            else:
+                # no live pass on this sheet -> show the NEXT pass into view:
+                # the upcoming matching node, with the clock counting up to it
+                # (negative "minutes since node" means the pass hasn't started).
+                fwd = (pred.descending_nodes(t, t + 2 * 3600) if south
+                       else pred.ascending_nodes(t, t + 2 * 3600))
+                if fwd:
+                    tc, lon = fwd[0]
+                    return t, lon, (t - tc) / 60.0
             sp = pred.subpoint_at(t)
             return t, sp[1], 0.0
         if mode == "nextpass":
@@ -613,28 +658,3 @@ class OscarSimScreen(Screen):
         # driven by the sliders, so don't redraw under them
         if self._mode.get() == "live":
             self._render()
-
-    def _print(self):
-        s = self.sat()
-        if not s:
-            return
-        from tkinter import filedialog, messagebox
-        from ..oscarlocator import generate_oscarlocator_pdf
-        mode = self._proj_mode.get()
-        proj = "polar-auto" if mode == "polar-auto" else mode
-        default = "oscarlocator_%s.pdf" % s.name.replace("/", "-").replace(
-            " ", "_")
-        path = filedialog.asksaveasfilename(
-            title="Save OSCARLOCATOR PDF", defaultextension=".pdf",
-            initialfile=default, filetypes=[("PDF", "*.pdf")])
-        if not path:
-            return
-        try:
-            generate_oscarlocator_pdf(path, self.store, s, projection=proj)
-        except Exception as e:
-            messagebox.showerror("OSCARLOCATOR", "Could not generate PDF:\n%s"
-                                 % e)
-            return
-        self.app.set_status("Saved OSCARLOCATOR PDF: %s" % path)
-        messagebox.showinfo("OSCARLOCATOR",
-                            "Saved a printable OSCARLOCATOR for %s." % s.name)

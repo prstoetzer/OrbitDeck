@@ -38,7 +38,7 @@ from .mapdraw import COASTLINES
 RE_KM = 6378.135
 SIDEREAL_DAY_S = 86164.0905           # Earth's rotation period
 
-PLOT_DIAMETER_IN = 7.0
+PLOT_DIAMETER_IN = 6.6
 PAGE_W_IN = 8.5
 PAGE_H_IN = 11.0
 MAP_RADIUS_DEG = 90.0
@@ -90,6 +90,29 @@ def _wrap_to_width(s, fontsize, width_frac=TEXT_W):
     lines = textwrap.wrap(s.replace("\u00a0", sentinel), width=ncols)
     out = "\n".join(ln.replace(sentinel, "\u00a0") for ln in lines)
     return out or s
+
+
+def _fit_sat_name(name, suffix, min_fs=13.0, width_frac=TEXT_W):
+    """Return a possibly-truncated satellite name so the composed title
+    ``"<name> <suffix>"`` fits within the page margins at a readable font size.
+
+    The title auto-shrinks (see ``_draw_title``), but for very long names that
+    would force the whole title (including the descriptive suffix) down to an
+    unreadable size. Instead we cap the shrink at ``min_fs`` and, if the name is
+    still too long, truncate just the NAME with an ellipsis -- so the
+    "... OSCARLOCATOR Base Map" part always stays legible. ``suffix`` is the
+    fixed descriptive remainder of the title (e.g. " \u2014 OSCARLOCATOR Base
+    Map"), measured but never truncated.
+    """
+    avg_char_in = min_fs * 0.0102            # bold glyph advance, inches/pt
+    usable_in = width_frac * PAGE_W_IN
+    max_chars = max(8, int(usable_in / max(avg_char_in, 0.01)))
+    budget = max_chars - len(suffix)
+    if budget < 6:                           # suffix alone is huge; keep a stub
+        budget = 6
+    if len(name) <= budget:
+        return name
+    return name[:max(1, budget - 1)].rstrip() + "\u2026"
 
 
 def _fit_title_fontsize(s, base=FS_TITLE, width_frac=TEXT_W):
@@ -299,7 +322,7 @@ def _draw_graticule(ax, proj, rmax):
         _project_polyline(ax, proj, pts, "#c4c4c4", LW_GRID, 1, rmax)
 
 
-def _draw_az_grid(ax, proj, rmax):
+def _draw_az_grid(ax, proj, rmax, alt_km=None, skip_horizon=False):
     if proj.is_polar:
         # polar map: radial spokes are meridians (longitude), rings are
         # parallels of latitude (colatitude from the pole). A spoke drawn at
@@ -311,12 +334,17 @@ def _draw_az_grid(ax, proj, rmax):
                     color="#b0b0b0", linewidth=LW_SPOKE, zorder=1)
             disp = a if a <= 180 else a - 360
             hemi = "E" if 0 < disp < 180 else ("W" if disp < 0 else "")
-            ax.text(math.radians(a), rmax * 1.05,
+            # well clear of the rim circle so the longitude labels don't touch it
+            ax.text(math.radians(a), rmax * 1.10,
                     "%d\u00b0%s" % (abs(disp), hemi),
                     ha="center", va="center", fontsize=FS_AZLABEL,
                     color="#444444", fontweight="bold")
-        # latitude rings every 15 deg
-        for lat_abs in range(0, 91, 15):
+        # latitude rings every 15 deg. Labels sit on a quiet spoke (just off the
+        # 60 deg meridian) with a small white backing so they read clearly over
+        # the ring lines, and the outermost ring (the equator / rim) is NOT
+        # labelled here -- that ring is the map boundary and its longitude
+        # labels already sit just outside it, so a value there would collide.
+        for lat_abs in range(15, 91, 15):
             ring = 90 - lat_abs
             if ring <= 0:
                 continue
@@ -324,35 +352,106 @@ def _draw_az_grid(ax, proj, rmax):
             ax.plot(th, [ring] * len(th), color="#9a9a9a", linewidth=LW_RING,
                     zorder=1)
             lat_label = -lat_abs if proj.is_south else lat_abs
-            ax.text(math.radians(45), ring, "%d\u00b0" % lat_label,
+            ax.text(math.radians(62), ring, "%d\u00b0" % lat_label,
                     fontsize=FS_RINGLABEL, color="#555555", ha="center",
-                    va="bottom", fontweight="bold")
+                    va="center", fontweight="bold", zorder=3,
+                    bbox=dict(boxstyle="round,pad=0.12", fc="white",
+                              ec="none", alpha=0.85))
+        # registration ticks at the four cardinal longitudes (0/90/180/270),
+        # so stacked transparencies can be aligned by eye
+        for a in (0, 90, 180, 270):
+            ax.plot([math.radians(a), math.radians(a)],
+                    [rmax * 0.97, rmax], color="black",
+                    linewidth=2.2, zorder=6, solid_capstyle="butt")
         ax.plot([0], [0], marker="+", color="black", markersize=MARK_CROSS,
                 markeredgewidth=MEW_CROSS, zorder=6)
         return
-    # QTH-centred: azimuth spokes + great-circle range rings
+    # QTH-centred: azimuth spokes + range rings
     for az in range(0, 360, 15):
         ax.plot([math.radians(az), math.radians(az)], [0, rmax],
                 color="#b0b0b0", linewidth=LW_SPOKE, zorder=1)
+    # numeric azimuth labels every 30 deg, EXCEPT at the four cardinals (the
+    # N/E/S/W letters mark those, so a number there would overlap the letter)
     for az in range(0, 360, 30):
-        ax.text(math.radians(az), rmax * 1.04, "%d\u00b0" % az,
+        if az in (0, 90, 180, 270):
+            continue
+        ax.text(math.radians(az), rmax * 1.05, "%d\u00b0" % az,
                 ha="center", va="center", fontsize=FS_AZLABEL,
                 color="#444444", fontweight="bold")
     for az, name in ((0, "N"), (90, "E"), (180, "S"), (270, "W")):
-        ax.text(math.radians(az), rmax * 1.11, name, ha="center",
+        ax.text(math.radians(az), rmax * 1.07, name, ha="center",
                 va="center", fontsize=FS_CARDINAL, fontweight="bold")
-    for rho in range(30, int(rmax) + 1, 30):
-        th = [math.radians(a) for a in range(0, 361, 2)]
-        ax.plot(th, [rho] * len(th), color="#9a9a9a", linewidth=LW_RING,
-                zorder=1)
-        ax.text(math.radians(45), rho, "%d km" % round(rho * KM_PER_DEG, -2),
-                fontsize=FS_RINGLABEL, color="#555555", ha="center",
-                va="bottom", fontweight="bold")
+        # registration tick: a short bold radial mark at each cardinal on the
+        # rim, so stacked transparencies can be aligned by eye
+        ax.plot([math.radians(az), math.radians(az)],
+                [rmax * 0.97, rmax], color="black",
+                linewidth=2.2, zorder=6, solid_capstyle="butt")
+    if alt_km:
+        # Elevation rings: a satellite of this altitude appears at a fixed
+        # elevation when its sub-point is a given ground distance from the QTH,
+        # so each ring is an elevation contour. This is what an operator reads
+        # off the sheet ("track crosses the 10 deg ring -> 10 deg elevation").
+        # 0 deg el is the horizon (= footprint edge). All labels sit on one
+        # radial (the 45 deg spoke) so they read as a tidy aligned column; the
+        # rings are at different radii, so the labels naturally separate.
+        label_brg = 45
+        ring_specs = []
+        for el in (0, 10, 30, 60):
+            if el == 0 and skip_horizon:
+                continue
+            rho = A.central_angle_for_elevation_deg(el, alt_km)
+            if rho is None or rho > rmax:
+                continue
+            ring_specs.append((el, rho))
+        for el, rho in ring_specs:
+            th = [math.radians(a) for a in range(0, 361, 2)]
+            # the horizon ring (el=0) is drawn a touch heavier as the visibility
+            # boundary; higher-elevation rings are lighter
+            lw = LW_RING + 0.5 if el == 0 else LW_RING
+            col = "#7a7a7a" if el == 0 else "#9a9a9a"
+            ax.plot(th, [rho] * len(th), color=col, linewidth=lw, zorder=1)
+        # draw the labels after the rings so they sit on top; suppress any that
+        # would overlap a neighbour on the shared radial (keep the lower-el one,
+        # since the outer rings have more room)
+        min_gap = rmax * 0.05
+        placed = []
+        for el, rho in sorted(ring_specs, key=lambda r: r[1], reverse=True):
+            if rho < rmax * 0.06:                 # too close to the centre cross
+                continue
+            if any(abs(rho - pr) < min_gap for pr in placed):
+                continue
+            placed.append(rho)
+            ax.text(math.radians(label_brg), rho, "%d\u00b0 el" % el,
+                    fontsize=FS_RINGLABEL,
+                    color="#444444" if el == 0 else "#555555", ha="center",
+                    va="bottom", fontweight="bold")
+        # a faint distance reference ring + km label at mid-map, so the sheet
+        # still carries a physical scale
+        mid = round(rmax / 2.0 / 10.0) * 10.0
+        if 0 < mid < rmax:
+            th = [math.radians(a) for a in range(0, 361, 2)]
+            ax.plot(th, [mid] * len(th), color="#cccccc", linewidth=LW_GRID,
+                    zorder=1, linestyle=(0, (4, 3)))
+            ax.text(math.radians(225), mid,
+                    "%d km" % round(mid * KM_PER_DEG, -2),
+                    fontsize=FS_RINGLABEL, color="#888888", ha="center",
+                    va="bottom")
+    else:
+        # generic base map (no satellite bound): plain great-circle range rings
+        for rho in range(30, int(rmax) + 1, 30):
+            th = [math.radians(a) for a in range(0, 361, 2)]
+            ax.plot(th, [rho] * len(th), color="#9a9a9a", linewidth=LW_RING,
+                    zorder=1)
+            ax.text(math.radians(45), rho,
+                    "%d km" % round(rho * KM_PER_DEG, -2),
+                    fontsize=FS_RINGLABEL, color="#555555", ha="center",
+                    va="bottom", fontweight="bold")
     ax.plot([0], [0], marker="+", color="black", markersize=MARK_CROSS,
             markeredgewidth=MEW_CROSS, zorder=6)
 
 
-def _base_map_page(pdf, proj, qth_name, segments, rmax):
+def _base_map_page(pdf, proj, qth_name, segments, rmax, alt_km=None,
+                   sat_name=""):
     fig = plt.figure(figsize=(PAGE_W_IN, PAGE_H_IN))
     if proj.is_polar:
         hemi = "southern" if proj.is_south else "northern"
@@ -361,17 +460,34 @@ def _base_map_page(pdf, proj, qth_name, segments, rmax):
         sub = ("Polar great-circle map of the %s hemisphere "
                "(generic \u2014 use with any QTH via the EQX list)" % hemi)
     else:
-        title = "OSCARLOCATOR \u2014 Base Map"
-        sub = "Azimuthal-equidistant map centred on %s  (%.3f, %.3f)" % (
-            qth_name, proj.qlat, proj.qlon)
+        # the QTH base map carries elevation rings for this satellite, so name
+        # it (the rings assume the satellite's mean altitude)
+        if sat_name:
+            _suffix = " \u2014 OSCARLOCATOR Base Map"
+            title = _fit_sat_name(sat_name, _suffix) + _suffix
+        else:
+            title = "OSCARLOCATOR \u2014 Base Map"
+        if alt_km:
+            sub = ("Azimuthal-equidistant map centred on %s  (%.3f, %.3f) "
+                   "\u2014 rings are elevation at %.0f\u00a0km altitude" % (
+                       qth_name, proj.qlat, proj.qlon, alt_km))
+        else:
+            sub = "Azimuthal-equidistant map centred on %s  (%.3f, %.3f)" % (
+                qth_name, proj.qlat, proj.qlon)
     ax = _polar_axes(fig, title, sub, rmax=rmax, proj=proj)
     _draw_graticule(ax, proj, rmax)
     _draw_coastlines(ax, proj, segments, rmax)
-    _draw_az_grid(ax, proj, rmax)
+    _draw_az_grid(ax, proj, rmax, alt_km=None if proj.is_polar else alt_km)
     if proj.is_polar:
         note = ("Print on paper or card at 100%% (actual size). Centre is the "
                 "%s Pole; rings are latitude (15\u00b0), spokes are longitude. "
+                "Black rim ticks register stacked overlays. "
                 "Lay the satellite overhead and footprint on top." % pole)
+    elif alt_km:
+        note = ("Print on paper or card at 100% (actual size). Overlays "
+                "register on the centre cross and the black rim ticks; rings "
+                "show the satellite's elevation angle (the 0\u00b0 el ring is its "
+                "footprint edge), spokes are azimuth.")
     else:
         note = ("Print on paper or card at 100% (actual size). Overlays "
                 "register on the centre cross; rings are great-circle distance, "
@@ -391,40 +507,62 @@ def _footprint_page(pdf, sat_name, alt_km, proj, rmax):
     # anything beyond the footprint, so the rest of the sheet is clear and the
     # map shows through.
     fr = min(foot_deg, rmax)
-    ax = _polar_axes(fig, "%s \u2014 OSCARLOCATOR Footprint Overlay" % sat_name,
+    _fp_suffix = " \u2014 OSCARLOCATOR Footprint Overlay"
+    ax = _polar_axes(fig, _fit_sat_name(sat_name, _fp_suffix) + _fp_suffix,
                      sub, rmax=rmax, show_rim=False)
 
-    # azimuth rose: spokes every 30 deg, drawn only out to the footprint edge,
-    # with degree labels and cardinal letters just outside the footprint circle
+    # azimuth rose: spokes every 30 deg, drawn out to the footprint edge. Degree
+    # labels and cardinal letters sit well OUTSIDE the red footprint circle so
+    # they don't crowd it (there's room here because the footprint disc is small
+    # relative to the sheet). The numbers go at one radius, the N/E/S/W letters
+    # a bit further out.
     for az in range(0, 360, 30):
         ax.plot([math.radians(az), math.radians(az)], [0, fr],
                 color="#a0a0a0", linewidth=LW_SPOKE, zorder=2)
+    # Push labels clear of the red circle. Use an ABSOLUTE gap (in degrees of
+    # sheet radius) rather than a percentage of the footprint, so a small
+    # footprint on a large sheet (e.g. a LEO bird on the rmax=90 polar sheet)
+    # still gets a readable gap instead of labels pressed against the red circle.
+    # Cap the radius so that a LARGE footprint (red circle near the sheet edge)
+    # keeps its labels on the page.
+    edge_cap = rmax * (PAGE_W_IN / PLOT_DIAMETER_IN) * 0.95
+    gap = max(4.0, rmax * 0.06)                  # readable absolute clearance
+    deg_r = min(fr + gap, edge_cap - gap)        # clear of the red circle
+    card_r = min(fr + gap * 2.2, edge_cap)       # letters further out still
+    if card_r <= deg_r:                          # keep the letters outside the #s
+        card_r = deg_r + gap
     for az in range(0, 360, 30):
         if az % 90 != 0:
-            ax.text(math.radians(az), fr * 1.07, "%d" % az, ha="center",
+            ax.text(math.radians(az), deg_r, "%d\u00b0" % az, ha="center",
                     va="center", fontsize=FS_AZLABEL, color="#444444",
                     fontweight="bold", zorder=3)
     for az, name in ((0, "N"), (90, "E"), (180, "S"), (270, "W")):
-        ax.text(math.radians(az), fr * 1.16, name, ha="center",
+        ax.text(math.radians(az), card_r, name, ha="center",
                 va="center", fontsize=FS_CARDINAL, fontweight="bold", zorder=3)
 
-    # a few distance rings INSIDE the footprint only (not out to the sheet edge)
+    # a few distance rings INSIDE the footprint only (not out to the sheet edge).
+    # Choose a step that yields ~2-3 rings so the small overlay doesn't get
+    # cluttered, and label them on the lower spokes (135 deg) where the azimuth
+    # numbers (clustered up top near the cardinals) don't crowd them.
     foot_km = foot_deg * KM_PER_DEG
-    if foot_km <= 2500:
+    if foot_km <= 1500:
         step_km = 500
-    elif foot_km <= 6000:
+    elif foot_km <= 3500:
         step_km = 1000
-    else:
+    elif foot_km <= 7000:
         step_km = 2000
+    else:
+        step_km = 3000
     th = [math.radians(a) for a in range(0, 361, 2)]
+    label_az = 135                          # lower-right spoke: clear of N/E rose
     km = step_km
-    while km < foot_km - 1:                 # strictly inside the footprint
+    while km < foot_km - step_km * 0.25:    # strictly inside the footprint
         rho = km / KM_PER_DEG
         ax.plot(th, [rho] * len(th), color="#9a9a9a", linewidth=LW_RING,
                 zorder=2)
-        ax.text(math.radians(45), rho, "%d km" % km, fontsize=FS_RINGLABEL,
-                color="#555555", ha="center", va="bottom", fontweight="bold",
-                zorder=3)
+        ax.text(math.radians(label_az), rho, "%d\u00a0km" % km,
+                fontsize=FS_RINGLABEL, color="#555555", ha="center",
+                va="bottom", fontweight="bold", zorder=3)
         km += step_km
 
     # the footprint circle itself (the outer edge of coverage)
@@ -532,10 +670,11 @@ def _arc_page(pdf, pred, sat, proj, rmax):
     """
     fig = plt.figure(figsize=(PAGE_W_IN, PAGE_H_IN))
     shift = _node_shift_deg(sat)
-    title = ("%s \u2014 OSCARLOCATOR Path Arc (orbit)" % sat.name if proj.is_polar
-             else "%s \u2014 OSCARLOCATOR Path Arc Overlay" % sat.name)
-    sub = ("Ground-track \u2014 inclination %.1f\u00b0, period %.1f min. "
-           "Advance %.1f\u00b0 %s per pass." % (
+    _arc_suffix = (" \u2014 OSCARLOCATOR Path Arc (orbit)" if proj.is_polar
+                   else " \u2014 OSCARLOCATOR Path Arc Overlay")
+    title = _fit_sat_name(sat.name, _arc_suffix) + _arc_suffix
+    sub = ("Ground-track \u2014 incl. %.1f\u00b0, period %.1f\u00a0min "
+           "\u2014 advance %.1f\u00b0\u00a0%s per pass." % (
                sat.incl, sat.period_min, abs(shift),
                "W" if shift < 0 else "E"))
     ax = _polar_axes(fig, title, sub, rmax=rmax, proj=proj)
@@ -640,11 +779,20 @@ def _arc_page(pdf, pred, sat, proj, rmax):
     # LEFT (theta ~250). South map: theta increases CW, so the descending track
     # climbs the LEFT side and the clear area is the RIGHT (theta ~290).
     lbl_th = math.radians(290) if proj.is_south else math.radians(250)
-    ax.text(lbl_th, rmax * 0.6, "EQX (0 min)\nline up on map",
-            color="#cc0000", fontsize=FS_BIGLABEL, fontweight="bold",
+    # The hemisphere/node DOES matter on the arc sheet (the arc is built from the
+    # ascending node for northern sheets, the descending node for southern), so
+    # state it right at the EQX indicator the user lines up. Keep the box compact
+    # (short wrapped wording, smaller font) and a bit inboard so it doesn't crowd
+    # the outer rim circle.
+    node_label = ("descending node\n(S sheet)" if proj.is_south
+                  else "ascending node\n(N sheet)")
+    ax.text(lbl_th, rmax * 0.52,
+            "EQX \u2014 0 min\n%s\nline up on map" % node_label,
+            color="#cc0000", fontsize=FS_BIGLABEL - 3, fontweight="bold",
             ha="center", va="center", rotation=0, zorder=8,
-            bbox=dict(boxstyle="round,pad=0.2", fc="white", ec="#cc0000",
-                      lw=1.0, alpha=0.9))
+            linespacing=1.3,
+            bbox=dict(boxstyle="round,pad=0.25", fc="white", ec="#cc0000",
+                      lw=1.0, alpha=0.92))
 
     ax.plot([0], [0], marker="+", color="black", markersize=14,
             markeredgewidth=2, zorder=6)
@@ -678,7 +826,7 @@ def _arc_page(pdf, pred, sat, proj, rmax):
     # drifts west geographically; we also state the on-sheet turn sense.
     geo = "west" if west else "east"
     sense = "counter-clockwise" if ccw else "clockwise"
-    fig.text(0.5, 0.875,
+    fig.text(0.5, 0.862,
              "rotate sheet %.1f\u00b0 %s (node moves %s) each pass"
              % (abs(shift), sense, geo),
              ha="center", va="bottom", fontsize=FS_BIGLABEL, color="#cc0000",
@@ -733,7 +881,6 @@ def _base_map_with_footprint_page(pdf, proj, obs, qth_name, segments, rmax,
     the map -- no separate transparency needed."""
     fig = plt.figure(figsize=(PAGE_W_IN, PAGE_H_IN))
     foot_km = round(foot_deg * KM_PER_DEG, -1)
-    name = (sat_name + " \u2014 ") if sat_name else ""
     # use non-breaking spaces (\u00a0) inside value+unit groups so the line
     # wrapper never breaks "2240 km", "20.2 deg" or "(~2240 km)" across lines
     size = "footprint radius %.1f\u00b0 (~%d\u00a0km)" % (foot_deg, foot_km)
@@ -741,17 +888,26 @@ def _base_map_with_footprint_page(pdf, proj, obs, qth_name, segments, rmax,
         size += " at %.0f\u00a0km mean altitude" % alt_km
     if proj.is_polar:
         hemi = "southern" if proj.is_south else "northern"
-        title = "%sOSCARLOCATOR \u2014 Map + Footprint at QTH (%s)" % (name, hemi)
+        _suffix = " \u2014 OSCARLOCATOR \u2014 Map + Footprint at QTH (%s)" % hemi
+        nm = _fit_sat_name(sat_name, _suffix) if sat_name else ""
+        title = (nm + _suffix) if nm else \
+            "OSCARLOCATOR \u2014 Map + Footprint at QTH (%s)" % hemi
         sub = ("Footprint over %s on the %s polar map \u2014 %s"
                % (qth_name, hemi, size))
     else:
-        title = "%sOSCARLOCATOR \u2014 Map + Footprint at QTH" % name
+        _suffix = " \u2014 OSCARLOCATOR \u2014 Map + Footprint at QTH"
+        nm = _fit_sat_name(sat_name, _suffix) if sat_name else ""
+        title = (nm + _suffix) if nm else \
+            "OSCARLOCATOR \u2014 Map + Footprint at QTH"
         sub = ("Footprint over %s (%.3f, %.3f) \u2014 %s"
                % (qth_name, obs.lat, obs.lon, size))
     ax = _polar_axes(fig, title, sub, rmax=rmax, proj=proj)
     _draw_graticule(ax, proj, rmax)
     _draw_coastlines(ax, proj, segments, rmax)
-    _draw_az_grid(ax, proj, rmax)
+    # elevation rings inside the footprint for the QTH map (the bold red circle
+    # below already marks the horizon / el=0 ring, so don't double it)
+    _draw_az_grid(ax, proj, rmax,
+                  alt_km=None if proj.is_polar else alt_km, skip_horizon=True)
 
     # draw the footprint centred on the station's position in this projection
     locus = _footprint_locus(obs.lat, obs.lon, min(foot_deg, rmax))
@@ -839,7 +995,8 @@ def generate_oscarlocator_pdf(path, store, sat, when_unix=None,
             _arc_page(pdf, pred, sat, proj, rmax)
         else:
             # standard 3-page set: map, footprint transparency, path arc
-            _base_map_page(pdf, proj, qth_name, segments, rmax)
+            _base_map_page(pdf, proj, qth_name, segments, rmax,
+                           alt_km=alt_km, sat_name=sat.name)
             _footprint_page(pdf, sat.name, alt_km, proj, rmax)
             _arc_page(pdf, pred, sat, proj, rmax)
         d = pdf.infodict()

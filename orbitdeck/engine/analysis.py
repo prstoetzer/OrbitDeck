@@ -249,6 +249,47 @@ def footprint_radius_deg(alt_km):
     return math.acos(RE_KM / r) / DEG
 
 
+def elevation_for_central_angle_deg(gamma_deg, alt_km):
+    """Elevation angle (degrees) of a satellite at altitude ``alt_km`` as seen
+    from a ground station, when the great-circle central angle between the
+    station and the sub-satellite point is ``gamma_deg``.
+
+    This is the geometry that turns a QTH-centred OSCARLOCATOR's range rings
+    into elevation rings: a ring at ground central angle gamma is the locus
+    where the satellite appears at this elevation. Elevation is +90 deg directly
+    overhead (gamma=0), 0 deg at the footprint edge, and negative (below the
+    horizon) beyond it.
+    """
+    g = gamma_deg * DEG
+    r = RE_KM + alt_km
+    if r <= RE_KM:
+        return 0.0
+    return math.atan2(math.cos(g) - RE_KM / r, math.sin(g)) / DEG
+
+
+def central_angle_for_elevation_deg(el_deg, alt_km):
+    """Inverse of :func:`elevation_for_central_angle_deg`: the great-circle
+    central angle (degrees) from the station to the sub-satellite point at which
+    a satellite of altitude ``alt_km`` appears at elevation ``el_deg``. Returns
+    None if the elevation is unreachable for this altitude.
+    """
+    r = RE_KM + alt_km
+    if r <= RE_KM:
+        return None
+    e = el_deg * DEG
+    # from the law of sines in the station-Earthcentre-satellite triangle:
+    #   the spacecraft's nadir/centre angle eta satisfies
+    #   sin(eta) = (RE/r) * cos(el); the central angle is gamma = 90-el-eta
+    s = (RE_KM / r) * math.cos(e)
+    if s < -1.0 or s > 1.0:
+        return None
+    eta = math.asin(s)
+    gamma = math.pi / 2.0 - e - eta
+    if gamma < 0:
+        return None
+    return gamma / DEG
+
+
 def make_footprint_test(sub_lat, sub_lon, alt_km):
     """Return a predicate in_footprint(lat, lon) -> bool for this footprint."""
     radius = footprint_radius_deg(alt_km)
