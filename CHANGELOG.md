@@ -4,6 +4,17 @@ All notable changes to OrbitDeck are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/), and the project aims to follow
 semantic versioning.
 
+## [0.19.3]
+
+### Added
+- **Per-degree rim ticks on OSCARLOCATOR sheets.** The outer ring of every
+  OSCARLOCATOR base map, combined "Map + Footprint at QTH" sheet, and path-arc
+  overlay (both QTH-centred and polar) now carries fine tick marks every degree,
+  with longer marks every 5° and 10°, so the rim reads like a protractor. This
+  makes it easy to register stacked overlays and to measure the per-pass arc
+  rotation to the degree. (The footprint transparency, whose red circle is its
+  own boundary, has no outer rim and is unchanged.)
+
 ## [0.19.2]
 
 ### Changed

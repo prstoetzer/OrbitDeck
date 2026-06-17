@@ -121,6 +121,6 @@ if sys.platform == "darwin":
         bundle_identifier="org.orbitdeck.app",
         info_plist={
             "NSHighResolutionCapable": True,
-            "CFBundleShortVersionString": "0.19.2",
+            "CFBundleShortVersionString": "0.19.3",
         },
     )

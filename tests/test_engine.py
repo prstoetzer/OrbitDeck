@@ -2809,10 +2809,27 @@ def test_eclipse_export_rows_shapes(iss_predictor):
     assert len(r2) == 2 and all(len(row) == len(h2) for row in r2)
 
 
-def test_version_is_0_19_2():
+def test_version_is_0_19_3():
     """The package version was bumped for this release."""
     import orbitdeck
-    assert orbitdeck.__version__ == "0.19.2"
+    assert orbitdeck.__version__ == "0.19.3"
+
+
+def test_oscarlocator_rim_ticks_drawn():
+    """Every degree of the rim gets a tick on the map and arc pages (360 ticks),
+    so the rim reads like a protractor. Exercised by drawing onto a polar axes
+    and counting the line artists the helper adds."""
+    import matplotlib
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+    from orbitdeck.gui.oscarlocator import _draw_rim_ticks
+    fig = plt.figure()
+    ax = fig.add_subplot(111, projection="polar")
+    before = len(ax.lines)
+    _draw_rim_ticks(ax, 90.0)
+    added = len(ax.lines) - before
+    plt.close(fig)
+    assert added == 360
 
 
 def test_oscarlocator_combined_map_renders_both_projections():

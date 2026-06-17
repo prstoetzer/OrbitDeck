@@ -543,7 +543,10 @@ OrbitDeck supports it two ways:
 ### Printable pages
 
 - **Base map** — an azimuthal-equidistant map with a lat/lon graticule and
-  full-resolution coastlines. Choose:
+  full-resolution coastlines. The outer ring carries **per-degree tick marks**
+  (with longer marks every 5° and 10°), so the rim reads like a protractor — handy
+  for registering stacked overlays and measuring the per-pass arc rotation to the
+  degree. Choose:
   - **Polar** (auto N/S from your latitude) — the generic ARRL/PE1RAH-style map
     anyone can use together with the equator-crossing list. 0° longitude is at
     the bottom; east increases counter-clockwise on the northern sheet (the

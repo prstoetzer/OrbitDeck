@@ -255,6 +255,30 @@ def _polar_axes(fig, title, subtitle, rmax=MAP_RADIUS_DEG, show_rim=True,
     return ax
 
 
+def _draw_rim_ticks(ax, rmax, zorder=6):
+    """Draw fine tick marks every degree around the outer ring (rim) of an
+    OSCARLOCATOR sheet, with progressively longer marks every 5 and 10 degrees,
+    so the rim can be read like a protractor and stacked overlays registered to
+    the degree. The tick angle is the sheet's own theta coordinate (azimuth on
+    the QTH map, longitude on the polar maps), matching whatever the rim already
+    represents.
+    """
+    # tick lengths as a fraction of the sheet radius
+    minor = rmax * 0.010          # every 1 deg
+    mid = rmax * 0.020            # every 5 deg
+    major = rmax * 0.032          # every 10 deg
+    for deg in range(0, 360):
+        if deg % 10 == 0:
+            ln, lw = major, 1.1
+        elif deg % 5 == 0:
+            ln, lw = mid, 0.8
+        else:
+            ln, lw = minor, 0.5
+        a = math.radians(deg)
+        ax.plot([a, a], [rmax - ln, rmax], color="black", linewidth=lw,
+                zorder=zorder, solid_capstyle="butt")
+
+
 def _coastline_segments():
     """Prefer cartopy's Natural Earth coastlines (high detail); fall back to the
     bundled polylines."""
@@ -517,6 +541,7 @@ def _base_map_page(pdf, proj, qth_name, segments, rmax, alt_km=None,
     _draw_graticule(ax, proj, rmax)
     _draw_coastlines(ax, proj, segments, rmax)
     _draw_az_grid(ax, proj, rmax, alt_km=None if proj.is_polar else alt_km)
+    _draw_rim_ticks(ax, rmax)
     if proj.is_polar:
         note = ("Print on paper or card at 100%% (actual size). Centre is the "
                 "%s Pole; rings are latitude (15\u00b0), spokes are longitude. "
@@ -735,6 +760,7 @@ def _arc_page(pdf, pred, sat, proj, rmax):
                sat.incl, sat.period_min, abs(shift),
                "W" if shift < 0 else "E"))
     ax = _polar_axes(fig, title, sub, rmax=rmax, proj=proj)
+    _draw_rim_ticks(ax, rmax)
     for rho in range(30, int(rmax) + 1, 30):
         th = [math.radians(a) for a in range(0, 361, 2)]
         ax.plot(th, [rho] * len(th), color="#cccccc", linewidth=LW_GRID)
@@ -1020,6 +1046,7 @@ def _base_map_with_footprint_page(pdf, proj, obs, qth_name, segments, rmax,
     ax = _polar_axes(fig, title, sub, rmax=rmax, proj=proj)
     _draw_graticule(ax, proj, rmax)
     _draw_coastlines(ax, proj, segments, rmax)
+    _draw_rim_ticks(ax, rmax)
 
     if proj.is_polar:
         # Polar map with a QTH: the station is OFF the sheet centre, so draw the
