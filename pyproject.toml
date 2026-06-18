@@ -4,14 +4,14 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "orbitdeck"
-version = "0.19.3"
-description = "Cross-platform desktop satellite tracking and orbital-analysis tool for amateur-radio operators"
+version = "0.21.1"
+description = "Cross-platform desktop satellite tracking and orbital analysis tool for amateur radio operators"
 readme = "README.md"
 requires-python = ">=3.8"
 license = { text = "MIT" }
 authors = [{ name = "Paul Stoetzer, N8HM" }]
-keywords = ["satellite", "tracking", "orbital", "sgp4", "amateur-radio",
-            "ham-radio", "doppler", "tle", "pass-prediction"]
+keywords = ["satellite", "tracking", "orbital", "sgp4", "amateur radio",
+            "ham radio", "doppler", "tle", "pass-prediction"]
 classifiers = [
     "Development Status :: 4 - Beta",
     "Environment :: X11 Applications",
@@ -28,28 +28,30 @@ dependencies = [
     "matplotlib>=3.5",
     "numpy>=1.20",
     "certifi>=2023.7.22",
-    "sgp4>=2.20",
-    "cartopy>=0.21",
 ]
 
 [project.optional-dependencies]
-# High-accuracy SGP4/SDP4 is now a core dependency; this extra is kept for
-# backward compatibility and is a no-op alias.
+# High-accuracy SGP4/SDP4 via the C-accelerated pip backend. Without it the app
+# falls back to the bundled pure-Python propagator (sgp4_lite), which is accurate
+# to well under a kilometre for typical LEO passes; install this for the best
+# deep-space / geostationary accuracy.
 accurate = ["sgp4>=2.20"]
-# cartopy is now a core dependency; this extra is kept as a no-op alias.
+# High-resolution Natural Earth coastlines via cartopy. Without it the app draws
+# its bundled lower-resolution coastlines. cartopy needs the GEOS/PROJ system
+# libraries, so it is kept optional to keep the base install reliable.
 maps = ["cartopy>=0.21"]
 # Excel (.xlsx) export on the Exports screen. CSV export needs nothing extra;
 # install this only if you want native .xlsx output.
 excel = ["openpyxl>=3.0"]
-# Everything (aliases for the now-core extras).
+# Everything optional at once.
 full = ["sgp4>=2.20", "cartopy>=0.21", "openpyxl>=3.0"]
 # Development tooling.
 dev = ["pytest>=7", "ruff>=0.1"]
 
 [project.urls]
-Homepage = "https://github.com/prstoetzer/orbitdeck"
-Repository = "https://github.com/prstoetzer/orbitdeck"
-Issues = "https://github.com/prstoetzer/orbitdeck/issues"
+Homepage = "https://github.com/prstoetzer/OrbitDeck"
+Repository = "https://github.com/prstoetzer/OrbitDeck"
+Issues = "https://github.com/prstoetzer/OrbitDeck/issues"
 
 [project.scripts]
 orbitdeck = "orbitdeck.gui.app:main"
@@ -70,6 +72,24 @@ include-package-data = true
 [tool.ruff]
 line-length = 100
 target-version = "py38"
+
+[tool.ruff.lint.per-file-ignores]
+# Vendored SGP4/SDP4 reference port: keep the intermediate variables that mirror
+# the published Vallado implementation even where a given code path doesn't
+# consume them, so the math stays faithful and reviewable against the reference.
+"orbitdeck/engine/sgp4_lite.py" = ["F841"]
+# Optional-backend modules import their fallback AFTER a try/except probe for the
+# accelerated package; the late import is intentional, not a style slip.
+"orbitdeck/engine/propagator.py" = ["E402"]
+"orbitdeck/gui/mapdraw.py" = ["E402"]
+# Standard orbital-element notation: I = inclination, O = RAAN (Omega), matching
+# the textbook formulae these functions implement.
+"orbitdeck/engine/celestial.py" = ["E741"]
+"orbitdeck/engine/predict.py" = ["E741"]
+# Test modules import broadly at the top and also lazily inside individual tests
+# (so each test is self-contained and runnable in isolation); the resulting
+# unused/redefined-import and one-line-import noise isn't meaningful here.
+"tests/*" = ["F401", "F811", "E401", "E402", "E702", "E741"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

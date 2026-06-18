@@ -1,11 +1,10 @@
 """groundtrack.py - forward ground track over several upcoming orbits."""
 
-import math
 import tkinter as tk
 from tkinter import ttk
 
-from . import (Screen, MplPanel, COL_TEXT, COL_MUTED, COL_ACCENT, COL_ACCENT2,
-               COL_WARN, COL_GRID, now_unix)
+from . import (Screen, MplPanel, COL_TEXT, COL_ACCENT, COL_ACCENT2,
+               COL_WARN, now_unix)
 from ..mapdraw import draw_basemap
 
 

@@ -5,15 +5,17 @@ import datetime as dt
 import tkinter as tk
 from tkinter import ttk
 
-from . import (Screen, KVPanel, COL_PANEL, COL_TEXT, COL_MUTED, COL_ACCENT,
-               COL_ACCENT2, COL_WARN, FONT_MONO, now_unix)
+from . import (Screen, KVPanel, COL_TEXT, COL_MUTED, COL_ACCENT,
+               COL_ACCENT2, COL_WARN, now_unix)
 from .. import spacewx as WX
 
 
 def _color_for(level):
+    # Single mapping per level (no duplicate keys). "moderate" is treated as a
+    # storm-severity level (warning colour), consistent with NOAA G/R/S scales.
     return {
         "low": COL_WARN, "weak": COL_WARN,
-        "moderate": COL_TEXT, "unsettled": COL_TEXT, "active": COL_WARN,
+        "unsettled": COL_TEXT, "active": COL_WARN,
         "good": COL_ACCENT2, "quiet": COL_ACCENT2, "high": COL_ACCENT2,
         "minor": COL_WARN, "moderate": COL_WARN,
         "major": "#f85149", "storm": "#f85149",
@@ -53,7 +55,7 @@ class SpaceWxScreen(Screen):
                                                 self.status.set("")))
             except Exception as e:
                 self.app.root.after(
-                    0, lambda: self.status.set("fetch failed: %s" % e))
+                    0, lambda e=e: self.status.set("fetch failed: %s" % e))
         threading.Thread(target=work, daemon=True).start()
 
     def _render(self):

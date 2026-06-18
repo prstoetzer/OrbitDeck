@@ -13,7 +13,7 @@ import math
 import tkinter as tk
 from tkinter import ttk, messagebox
 
-from . import (Screen, MplPanel, KVPanel, TabBar, COL_PANEL, COL_TEXT,
+from . import (Screen, MplPanel, KVPanel, TabBar, COL_TEXT,
                COL_MUTED, COL_ACCENT, COL_ACCENT2, COL_WARN, now_unix, fmt_utc,
                make_scrolled_tree, autohide_scrollbar)
 from ...engine import celestial as CE

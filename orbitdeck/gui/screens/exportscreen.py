@@ -7,7 +7,7 @@ comparison table (with export), and a per-pass shareable 'card' image.
 import tkinter as tk
 from tkinter import ttk
 
-from . import (Screen, TabBar, MplPanel, COL_MUTED, COL_ACCENT, now_unix,
+from . import (Screen, TabBar, MplPanel, now_unix,
                fmt_utc, make_scrolled_tree)
 from .. import exports as EX
 from ...engine.predict import Predictor

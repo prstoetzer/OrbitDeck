@@ -1,8 +1,134 @@
 # Changelog
 
+## [0.21.1]
+
+### Changed
+- **More accurate polar range-circle transparency.** The standalone range-circle
+  overlay is a true circle of constant ground distance from the QTH. On the
+  QTH-centred base map that is exact, but on the generic polar base map (which is
+  azimuthal-equidistant about the pole) the true coverage edge re-projects to a
+  slight oval, so a raw footprint-radius circle sits inside it and under-states
+  coverage — increasingly so away from the pole. The polar transparency's circle
+  is now enlarged by a fixed, population-weighted-optimal factor (~6.5%) so a
+  single *generic* circle (no QTH input, still fully reusable) best fits that oval
+  for the majority of operators, cutting the typical mid-latitude error by about
+  20% while keeping high-latitude error small. The sheet notes the enlargement.
+  The QTH-centred transparency and the combined map (which already draws the true
+  projected footprint locus) are unchanged.
+
+## [0.21.0]
+
+### Fixed
+- **Crash in the GP / transponder update error dialogs.** The deferred error
+  dialogs referenced the exception variable after it had gone out of scope, so an
+  actual update failure raised `NameError` instead of showing the intended
+  "couldn't fetch, still using the cached catalog" message. The exception is now
+  captured correctly. The same pattern was fixed in the Space Wx fetch handler.
+- **Duplicate key in the space-weather colour map** silently dropped a colour for
+  the "moderate" level; the map now has one entry per level.
+
+### Changed
+- **`sgp4` and `cartopy` are optional again.** The base install needs only
+  `matplotlib`, `numpy`, and `certifi`, so `pip install` is fast and reliable on
+  every platform (no forced `cartopy`/GEOS/PROJ build). Install the optional
+  `accurate` (full SGP4/SDP4), `maps` (high-resolution coastlines), `excel`
+  (`.xlsx` export), or `full` extras to add them; the app runs on its bundled
+  pure-Python propagator and coastlines without them. The `requirements.txt`,
+  README, and a new accuracy note were updated to match.
+- **Metadata tidy-up:** package description/keywords now say "amateur radio"
+  (no hyphen), and the project URLs use the correct `OrbitDeck` repository casing.
+
+### Added
+- **`docs/ARCHITECTURE.md`** — a contributor orientation covering the engine/GUI
+  split, the propagator backend selection, the `Store` as central state, the
+  screen pattern, and project conventions.
+- Regression tests for the two bugs above, plus a test that guarantees the app
+  works without the optional `sgp4` / `cartopy` backends.
+
+### Internal
+- **Lint is clean** (`ruff check orbitdeck` passes; was 122 errors): removed dead
+  code and unused imports, declared the engine package's public API via `__all__`,
+  replaced lambda sort-keys with a lookup, and added justified per-file ignores
+  for the vendored SGP4 reference and the optional-backend import pattern.
+- **Extracted `_km_ring_step()`** in the OSCARLOCATOR code, removing three copies
+  of the distance-ring step ladder.
+- **Split the test suite** from one monolithic `test_engine.py` into per-area
+  files (`test_propagation.py`, `test_oscarlocator.py`, `test_radio.py`,
+  `test_reports.py`, `test_planning.py`, …) with shared fixtures in
+  `tests/conftest.py`.
+
+
 All notable changes to OrbitDeck are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/), and the project aims to follow
 semantic versioning.
+
+## [0.20.2]
+
+### Added
+- **OrbitDeck branding on OSCARLOCATOR base maps.** The printed base-map sheets
+  now carry a small, unobtrusive credit in the bottom corner — "OrbitDeck v… •
+  Paul Stoetzer, N8HM" — while the transparency overlays stay clean.
+
+### Changed
+- **"amateur radio"** is now written without the hyphen throughout the app and
+  documentation.
+
+### Fixed
+- **Reduced-text path-arc placement for all orbits.** The satellite info block on
+  the reduced-text path-arc transparency is now positioned by finding the widest
+  clear sector of the sheet, so it stays off the track and the EQX marker for
+  prograde and retrograde orbits at any inclination, and on both northern and
+  southern-hemisphere sheets (previously a fixed position could collide with the
+  track for high-inclination/retrograde orbits).
+
+## [0.20.1]
+
+### Fixed
+- **Reduced-text path-arc layout.** The satellite info block on the reduced-text
+  path-arc transparency was overlapping the EQX marker and running into the outer
+  rim; it now sits in a clean, boxed position in the clear quadrant away from both
+  the track and the EQX marker.
+
+### Changed
+- **Reduced text applies to every OSCARLOCATOR variant.** Clarified that the
+  reduced-text option is an independent modifier: it can be combined with any
+  base-map style (polar or QTH-centred) and either range-circle placement
+  (separate transparency or drawn on the base map at the QTH), so a cleaner
+  transparency set can be produced for all of the original output combinations.
+
+## [0.20.0]
+
+### Added
+- **About tab in Settings.** The Settings screen now has an **About** tab showing
+  the program version, author credit (**Paul Stoetzer, N8HM**), a clickable link
+  to the project on GitHub
+  (github.com/prstoetzer/OrbitDeck), and a suggestion to join and/or donate to
+  **AMSAT** (www.amsat.org) — including a short description of what AMSAT is — if
+  you find OrbitDeck useful. The author credit and AMSAT background also appear in
+  the README and the manual.
+- **Reduced-text OSCARLOCATOR transparencies.** A new print option produces a
+  clean, reusable set: the **base map carries all the how-to-use instructions**,
+  and the transparency pages have no text outside their circular area except the
+  azimuth labels. In this mode the base map is generic (no satellite-specific
+  markings, so it can be reused with any satellite); the range-circle transparency
+  just names the satellite unobtrusively inside the circle; and the path-arc
+  transparency lists the satellite name, inclination, period, and per-pass advance
+  inside the circle. The standard (fully-labelled) option is unchanged.
+- **Single OSCARLOCATOR options dialog.** Generating a printable OSCARLOCATOR now
+  opens one dialog with all the choices — base-map style, whether the range circle
+  is drawn on the QTH map, and the reduced-text option — replacing the previous
+  chain of yes/no questions.
+- **Independent OSCARLOCATOR Sim overlays.** The on-screen simulator now has two
+  separate toggles, **Show QTH range circle** and **Show satellite footprint**, so
+  each can be turned on or off independently.
+
+### Changed
+- **"Footprint" is now "range circle"** in OSCARLOCATOR user-facing text (the
+  circle drawn around your QTH), matching standard OSCAR-Locator terminology.
+
+### Fixed
+- **OSCARLATOR \u2192 OSCARLOCATOR.** Corrected a stray misspelling of
+  "OSCARLOCATOR" that appeared in a few dialog and PDF strings.
 
 ## [0.19.3]
 

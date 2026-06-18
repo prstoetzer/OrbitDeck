@@ -4,13 +4,16 @@
 matplotlib>=3.5
 numpy>=1.20
 certifi>=2023.7.22
-sgp4>=2.20
-cartopy>=0.21
 #
-# Optional but recommended — installed via extras in pyproject.toml:
-#   pip install -e ".[accurate]"   ->  sgp4>=2.20   (C-accelerated full SDP4)
-#   pip install -e ".[maps]"       ->  cartopy>=0.21 (Natural Earth coastlines)
-#   pip install -e ".[full]"       ->  both
+# Optional but recommended -- installed via extras in pyproject.toml:
+#   pip install "orbitdeck[accurate]"  ->  sgp4>=2.20    (C-accelerated full SDP4)
+#   pip install "orbitdeck[maps]"      ->  cartopy>=0.21 (Natural Earth coastlines)
+#   pip install "orbitdeck[excel]"     ->  openpyxl>=3.0 (native .xlsx export)
+#   pip install "orbitdeck[full]"      ->  all of the above
+#
+# Without the optional packages the app still runs: it uses the bundled
+# pure-Python SGP4 propagator and lower-resolution bundled coastlines, and
+# exports spreadsheets as CSV instead of .xlsx.
 #
 # tkinter ships with the official python.org installers. On Linux:
 #   Debian/Ubuntu:  sudo apt install python3-tk

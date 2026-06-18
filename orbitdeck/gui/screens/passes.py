@@ -3,8 +3,8 @@
 import tkinter as tk
 from tkinter import ttk
 
-from . import (Screen, COL_PANEL, COL_TEXT, COL_MUTED, COL_ACCENT, COL_ACCENT2,
-               FONT_MONO, fmt_hms, fmt_utc, now_unix, compass,
+from . import (Screen, COL_PANEL, COL_ACCENT, COL_ACCENT2,
+               fmt_hms, fmt_utc, now_unix, compass,
                make_scrolled_tree)
 
 

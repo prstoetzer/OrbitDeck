@@ -15,9 +15,7 @@ NOAA SWPC endpoints used (documented, public):
 """
 
 import json
-import os
 import time
-import urllib.request
 
 F107_URL = "https://services.swpc.noaa.gov/json/f107_cm_flux.json"
 # Kp products feed: rows of [time_tag, Kp, a_running, station_count] with a

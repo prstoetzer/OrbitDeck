@@ -9,8 +9,7 @@ pass.
 import tkinter as tk
 from tkinter import ttk
 
-from . import (Screen, COL_PANEL, COL_TEXT, COL_MUTED, COL_ACCENT, COL_ACCENT2,
-               COL_GRID, FONT_MONO, now_unix, make_scrolled_tree)
+from . import (Screen, COL_PANEL, COL_MUTED, COL_ACCENT, now_unix, make_scrolled_tree)
 from ...engine import analysis as A
 from ...data.us_states import workable_states
 from ...data.dxcc import workable_dxcc

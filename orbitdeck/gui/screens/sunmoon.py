@@ -1,12 +1,10 @@
 """sunmoon.py - Sun and Moon position/illumination for the observer site."""
 
 import math
-import tkinter as tk
 from tkinter import ttk
 
-from . import (Screen, MplPanel, KVPanel, COL_PANEL, COL_TEXT, COL_MUTED,
-               COL_ACCENT, COL_ACCENT2, COL_WARN, COL_GRID, FONT_MONO,
-               fmt_utc, now_unix, compass)
+from . import (Screen, MplPanel, KVPanel, COL_PANEL, COL_MUTED,
+               COL_ACCENT, COL_WARN, COL_GRID, fmt_utc, now_unix, compass)
 from ...engine.predict import _sun_eci_unit, _gmst_rad, jd_of, DEG
 
 
@@ -144,7 +142,6 @@ class SunMoonScreen(Screen):
         sthe = math.radians(saz)
         if sel >= 0:
             for ang in range(0, 360, 30):
-                dx = 4 * math.cos(math.radians(ang))
                 ax.plot([sthe, sthe], [s_r, max(0, s_r - 4)],
                         color=COL_WARN, linewidth=0.8, alpha=0.5)
             ax.plot([sthe], [s_r], "o", color=COL_WARN, markersize=18,

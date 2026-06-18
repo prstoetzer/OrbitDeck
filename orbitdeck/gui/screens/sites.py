@@ -9,9 +9,9 @@ passes across all of them side by side. Everything here is exportable.
 import tkinter as tk
 from tkinter import ttk, messagebox
 
-from . import (Screen, TabBar, COL_MUTED, COL_ACCENT, COL_TEXT, now_unix,
+from . import (Screen, TabBar, now_unix,
                fmt_utc, make_scrolled_tree)
-from ...engine.predict import Predictor, Observer, grid_to_latlon, latlon_to_grid
+from ...engine.predict import Predictor, grid_to_latlon, latlon_to_grid
 from .. import exports as EX
 
 

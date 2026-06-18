@@ -5,7 +5,6 @@ Each screen owns a ttk Frame. The factory make_screen(key, parent, app) returns
 the right screen instance. Visual screens embed matplotlib via MplPanel.
 """
 
-import math
 import datetime as dt
 
 import tkinter as tk
@@ -67,10 +66,10 @@ def autohide_scrollbar(bar, side, before=None):
 
     def _cb(first, last):
         try:
-            f, l = float(first), float(last)
+            lo, hi = float(first), float(last)
         except (TypeError, ValueError):
             return
-        if f <= 0.0 and l >= 1.0:
+        if lo <= 0.0 and hi >= 1.0:
             if state["packed"]:
                 bar.pack_forget()
                 state["packed"] = False
@@ -244,39 +243,28 @@ class Screen:
 
     def make_oscarlocator_pdf(self):
         """Interactive 'Make printable OSCARLOCATOR' workflow shared by every
-        screen that offers the export (Track and the OSCARLOCATOR Simulator),
-        so both behave identically: pick the base-map style, choose whether the
-        footprint is drawn on the QTH map, save, then show tailored print
+        screen that offers the export (Track and the OSCARLOCATOR Simulator).
+        A single options dialog gathers the base-map style, range-circle
+        placement, and reduced-text choice; then save and show print
         instructions."""
         s = self.sat()
         if not s:
             return
         from tkinter import filedialog, messagebox
         from ..oscarlocator import generate_oscarlocator_pdf
-        # choose the base-map style: polar (generic, PE1RAH OSCARLATOR) or a
-        # personalised map centred on the station
-        polar = messagebox.askyesno(
-            "OSCARLOCATOR base map",
-            "Choose the base map style:\n\n"
-            "\u2022 YES \u2014 Polar map (North/South-pole-centred, generic). The "
-            "classic OSCARLATOR sheet that works for any QTH using the "
-            "equator-crossing list.\n\n"
-            "\u2022 NO \u2014 QTH-centred map, personalised to your station "
-            "(azimuth/range from your location).")
-        # optional: draw the footprint right on the base map at the QTH, giving a
-        # 2-page set (map+footprint, then path arc) instead of separate sheets
-        fp_on_qth = messagebox.askyesno(
-            "Footprint placement",
-            "Draw the satellite footprint directly on the base map at your "
-            "station?\n\n"
-            "\u2022 YES \u2014 2-page set: the map already shows the footprint at "
-            "your QTH (one less transparency to align).\n\n"
-            "\u2022 NO \u2014 3-page set: the footprint prints on a separate "
-            "transparency you place over the map.")
-        projection = "polar-auto" if polar else "qth"
+        from ..dialogs import OscarlocatorOptionsDialog
+        opts = OscarlocatorOptionsDialog(self.frame, sat_name=s.name).show()
+        if not opts:
+            return
+        projection = opts["projection"]
+        fp_on_qth = opts["footprint_on_qth"]
+        reduced = opts["reduced_text"]
+        polar = projection.startswith("polar")
         suffix = "polar" if polar else "qth"
         if fp_on_qth:
-            suffix += "_fpqth"
+            suffix += "_rangeqth"
+        if reduced:
+            suffix += "_clean"
         default = "oscarlocator_%s_%s.pdf" % (
             s.name.replace("/", "-").replace(" ", "_"), suffix)
         path = filedialog.asksaveasfilename(
@@ -289,29 +277,34 @@ class Screen:
         try:
             generate_oscarlocator_pdf(path, self.store, s,
                                       projection=projection,
-                                      footprint_on_qth=fp_on_qth)
+                                      footprint_on_qth=fp_on_qth,
+                                      reduced_text=reduced)
         except Exception as e:
             messagebox.showerror("OSCARLOCATOR", "Could not generate PDF:\n%s"
                                  % e)
             return
         self.app.set_status("Saved OSCARLOCATOR PDF: %s" % path)
         if fp_on_qth:
-            detail = ("Page 1 (base map with footprint at your QTH): print on "
-                      "paper or card.\nPage 2 (orbit path arc): print on "
-                      "transparency film.\n\nThe footprint is already on the "
-                      "map; use the path overlay to see when the satellite "
+            detail = ("Page 1 (base map with the range circle at your QTH): "
+                      "print on paper or card.\nPage 2 (orbit path arc): print "
+                      "on transparency film.\n\nThe range circle is already on "
+                      "the map; use the path overlay to see when the satellite "
                       "enters it.")
         elif polar:
             detail = ("Page 1 (polar base map): print on paper or card.\n"
-                      "Pages 2 & 3 (footprint + orbit overhead): print on "
+                      "Pages 2 & 3 (range circle + orbit overhead): print on "
                       "transparency film.\n\nLay the overlays on the base map "
                       "with centres aligned and rotate to the equator-crossing "
                       "longitude (see the Orbital Analysis \u2192 Crossings List).")
         else:
             detail = ("Page 1 (base map): print on paper or card.\n"
-                      "Pages 2 & 3 (footprint + path arc): print on "
+                      "Pages 2 & 3 (range circle + path arc): print on "
                       "transparency film.\n\nPin the overlays through the centre "
                       "cross over your station on the base map.")
+        if reduced:
+            detail += ("\n\nReduced-text set: the base map carries all the "
+                       "instructions, and the transparencies are kept clean so "
+                       "this set can be reused.")
         messagebox.showinfo(
             "OSCARLOCATOR",
             "Saved an OSCARLOCATOR PDF for %s.\n\n%s" % (s.name, detail))

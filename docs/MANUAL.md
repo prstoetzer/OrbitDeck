@@ -1,7 +1,7 @@
 # OrbitDeck — User Manual
 
 OrbitDeck is a cross-platform desktop application for **satellite tracking and
-orbital analysis**, aimed at amateur-radio operators working the FM, linear, and
+orbital analysis**, aimed at amateur radio operators working the FM, linear, and
 digital birds. It is a desktop port of the analysis tools from the CardSat
 hardware tracker, with a roomy windowed interface and embedded plots.
 
@@ -388,10 +388,16 @@ satellite's position marker, and the footprint.
 **Base map** (radio buttons): polar auto (picks N or S from your latitude), polar
 north, polar south, or QTH-centered.
 
+Two independent overlay toggles let you show or hide each circle on its own:
+**Show QTH range circle** (the fixed orange circle centred on your station) and
+**Show satellite footprint** (the satellite's own coverage circle at its current
+sub-point, green dashed).
+
 A compact **"next equator crossings"** list is built into the page — the next few
 node times and longitudes (ascending nodes for northern stations, descending for
 southern). Click a row to drive the overlay straight to that crossing. There is
-also a **"Make printable OSCARLOCATOR…"** button to export the matching PDF.
+also a **"Make printable OSCARLOCATOR…"** button to export the matching PDF (see
+§4 for the print options dialog).
 
 The QTH range reticle is sized to the satellite's footprint radius at its **mean
 orbital altitude** — i.e. the **maximum ground distance** at which the satellite
@@ -514,7 +520,9 @@ Manage the observer **locations** OrbitDeck works from, in two tabs:
 
 ### 3.22 Settings
 
-Configure:
+The Settings screen has two tabs: **Observer & preferences** and **About**.
+
+On **Observer & preferences**, configure:
 
 - **Observer site** — latitude, longitude, and altitude, or a Maidenhead grid
   square. (You can nickname this primary site on the **Sites** screen.)
@@ -523,6 +531,11 @@ Configure:
   **custom OMM-JSON URL**.
 - **Minimum elevation** — the default floor (in degrees) applied to pass tables
   and reports across the app.
+
+The **About** tab shows the program version, the author credit (**Paul Stoetzer,
+N8HM**), a link to the project on GitHub
+(github.com/prstoetzer/OrbitDeck), and a suggestion to support **AMSAT**
+(www.amsat.org) if you find OrbitDeck useful. See *Supporting AMSAT* below.
 
 ---
 
@@ -540,13 +553,26 @@ OrbitDeck supports it two ways:
   paper and transparency film to build a physical OSCARLOCATOR. Export it from
   the **Track** screen or the **Sim** screen.
 
+> **Printing checklist** (the overlays only register if you follow it):
+> 1. Print **every** page at **100% / actual size** — turn off "fit to page",
+>    "shrink to fit", and any scaling in the print dialog.
+> 2. Print the **base map** on paper or card; print the **range-circle** and
+>    **path-arc** pages on **transparency film**.
+> 3. **Pin or pivot the overlays through the exact centre** so they rotate about
+>    the same point as the map.
+>
+> A small OrbitDeck credit (and version) is printed in the bottom corner of the
+> base-map sheets; see [§9](#9-author--supporting-amsat) for author and AMSAT
+> information.
+
 ### Printable pages
 
 - **Base map** — an azimuthal-equidistant map with a lat/lon graticule and
   full-resolution coastlines. The outer ring carries **per-degree tick marks**
   (with longer marks every 5° and 10°), so the rim reads like a protractor — handy
   for registering stacked overlays and measuring the per-pass arc rotation to the
-  degree. Choose:
+  degree. A small OrbitDeck credit sits unobtrusively in the bottom corner of the
+  printed sheet. Choose:
   - **Polar** (auto N/S from your latitude) — the generic ARRL/PE1RAH-style map
     anyone can use together with the equator-crossing list. 0° longitude is at
     the bottom; east increases counter-clockwise on the northern sheet (the
@@ -568,13 +594,18 @@ OrbitDeck supports it two ways:
   your station, and the footprint uses the identical red-circle style. (The
   standalone footprint transparency in the 3-sheet set keeps its own full azimuth
   rose and km labels, since it prints on its own.)
-- **Footprint transparency** — the **range circle**, the same radius as the
+- **Footprint transparency** — the **range circle**, the radius of the
   satellite's coverage footprint at its **mean orbital altitude**, with distance
   rings and azimuth radials. Pin it through the centre cross **over your QTH**:
   the satellite is in range whenever its ground track (the path-arc overlay) is
   **inside** this circle, so you read AOS and LOS where the arc crosses it. (When
   the QTH-centred base map is used, the 0° elevation ring is the same circle, so
-  this transparency is mainly for the polar map.)
+  this transparency is mainly for the polar map.) On the **polar** base map the
+  true coverage edge is a slight oval rather than a perfect circle (the polar map
+  is centred on the pole, not your station), so for the polar workflow the circle
+  is drawn a few percent larger — a single generic size chosen to best fit that
+  oval across the latitudes where most operators live. The sheet notes the
+  enlargement. On the QTH-centred map the circle is exact and is left unchanged.
 - **Path-arc overlay** — the rotatable ground-track transparency, with **minute
   tick marks** (straight marks across the track; longer, labelled marks every 10
   minutes), a bold **"EQX (0 min)"** marker showing which radial to line up with
@@ -583,19 +614,37 @@ OrbitDeck supports it two ways:
   sheets and the **descending node** for southern sheets, with minute 0 on the
   equator.
 
+### Print options
+
+The **"Make printable OSCARLOCATOR…"** button (on Track and on the Sim) opens a
+single options dialog where you choose:
+
+- **Base map** — polar (generic, works for any QTH via the equator-crossing list)
+  or QTH-centred (personalised to your station).
+- **Range circle** — a separate transparency (3-page set) or drawn directly on
+  the base map at your QTH (2-page set).
+- **Reduced-text transparencies** — an optional clean style. With it on, the base
+  map carries **all** the how-to-use instructions and the transparency pages have
+  no text outside their circular area except the azimuth labels. The base map is
+  kept generic so the set can be reused with any satellite; the range-circle
+  transparency just names the satellite unobtrusively inside the circle; and the
+  path-arc transparency lists the satellite name, inclination, period, and the
+  per-pass advance inside the circle. (The standard fully-labelled style is
+  unchanged — reduced text is a separate choice.)
+
 ### How to use the printed set
 
 1. Print all pages at **100% (actual size)** so they register on top of each
    other.
-2. Print the base map on paper or card; print the path-arc (and footprint) pages
-   on transparency film.
+2. Print the base map on paper or card; print the path-arc (and range-circle)
+   pages on transparency film.
 3. Pin the transparencies through the center so they rotate.
 4. From the **Equ. Crossings** page (Orbital Analysis) or the **Sim** page's
    crossing list, read the **longitude** of the next equator crossing.
 5. Rotate the path-arc overlay so its **EQX mark** points at that longitude on
    the base map.
 6. Read along the track: each tick is one minute after the equator crossing. The
-   satellite is workable while the track is inside your QTH footprint circle.
+   satellite is workable while the track is inside your QTH range circle.
 
 The interactive Sim does all of this on screen, which is the easiest way to learn
 the workflow before committing to print.
@@ -710,6 +759,26 @@ falls back to a lower-resolution bundled outline.
 **Printed OSCARLOCATOR overlays don't register.** Make sure every page is printed
 at **100% / actual size** (no "fit to page" scaling), and that the transparencies
 are pinned through the exact center.
+
+---
+
+## 9. Author & supporting AMSAT
+
+OrbitDeck is written by **Paul Stoetzer, N8HM**. The source code, issue tracker,
+and releases are on GitHub at **github.com/prstoetzer/OrbitDeck**.
+
+If you find OrbitDeck useful, please consider **joining and/or donating to AMSAT**
+— the Radio Amateur Satellite Corporation — at **www.amsat.org**.
+
+AMSAT is a volunteer, member-supported non-profit organization that designs,
+builds, arranges launches for, and operates the amateur radio satellites that
+OrbitDeck is built to track. Founded in 1969, AMSAT has kept amateur radio in
+space for over half a century, from the early OSCAR satellites through today's
+linear-transponder and FM birds that this program helps you work. The
+organization receives no government funding — membership dues and donations are
+what fund the design and launch of the next generation of amateur satellites.
+Supporting AMSAT directly helps keep these satellites, and the hobby of satellite
+operating, alive.
 
 ---
 

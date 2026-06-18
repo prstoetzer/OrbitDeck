@@ -7,12 +7,11 @@ set: Track, Passes, Pass Detail/Polar, World Map, Illumination, Orbital
 Analysis (9 pages), Sun/Moon, Mutual Windows, Space Wx, Satellites, Settings.
 """
 
-import time
 import datetime as dt
 import threading
 
 import tkinter as tk
-from tkinter import ttk, messagebox, simpledialog
+from tkinter import ttk, messagebox
 
 from .store import Store
 from . import screens
@@ -468,7 +467,7 @@ class OrbitDeckApp:
                 self.set_status("Updated: %d satellites loaded." % n)
             except Exception as e:
                 self.set_status("Update failed: %s" % e)
-                self.root.after(0, lambda: messagebox.showerror(
+                self.root.after(0, lambda e=e: messagebox.showerror(
                     "Update failed",
                     "Could not fetch GP data.\n\n%s\n\nThe app keeps working "
                     "with the cached/sample catalog." % e))
@@ -483,7 +482,7 @@ class OrbitDeckApp:
                 self.set_status("Transponders cached for %d satellites." % n)
             except Exception as e:
                 self.set_status("Transponder update failed: %s" % e)
-                self.root.after(0, lambda: messagebox.showerror(
+                self.root.after(0, lambda e=e: messagebox.showerror(
                     "Update failed",
                     "Could not fetch the transponder database.\n\n%s" % e))
             self.root.after(0, self._refresh_current)

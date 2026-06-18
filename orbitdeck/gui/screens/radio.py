@@ -12,8 +12,7 @@ the round-trip correction so they keep hearing themselves (see CardSat v0.9.16).
 import tkinter as tk
 from tkinter import ttk
 
-from . import (Screen, KVPanel, TabBar, COL_PANEL, COL_TEXT, COL_MUTED,
-               COL_ACCENT, COL_WARN, now_unix, fmt_utc, make_scrolled_tree)
+from . import (Screen, KVPanel, TabBar, now_unix, fmt_utc, make_scrolled_tree)
 from ...engine import linkbudget as LB
 from .. import exports as EX
 

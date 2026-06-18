@@ -5,13 +5,11 @@ Pass Outlook, Orbit Position. Data pages use a formatted key/value card; the
 Ground Track and Doppler pages use an embedded plot.
 """
 
-import math
 import tkinter as tk
 from tkinter import ttk
 
 from . import (Screen, MplPanel, KVPanel, COL_PANEL, COL_TEXT, COL_MUTED,
-               COL_ACCENT, COL_ACCENT2, COL_WARN, COL_GRID, FONT_MONO,
-               fmt_hms, fmt_utc, now_unix, compass, autohide_scrollbar)
+               COL_ACCENT, COL_ACCENT2, COL_WARN, COL_GRID, fmt_hms, fmt_utc, now_unix, compass, autohide_scrollbar)
 from ...engine import analysis as A
 from ..mapdraw import draw_basemap
 

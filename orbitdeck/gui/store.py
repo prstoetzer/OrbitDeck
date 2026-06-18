@@ -10,7 +10,6 @@ pip dependencies.
 import json
 import os
 import time
-import urllib.request
 
 from ..engine import SatDb, Predictor, Observer, latlon_to_grid, grid_to_latlon
 from ..data.sample_data import sample_gp_json, sample_tx_for, SAMPLE_TX

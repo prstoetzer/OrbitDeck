@@ -11,7 +11,7 @@ WGS72 geometry is used throughout to match the element set.
 """
 
 import math
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import List, Optional, Tuple
 
 from .propagator import make_satrec
@@ -281,7 +281,6 @@ class Predictor:
         jd = jd_of(unix)
         sx, sy, sz = _sun_eci_unit(jd)
         th = _gmst_rad(jd)
-        ct, st = math.cos(th), math.sin(th)
         # cylindrical shadow test on the satellite TEME position
         proj = r[0] * sx + r[1] * sy + r[2] * sz
         rmag2 = r[0] * r[0] + r[1] * r[1] + r[2] * r[2]
@@ -366,7 +365,7 @@ class Predictor:
 
     def descending_nodes(self, frm: float, to: float, max_n: int = 200):
         """Descending equator crossings (sub-latitude going + to -). These are
-        the relevant EQX events for southern-hemisphere OSCARLATOR sheets."""
+        the relevant EQX events for southern-hemisphere OSCARLOCATOR sheets."""
         return self._equator_crossings(frm, to, ascending=False, max_n=max_n)
 
     def _equator_crossings(self, frm: float, to: float, ascending: bool = True,
@@ -654,7 +653,6 @@ class Predictor:
                 enter = self._bisect_eclipse(t, t2, want_shadow=True)
                 # find the matching exit
                 te = enter
-                tlo = enter
                 while te < end + 7200.0:
                     te2 = te + coarse_step
                     if not self.sunlit_at(te) and self.sunlit_at(te2):

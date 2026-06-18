@@ -1,6 +1,6 @@
 # OrbitDeck
 
-**Cross-platform desktop satellite tracking & orbital analysis for amateur-radio operators.**
+**Cross-platform desktop satellite tracking & orbital analysis for amateur radio operators.**
 
 OrbitDeck is a desktop port of the tracking and orbital-analysis tools from the
 [CardSat](https://github.com/) M5Stack Cardputer satellite tracker. It keeps the
@@ -24,8 +24,8 @@ coastline set ship as fallbacks.
 ## Quick start
 
 ```bash
-git clone https://github.com/prstoetzer/orbitdeck
-cd orbitdeck
+git clone https://github.com/prstoetzer/OrbitDeck
+cd OrbitDeck
 pip install -e .
 orbitdeck
 ```
@@ -37,10 +37,11 @@ pip install -r requirements.txt
 python run.py
 ```
 
-On first launch OrbitDeck loads a small bundled catalog (ISS, SO-50, AO-91,
-CAS-4B, RS-44) so every screen works immediately offline. Click **Update GP
-(online)** to pull the live AMSAT catalog, and use the **Satellites** screen to
-fetch SatNOGS transponder data for the selected bird.
+The base install pulls only `matplotlib`, `numpy`, and `certifi`, so it is quick
+and reliable on every platform. On first launch OrbitDeck loads a small bundled
+catalog (ISS, SO-50, AO-91, CAS-4B, RS-44) so every screen works immediately
+offline. Click **Update GP (online)** to pull the live AMSAT catalog, and use the
+**Satellites** screen to fetch SatNOGS transponder data for the selected bird.
 
 > ⚠️ **Pass times from the bundled catalog are illustrative, not real.** The
 > demo elements are stamped to the current date so the geometry is sensible, but
@@ -52,9 +53,19 @@ fetch SatNOGS transponder data for the selected bird.
 
 ### Optional extras
 
-`sgp4` (full SGP4/SDP4) and `cartopy` (high-resolution coastlines) are both core
-dependencies installed automatically by the commands above. The `accurate`,
-`maps`, and `full` extras are kept only as backward-compatible no-op aliases.
+OrbitDeck runs fully on its bundled, pure-Python building blocks, but two
+optional packages improve it for users who want them:
+
+| Extra | Adds | What you lose without it |
+|---|---|---|
+| `pip install "orbitdeck[accurate]"` | `sgp4` — the C-accelerated full SGP4/SDP4 backend | The bundled pure-Python propagator is used instead. It is accurate to well under a kilometre for typical LEO passes; the difference grows for deep-space / geostationary objects. |
+| `pip install "orbitdeck[maps]"` | `cartopy` — high-resolution Natural Earth coastlines | The bundled lower-resolution coastlines are drawn instead (everything still works; the map outlines are just coarser). |
+| `pip install "orbitdeck[excel]"` | `openpyxl` — native `.xlsx` export | Spreadsheet exports fall back to CSV. |
+| `pip install "orbitdeck[full]"` | all of the above | — |
+
+`cartopy` in particular depends on the GEOS/PROJ system libraries and can be
+awkward to build, which is exactly why it is optional rather than required —
+install it only if you want the high-resolution coastlines.
 
 > **tkinter note:** the python.org installers for Windows and macOS include
 > tkinter. On Linux: `sudo apt install python3-tk` (Debian/Ubuntu) or
@@ -130,33 +141,34 @@ verbatim:
 * beta angle is the orbit-plane-to-Sun angle;
 * mutual windows are true two-station co-visibility.
 
-**Propagation backend.** OrbitDeck uses the reference
-[`sgp4`](https://pypi.org/project/sgp4/) package (full SGP4/SDP4) by default — it
-is a required dependency. A dependency-free pure-Python implementation,
-`orbitdeck/engine/sgp4_lite.py`, is bundled as a fallback; it is verified against
-the canonical Vallado *AIAA-2006-6753* reference vector (catalog 88888) to about
-**one centimetre** at epoch and is accurate for **near-Earth LEO** — essentially
-every FM and linear amateur satellite (SO-50, the AO/FO/CAS birds, the ISS,
-RS-44, etc.).
+**Propagation backend.** OrbitDeck ships its own dependency-free pure-Python
+implementation, `orbitdeck/engine/sgp4_lite.py`, and runs entirely on it out of
+the box. It is verified against the canonical Vallado *AIAA-2006-6753* reference
+vector (catalog 88888) to about **one centimetre** at epoch and is accurate for
+**near-Earth LEO** — essentially every FM and linear amateur satellite (SO-50,
+the AO/FO/CAS birds, the ISS, RS-44, etc.), where it tracks the reference
+[`sgp4`](https://pypi.org/project/sgp4/) package to well under a kilometre across
+a typical pass.
+
+Installing the optional `accurate` extra (`pip install "orbitdeck[accurate]"`)
+adds the C-accelerated reference `sgp4` package. `orbitdeck/engine/propagator.py`
+detects it at runtime and uses it automatically — no configuration needed.
 
 **Deep-space orbits (GEO/HEO).** For deep-space orbits (orbital period ≥ 225 min
 — e.g. the geostationary QO-100 / Es'hail-2, AO-7's ~12-hour orbit, or
-Molniya-type orbits), full reference SDP4 is required for correct positions, so
-the [`sgp4`](https://pypi.org/project/sgp4/) reference propagator is a **required
-dependency** and OrbitDeck uses it automatically. If for some reason `sgp4` is
-not installed, OrbitDeck falls back to its bundled pure-Python propagator, whose
-deep-space terms are only approximate — in that state it **flags affected
-satellites in the header with a reduced-accuracy warning**, because an
-approximate model can mis-place a geostationary bird badly enough to imply it
-rises and sets when it does not. Reinstall the dependency to restore full
-accuracy:
+Molniya-type orbits), full reference SDP4 gives the most correct positions. The
+bundled propagator's deep-space terms are only approximate, so when it is in use
+for such an object OrbitDeck **flags it in the header with a reduced-accuracy
+warning** — an approximate model can mis-place a geostationary bird badly enough
+to imply it rises and sets when it does not. Installing the reference backend
+removes the warning and restores full accuracy:
 
 ```bash
-pip install sgp4
+pip install "orbitdeck[accurate]"   # or simply: pip install sgp4
 ```
 
-`orbitdeck/engine/propagator.py` selects the C-accelerated full SDP4 backend at
-runtime when `sgp4` is importable — no configuration needed.
+In short: the base install is exact enough for everyday LEO satellite operating;
+add `accurate` if you work deep-space birds or want the last bit of precision.
 
 ---
 
@@ -187,7 +199,8 @@ for p in pred.predict_passes(time.time(), min_el=5.0, max_n=5):
 orbitdeck/
 ├─ run.py                      dev entry point (python run.py)
 ├─ pyproject.toml              packaging + `orbitdeck` console script
-├─ tests/                      engine tests (Vallado vector, passes, Doppler…)
+├─ tests/                      pytest suite, split by area (propagation,
+│                              oscarlocator, radio, reports, planning, …)
 └─ orbitdeck/
    ├─ engine/                  portable orbital core (no GUI)
    │  ├─ sgp4_lite.py          vendored pure-Python SGP4/SDP4 (WGS72)
@@ -219,12 +232,16 @@ Both are fetched with the Python standard library only; no API key required.
 ```bash
 pip install -e ".[dev]"
 pytest -q
+ruff check orbitdeck      # lint
 ```
 
-CI runs the suite on Python 3.8/3.10/3.12. Although `sgp4` is a required
-dependency, the suite also runs **without** it so the bundled fallback
-propagator is guaranteed correct on its own (with deep-space orbits flagged as
-approximate, as the app does at runtime).
+The 130+ tests are organised by area under `tests/` (`test_propagation.py`,
+`test_oscarlocator.py`, `test_radio.py`, `test_reports.py`, `test_planning.py`,
+and so on), with shared fixtures in `tests/conftest.py`. CI runs the suite on
+Python 3.8/3.10/3.12. Because `sgp4` and `cartopy` are optional, one CI job runs
+the full suite **without** them, guaranteeing the bundled fallback propagator and
+coastlines stay correct on their own (with deep-space orbits flagged as
+approximate, exactly as the app does at runtime).
 
 ---
 
@@ -260,6 +277,28 @@ accurate and intentionally lightweight; a footprint grazing a border may briefly
 list a neighbour, which is correct at footprint scale (both are workable).
 
 ---
+
+## Author
+
+OrbitDeck is written by **Paul Stoetzer, N8HM**. Source code, the issue
+tracker, and releases are on GitHub:
+[github.com/prstoetzer/OrbitDeck](https://github.com/prstoetzer/OrbitDeck).
+
+## Supporting AMSAT
+
+If you find OrbitDeck useful, please consider **joining and/or donating to
+AMSAT** — the Radio Amateur Satellite Corporation — at
+[www.amsat.org](https://www.amsat.org).
+
+AMSAT is a volunteer, member-supported non-profit organization that designs,
+builds, arranges launches for, and operates the amateur radio satellites that
+OrbitDeck is built to track. Founded in 1969, AMSAT has kept amateur radio in
+space for over half a century, building everything from the early OSCAR
+satellites to today's linear-transponder and FM birds that this program helps
+you work. The organization receives no government funding: membership dues and
+donations are what fund the design and launch of the next generation of amateur
+satellites. Supporting AMSAT directly helps keep these satellites — and the
+hobby of satellite operating — alive.
 
 ## License
 

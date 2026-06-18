@@ -6,13 +6,12 @@ Contains:
 """
 
 import math
-import time
 import tkinter as tk
 from tkinter import ttk
 
 import numpy as np
 
-from . import (Screen, MplPanel, COL_PANEL, COL_TEXT, COL_MUTED, COL_ACCENT,
+from . import (Screen, MplPanel, COL_TEXT, COL_MUTED, COL_ACCENT,
                COL_ACCENT2, COL_WARN, COL_GRID, now_unix, fmt_utc)
 from ...engine import planning as PL
 
@@ -531,7 +530,7 @@ class RadarScreen(Screen):
             for ai in range(az_bins):
                 # row 0 of Z is the outer ring (low el); el bin 0 is low el
                 Z[el_bins - 1 - ei][ai] = grid[ei][ai]
-        pcm = ax.pcolormesh(T, R, Z, cmap="inferno", shading="auto")
+        ax.pcolormesh(T, R, Z, cmap="inferno", shading="auto")
         total = sum(sum(row) for row in grid)
         self.info.set("Sky-coverage dwell over %d passes (%dh): %.0f min total. "
                       "Brighter = more time spent in that part of your sky."

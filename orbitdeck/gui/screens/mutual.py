@@ -4,9 +4,8 @@ import math
 import tkinter as tk
 from tkinter import ttk
 
-from . import (Screen, MplPanel, COL_PANEL, COL_BG, COL_TEXT, COL_MUTED,
-               COL_ACCENT, COL_ACCENT2, COL_WARN, COL_GRID, FONT_MONO,
-               fmt_hms, fmt_utc, now_unix, make_scrolled_tree)
+from . import (Screen, MplPanel, COL_BG, COL_TEXT, COL_MUTED,
+               COL_ACCENT, COL_WARN, COL_GRID, fmt_hms, fmt_utc, now_unix, make_scrolled_tree)
 from ...engine import Observer, grid_to_latlon
 from ...engine.predict import Predictor
 

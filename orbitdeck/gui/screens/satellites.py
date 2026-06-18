@@ -4,8 +4,7 @@ plus a Who's-up-now quick-visibility scan of the whole database."""
 import tkinter as tk
 from tkinter import ttk
 
-from . import (Screen, TabBar, COL_TEXT, COL_MUTED, COL_ACCENT, FONT_MONO,
-               now_unix, fmt_utc, make_scrolled_tree)
+from . import (Screen, TabBar, now_unix, fmt_utc, make_scrolled_tree)
 from .. import exports as EX
 from ...engine.predict import whos_up
 from ...engine.satdb import satellite_category, CATEGORIES
@@ -293,12 +292,11 @@ class SatellitesScreen(Screen):
             self.store.ensure_transponders(s)
             groups[satellite_category(s)].append(s)
         key = self._bt_sort.get()
-        if key == "norad":
-            sk = lambda s: s.norad
-        elif key == "period":
-            sk = lambda s: s.period_min
-        else:
-            sk = lambda s: s.name.lower()
+        _sort_keys = {
+            "norad": lambda s: s.norad,
+            "period": lambda s: s.period_min,
+        }
+        sk = _sort_keys.get(key, lambda s: s.name.lower())
         for c in groups:
             groups[c].sort(key=sk)
         return groups

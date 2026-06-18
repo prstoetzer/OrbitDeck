@@ -28,7 +28,7 @@ jobs:
           pip install -e ".[dev,accurate]"
 
       - name: Lint (ruff)
-        run: ruff check orbitdeck
+        run: ruff check orbitdeck tests
 
       - name: Run tests
         run: pytest -q

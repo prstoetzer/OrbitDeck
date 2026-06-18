@@ -10,11 +10,11 @@ Tabs:
 import tkinter as tk
 from tkinter import ttk
 
-from . import (Screen, KVPanel, TabBar, COL_MUTED, COL_ACCENT, COL_WARN, now_unix,
+from . import (Screen, KVPanel, TabBar, now_unix,
                fmt_utc, make_scrolled_tree)
 from ...engine import planning as PL
 from ...engine import linkbudget as LB
-from ...engine.predict import grid_to_latlon, Observer
+from ...engine.predict import grid_to_latlon
 from .. import exports as EX
 
 
@@ -220,7 +220,6 @@ class PlanningScreen(Screen):
             if not (p.aos and p.los):
                 continue
             # sample at TCA: is it a visible-pass candidate?
-            vis_mag = None
             tt = p.aos
             best_mag = 99.0
             visible = False

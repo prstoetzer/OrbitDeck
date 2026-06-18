@@ -10,7 +10,7 @@ import tkinter as tk
 from tkinter import ttk
 
 from .screens import (COL_BG, COL_PANEL, COL_TEXT, COL_MUTED, COL_ACCENT,
-                      COL_WARN, COL_GRID)
+                      COL_WARN)
 
 
 class Field:
@@ -93,6 +93,114 @@ class FormDialog:
             else:
                 out[f.key] = raw
         self.result = out
+        self.win.destroy()
+
+    def _cancel(self):
+        self.result = None
+        self.win.destroy()
+
+    def show(self):
+        self.win.wait_window()
+        return self.result
+
+
+class OscarlocatorOptionsDialog:
+    """A single modal dialog gathering all OSCARLOCATOR print options (base-map
+    style, whether the range circle is drawn on the QTH map, and reduced-text
+    transparencies), replacing the old chain of yes/no questions. Returns a dict
+    {projection, footprint_on_qth, reduced_text} or None if cancelled."""
+
+    def __init__(self, parent, sat_name=""):
+        self.result = None
+        self.win = tk.Toplevel(parent)
+        self.win.title("OSCARLOCATOR options")
+        self.win.configure(bg=COL_BG)
+        self.win.transient(parent)
+        self.win.grab_set()
+        self.win.resizable(False, False)
+
+        pad = {"padx": 14}
+        row = 0
+        tk.Label(self.win,
+                 text="OSCARLOCATOR print options" + (
+                     " \u2014 %s" % sat_name if sat_name else ""),
+                 bg=COL_BG, fg=COL_TEXT,
+                 font=("DejaVu Sans", 12, "bold")).grid(
+            row=row, column=0, sticky="w", pady=(12, 2), **pad)
+        row += 1
+
+        # --- base-map style ---
+        tk.Label(self.win, text="Base map", bg=COL_BG, fg=COL_ACCENT,
+                 font=("DejaVu Sans", 10, "bold")).grid(
+            row=row, column=0, sticky="w", pady=(8, 0), **pad)
+        row += 1
+        self._proj = tk.StringVar(value="polar-auto")
+        for val, label in (
+                ("polar-auto", "Polar (generic \u2014 works for any QTH via "
+                               "the equator-crossing list)"),
+                ("qth", "QTH-centred (personalised to your station: "
+                        "azimuth/range from your location)")):
+            tk.Radiobutton(
+                self.win, text=label, value=val, variable=self._proj,
+                bg=COL_BG, fg=COL_TEXT, selectcolor=COL_PANEL,
+                activebackground=COL_BG, activeforeground=COL_TEXT,
+                font=("DejaVu Sans", 9), anchor="w", highlightthickness=0,
+                wraplength=440, justify="left").grid(
+                row=row, column=0, sticky="w", padx=(28, 14))
+            row += 1
+
+        # --- range circle placement ---
+        tk.Label(self.win, text="Range circle", bg=COL_BG, fg=COL_ACCENT,
+                 font=("DejaVu Sans", 10, "bold")).grid(
+            row=row, column=0, sticky="w", pady=(8, 0), **pad)
+        row += 1
+        self._fp = tk.BooleanVar(value=False)
+        for val, label in (
+                (False, "Separate transparency (3-page set: map, range circle, "
+                        "path arc)"),
+                (True, "Drawn on the base map at my QTH (2-page set: map + "
+                       "range circle, path arc)")):
+            tk.Radiobutton(
+                self.win, text=label, value=val, variable=self._fp,
+                bg=COL_BG, fg=COL_TEXT, selectcolor=COL_PANEL,
+                activebackground=COL_BG, activeforeground=COL_TEXT,
+                font=("DejaVu Sans", 9), anchor="w", highlightthickness=0,
+                wraplength=440, justify="left").grid(
+                row=row, column=0, sticky="w", padx=(28, 14))
+            row += 1
+
+        # --- reduced-text option ---
+        tk.Label(self.win, text="Style", bg=COL_BG, fg=COL_ACCENT,
+                 font=("DejaVu Sans", 10, "bold")).grid(
+            row=row, column=0, sticky="w", pady=(8, 0), **pad)
+        row += 1
+        self._reduced = tk.BooleanVar(value=False)
+        tk.Checkbutton(
+            self.win,
+            text="Reduced-text transparencies (all instructions on the base "
+                 "map; overlays kept clean for a reusable set)",
+            variable=self._reduced, bg=COL_BG, fg=COL_TEXT,
+            selectcolor=COL_PANEL, activebackground=COL_BG,
+            activeforeground=COL_TEXT, font=("DejaVu Sans", 9), anchor="w",
+            highlightthickness=0, wraplength=440, justify="left").grid(
+            row=row, column=0, sticky="w", padx=(28, 14))
+        row += 1
+
+        btns = tk.Frame(self.win, bg=COL_BG)
+        btns.grid(row=row, column=0, sticky="e", padx=14, pady=(14, 12))
+        ttk.Button(btns, text="Cancel", command=self._cancel).pack(
+            side="right", padx=4)
+        ttk.Button(btns, text="Generate\u2026", command=self._ok).pack(
+            side="right")
+        self.win.bind("<Return>", lambda _e: self._ok())
+        self.win.bind("<Escape>", lambda _e: self._cancel())
+
+    def _ok(self):
+        self.result = {
+            "projection": self._proj.get(),
+            "footprint_on_qth": bool(self._fp.get()),
+            "reduced_text": bool(self._reduced.get()),
+        }
         self.win.destroy()
 
     def _cancel(self):

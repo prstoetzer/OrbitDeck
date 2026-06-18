@@ -164,6 +164,20 @@ def _draw_footer(fig, note, y=0.05):
              color="#333333", linespacing=1.3)
 
 
+def _draw_branding(fig):
+    """Unobtrusive OrbitDeck branding + author credit in the bottom-right corner
+    of a base-map sheet. Kept small and grey so it never competes with the map
+    or the printed instructions."""
+    try:
+        from .. import __version__ as _ver
+    except Exception:
+        _ver = ""
+    tag = "OrbitDeck%s \u2022 Paul Stoetzer, N8HM" % (
+        " v%s" % _ver if _ver else "")
+    fig.text(0.985, 0.012, tag, ha="right", va="bottom", fontsize=6.0,
+             color="#9a9a9a")
+
+
 def _central_angle_bearing(qlat, qlon, lat, lon):
     p1, l1 = math.radians(qlat), math.radians(qlon)
     p2, l2 = math.radians(lat), math.radians(lon)
@@ -184,7 +198,7 @@ class _Projection:
       * 'qth'        - centred on the station; rho is great-circle distance and
                        bearing is azimuth from the QTH (a personalised sheet).
       * 'polar'      - centred on the North Pole; rho is colatitude (90-lat),
-                       bearing is longitude. Classic PE1RAH OSCARLATOR polar map
+                       bearing is longitude. Classic PE1RAH OSCARLOCATOR polar map
                        of the northern hemisphere -- generic, QTH-independent.
       * 'polar-south'- centred on the South Pole for southern-hemisphere
                        stations; rho is 90+lat (colatitude from the S pole) and
@@ -277,6 +291,46 @@ def _draw_rim_ticks(ax, rmax, zorder=6):
         a = math.radians(deg)
         ax.plot([a, a], [rmax - ln, rmax], color="black", linewidth=lw,
                 zorder=zorder, solid_capstyle="butt")
+
+
+# The range-circle transparency is a true circle of constant ground distance
+# from the QTH. On the QTH-centred base map that circle is exact. On the POLAR
+# base map (which is azimuthal-equidistant about the pole, not the QTH) the same
+# constant-distance locus re-projects to an oval that bulges outward, so the raw
+# circle sits inside the true coverage boundary and under-states coverage by an
+# amount that grows away from the pole.
+#
+# The polar transparency is meant to stay GENERIC -- one printed circle anyone
+# can use, with no QTH input -- so we can't fit each station's oval. Instead we
+# enlarge the circle by a single fixed factor chosen to minimise the error
+# across the world's population (which is heavily concentrated at 25-55 deg
+# latitude). +6.5% is a population-weighted optimum: it cuts the typical
+# mid-latitude error by ~20% while only modestly enlarging the (already small)
+# error for high-latitude stations. The factor is essentially independent of
+# footprint size because the distortion depends on the QTH's colatitude, not on
+# the footprint.
+POLAR_RANGE_CIRCLE_INFLATION = 1.065
+
+
+def _polar_range_circle_deg(foot_deg):
+    """Radius (deg) to draw for the range-circle transparency when it is laid
+    over the generic POLAR base map: the footprint radius enlarged by the fixed
+    population-optimised factor so a single generic circle best fits the polar
+    map's distortion for the majority of users. See
+    POLAR_RANGE_CIRCLE_INFLATION."""
+    return foot_deg * POLAR_RANGE_CIRCLE_INFLATION
+
+
+def _km_ring_step(reach_km):
+    """Pick a clean distance-ring step (km) that yields ~2-4 rings out to
+    ``reach_km``, used for the OSCARLOCATOR range-circle distance rings."""
+    if reach_km <= 1500:
+        return 500
+    if reach_km <= 3500:
+        return 1000
+    if reach_km <= 7000:
+        return 2000
+    return 3000
 
 
 def _coastline_segments():
@@ -466,14 +520,7 @@ def _draw_az_grid(ax, proj, rmax, alt_km=None, skip_horizon=False,
         if dist_rings:
             reach_deg = min(dist_max_deg or rmax, rmax)
             reach_km = reach_deg * KM_PER_DEG
-            if reach_km <= 1500:
-                step_km = 500
-            elif reach_km <= 3500:
-                step_km = 1000
-            elif reach_km <= 7000:
-                step_km = 2000
-            else:
-                step_km = 3000
+            step_km = _km_ring_step(reach_km)
             th = [math.radians(a) for a in range(0, 361, 2)]
             km = step_km
             while km < reach_km - step_km * 0.25:
@@ -514,8 +561,12 @@ def _draw_az_grid(ax, proj, rmax, alt_km=None, skip_horizon=False,
 
 
 def _base_map_page(pdf, proj, qth_name, segments, rmax, alt_km=None,
-                   sat_name=""):
+                   sat_name="", reduced_text=False):
     fig = plt.figure(figsize=(PAGE_W_IN, PAGE_H_IN))
+    # In reduced-text mode the base map must be reusable with ANY satellite, so
+    # it carries no satellite-specific markings (no elevation rings, which assume
+    # a particular altitude) and no satellite name.
+    ring_alt = None if reduced_text else alt_km
     if proj.is_polar:
         hemi = "southern" if proj.is_south else "northern"
         pole = "South" if proj.is_south else "North"
@@ -523,25 +574,51 @@ def _base_map_page(pdf, proj, qth_name, segments, rmax, alt_km=None,
         sub = ("Polar great-circle map of the %s hemisphere "
                "(generic \u2014 use with any QTH via the EQX list)" % hemi)
     else:
-        # the QTH base map carries elevation rings for this satellite, so name
-        # it (the rings assume the satellite's mean altitude)
-        if sat_name:
+        if sat_name and not reduced_text:
             _suffix = " \u2014 OSCARLOCATOR Base Map"
             title = _fit_sat_name(sat_name, _suffix) + _suffix
         else:
             title = "OSCARLOCATOR \u2014 Base Map"
-        if alt_km:
+        if ring_alt:
             sub = ("Azimuthal-equidistant map centred on %s  (%.3f, %.3f) "
                    "\u2014 rings are elevation at %.0f\u00a0km altitude" % (
-                       qth_name, proj.qlat, proj.qlon, alt_km))
+                       qth_name, proj.qlat, proj.qlon, ring_alt))
         else:
             sub = "Azimuthal-equidistant map centred on %s  (%.3f, %.3f)" % (
                 qth_name, proj.qlat, proj.qlon)
     ax = _polar_axes(fig, title, sub, rmax=rmax, proj=proj)
     _draw_graticule(ax, proj, rmax)
     _draw_coastlines(ax, proj, segments, rmax)
-    _draw_az_grid(ax, proj, rmax, alt_km=None if proj.is_polar else alt_km)
+    _draw_az_grid(ax, proj, rmax, alt_km=None if proj.is_polar else ring_alt)
     _draw_rim_ticks(ax, rmax)
+    if reduced_text:
+        # the base map carries ALL the how-to-use instructions for the set, so
+        # the transparencies can stay clean
+        if proj.is_polar:
+            note = (
+                "OSCARLOCATOR \u2014 print this base map on paper/card at 100%% "
+                "(actual size); print the range-circle and path-arc overlays on "
+                "transparency film at 100%%. Centre is the %s Pole; rings are "
+                "latitude (15\u00b0), spokes are longitude, rim ticks are 1\u00b0. "
+                "Align overlay centres on the pole. Rotate the path-arc to the "
+                "ascending-node longitude from the Crossings List; the satellite "
+                "is workable while its track is inside the range circle. Read "
+                "AOS/LOS where the track crosses the circle; the rim ticks give "
+                "azimuth." % pole)
+        else:
+            note = (
+                "OSCARLOCATOR \u2014 print this base map on paper/card at 100% "
+                "(actual size); print the range-circle and path-arc overlays on "
+                "transparency film at 100%. Pin the overlays through the centre "
+                "cross over your station. Spokes are azimuth, rim ticks are 1\u00b0. "
+                "The satellite is workable while its ground track (path-arc) is "
+                "inside the range circle; read AOS/LOS where the track crosses "
+                "the circle.")
+        _draw_footer(fig, note)
+        _draw_branding(fig)
+        pdf.savefig(fig)
+        plt.close(fig)
+        return
     if proj.is_polar:
         note = ("Print on paper or card at 100%% (actual size). Centre is the "
                 "%s Pole; rings are latitude (15\u00b0), spokes are longitude. "
@@ -551,12 +628,13 @@ def _base_map_page(pdf, proj, qth_name, segments, rmax, alt_km=None,
         note = ("Print on paper or card at 100% (actual size). Overlays "
                 "register on the centre cross and the black rim ticks; rings "
                 "show the satellite's elevation angle (the 0\u00b0 el ring is its "
-                "footprint edge), spokes are azimuth.")
+                "range-circle edge), spokes are azimuth.")
     else:
         note = ("Print on paper or card at 100% (actual size). Overlays "
                 "register on the centre cross; rings are great-circle distance, "
                 "spokes are azimuth, grey graticule is lat/lon (15\u00b0).")
     _draw_footer(fig, note)
+    _draw_branding(fig)
     pdf.savefig(fig)
     plt.close(fig)
 
@@ -603,14 +681,7 @@ def _draw_footprint_overlay(ax, foot_deg, rmax, with_rose=True,
 
         # inner km distance rings (2-3 rings), labelled on the 135 deg spoke
         foot_km = foot_deg * KM_PER_DEG
-        if foot_km <= 1500:
-            step_km = 500
-        elif foot_km <= 3500:
-            step_km = 1000
-        elif foot_km <= 7000:
-            step_km = 2000
-        else:
-            step_km = 3000
+        step_km = _km_ring_step(foot_km)
         th = [math.radians(a) for a in range(0, 361, 2)]
         km = step_km
         while km < foot_km - step_km * 0.25:
@@ -633,30 +704,59 @@ def _draw_footprint_overlay(ax, foot_deg, rmax, with_rose=True,
                 markeredgewidth=MEW_CROSS, zorder=5)
 
 
-def _footprint_page(pdf, sat_name, alt_km, proj, rmax):
+def _footprint_page(pdf, sat_name, alt_km, proj, rmax, reduced_text=False):
     foot_deg = A.footprint_radius_deg(alt_km)
+    # The transparency is laid over the chosen base map. On the QTH-centred map a
+    # plain circle of radius foot_deg is exact; on the generic POLAR base map that
+    # circle re-projects to an oval, so we enlarge it by a fixed,
+    # population-optimised factor (a single generic circle for everyone). See
+    # POLAR_RANGE_CIRCLE_INFLATION.
+    polar_fit = proj.is_polar
+    draw_deg = _polar_range_circle_deg(foot_deg) if polar_fit else foot_deg
     fig = plt.figure(figsize=(PAGE_W_IN, PAGE_H_IN))
-    sub = ("Footprint radius %.1f\u00b0 (~%d km) at %.0f km mean altitude"
-           % (foot_deg, round(foot_deg * KM_PER_DEG, -1), alt_km))
+    fr = min(draw_deg, rmax)
+    if reduced_text:
+        # clean transparency: no title/subtitle/footer text outside the circular
+        # area. The azimuth labels (from the rose) are the only text outside the
+        # circle; the satellite name sits unobtrusively inside it.
+        ax = _polar_axes(fig, "", "", rmax=rmax, show_rim=False)
+        _draw_footprint_overlay(ax, draw_deg, rmax, with_rose=True)
+        ax.text(math.radians(0), fr * 0.18, sat_name, ha="center", va="center",
+                fontsize=9, color="#888888", zorder=6)
+        pdf.savefig(fig)
+        plt.close(fig)
+        return
+    if polar_fit:
+        sub = ("Range-circle radius %.1f\u00b0 (~%d km) at %.0f km mean altitude "
+               "\u2014 enlarged ~%.0f%% to best fit the polar map across "
+               "latitudes"
+               % (foot_deg, round(foot_deg * KM_PER_DEG, -1), alt_km,
+                  (POLAR_RANGE_CIRCLE_INFLATION - 1.0) * 100.0))
+    else:
+        sub = ("Range-circle radius %.1f\u00b0 (~%d km) at %.0f km mean altitude"
+               % (foot_deg, round(foot_deg * KM_PER_DEG, -1), alt_km))
     # IMPORTANT: keep the same angular scale (rmax) as the base map and arc
     # sheets so this transparency registers on top of them. We simply don't draw
-    # anything beyond the footprint, so the rest of the sheet is clear and the
+    # anything beyond the range circle, so the rest of the sheet is clear and the
     # map shows through.
-    fr = min(foot_deg, rmax)
-    _fp_suffix = " \u2014 OSCARLOCATOR Footprint Overlay"
+    _fp_suffix = " \u2014 OSCARLOCATOR Range Circle Overlay"
     ax = _polar_axes(fig, _fit_sat_name(sat_name, _fp_suffix) + _fp_suffix,
                      sub, rmax=rmax, show_rim=False)
 
-    # the standalone footprint is concentric with the sheet, so it gets the full
-    # rose + km rings + red circle via the shared helper.
-    _draw_footprint_overlay(ax, foot_deg, rmax, with_rose=True)
-    _draw_footer(fig,
-                 "Print on transparency at 100%. Pin the centre cross over "
-                 "your QTH at the map centre. The red circle is the range "
-                 "circle: the satellite is in range whenever its ground track "
-                 "(path-arc overlay) is INSIDE the circle. Read AOS and LOS "
-                 "where the arc crosses the red circle; inner rings are ground "
-                 "distance, spokes are azimuth. Scale matches the base map.")
+    # the standalone range circle is concentric with the sheet, so it gets the
+    # full rose + km rings + red circle via the shared helper.
+    _draw_footprint_overlay(ax, draw_deg, rmax, with_rose=True)
+    note = ("Print on transparency at 100%. Pin the centre cross over "
+            "your QTH at the map centre. The red circle is the range "
+            "circle: the satellite is in range whenever its ground track "
+            "(path-arc overlay) is INSIDE the circle. Read AOS and LOS "
+            "where the arc crosses the red circle; inner rings are ground "
+            "distance, spokes are azimuth. Scale matches the base map.")
+    if polar_fit:
+        note += (" (On the polar map the true coverage edge is a slight oval; "
+                 "this generic circle is sized to fit it well at most "
+                 "latitudes.)")
+    _draw_footer(fig, note)
     pdf.savefig(fig)
     plt.close(fig)
 
@@ -740,7 +840,7 @@ def _canonical_track(sat, descending=False):
     return pts
 
 
-def _arc_page(pdf, pred, sat, proj, rmax):
+def _arc_page(pdf, pred, sat, proj, rmax, reduced_text=False):
     """The satellite 'overhead': its orbit ground-track for one revolution, with
     1-minute ticks (longer every 10 min) and an inset showing the per-pass
     advance angle.
@@ -748,18 +848,21 @@ def _arc_page(pdf, pred, sat, proj, rmax):
     In QTH mode the arc is the rotatable canonical track centred on the station
     sub-pole. In polar mode it is the orbit ground-track drawn directly on the
     pole-centred map (PE1RAH 'overhead' style): rotate the whole transparency to
-    the current orbit using the EQX longitude.
-    """
+"""
     fig = plt.figure(figsize=(PAGE_W_IN, PAGE_H_IN))
     shift = _node_shift_deg(sat)
-    _arc_suffix = (" \u2014 OSCARLOCATOR Path Arc (orbit)" if proj.is_polar
-                   else " \u2014 OSCARLOCATOR Path Arc Overlay")
-    title = _fit_sat_name(sat.name, _arc_suffix) + _arc_suffix
-    sub = ("Ground-track \u2014 incl. %.1f\u00b0, period %.1f\u00a0min "
-           "\u2014 advance %.1f\u00b0\u00a0%s per pass." % (
-               sat.incl, sat.period_min, abs(shift),
-               "W" if shift < 0 else "E"))
-    ax = _polar_axes(fig, title, sub, rmax=rmax, proj=proj)
+    if reduced_text:
+        # clean transparency: no title/subtitle outside the circle
+        ax = _polar_axes(fig, "", "", rmax=rmax, proj=proj)
+    else:
+        _arc_suffix = (" \u2014 OSCARLOCATOR Path Arc (orbit)" if proj.is_polar
+                       else " \u2014 OSCARLOCATOR Path Arc Overlay")
+        title = _fit_sat_name(sat.name, _arc_suffix) + _arc_suffix
+        sub = ("Ground-track \u2014 incl. %.1f\u00b0, period %.1f\u00a0min "
+               "\u2014 advance %.1f\u00b0\u00a0%s per pass." % (
+                   sat.incl, sat.period_min, abs(shift),
+                   "W" if shift < 0 else "E"))
+        ax = _polar_axes(fig, title, sub, rmax=rmax, proj=proj)
     _draw_rim_ticks(ax, rmax)
     for rho in range(30, int(rmax) + 1, 30):
         th = [math.radians(a) for a in range(0, 361, 2)]
@@ -890,30 +993,88 @@ def _arc_page(pdf, pred, sat, proj, rmax):
     # sheet the longitude is mirrored, which flips the on-screen sense.
     west = shift < 0
     ccw = west if not proj.is_south else (not west)   # on-screen rotation sense
-    r_ind = rmax * 1.18      # radius of the indicator arc, beyond the plot edge
-    half = math.radians(abs(shift)) / 2.0
-    a_lo, a_hi = -half, half          # centred on North (top)
-    arc = [a_lo + (a_hi - a_lo) * k / 60 for k in range(61)]
-    ax.plot(arc, [r_ind] * len(arc), color="#cc0000", linewidth=LW_INDICATOR,
-            zorder=7, clip_on=False, solid_capstyle="round")
-    # CCW (screen) -> head at the left end (a_lo); CW -> head at right (a_hi)
-    if ccw:
-        tip, pre = a_lo, a_lo + math.radians(0.6)
-    else:
-        tip, pre = a_hi, a_hi - math.radians(0.6)
-    ax.annotate("", xy=(tip, r_ind), xytext=(pre, r_ind),
-                arrowprops=dict(arrowstyle="-|>", color="#cc0000",
-                                lw=LW_INDICATOR),
-                annotation_clip=False, zorder=8)
+    # the per-pass rotation indicator sits OUTSIDE the rim; in reduced-text mode
+    # keep the sheet clean (nothing outside the circle), since the advance angle
+    # is already stated inside the circle.
+    if not reduced_text:
+        r_ind = rmax * 1.18  # radius of the indicator arc, beyond the plot edge
+        half = math.radians(abs(shift)) / 2.0
+        a_lo, a_hi = -half, half          # centred on North (top)
+        arc = [a_lo + (a_hi - a_lo) * k / 60 for k in range(61)]
+        ax.plot(arc, [r_ind] * len(arc), color="#cc0000",
+                linewidth=LW_INDICATOR, zorder=7, clip_on=False,
+                solid_capstyle="round")
+        # CCW (screen) -> head at the left end (a_lo); CW -> head at right (a_hi)
+        if ccw:
+            tip, pre = a_lo, a_lo + math.radians(0.6)
+        else:
+            tip, pre = a_hi, a_hi - math.radians(0.6)
+        ax.annotate("", xy=(tip, r_ind), xytext=(pre, r_ind),
+                    arrowprops=dict(arrowstyle="-|>", color="#cc0000",
+                                    lw=LW_INDICATOR),
+                    annotation_clip=False, zorder=8)
     # numeric label sitting above the arc, in the top margin. The node always
     # drifts west geographically; we also state the on-sheet turn sense.
     geo = "west" if west else "east"
     sense = "counter-clockwise" if ccw else "clockwise"
-    fig.text(0.5, 0.862,
-             "rotate sheet %.1f\u00b0 %s (node moves %s) each pass"
-             % (abs(shift), sense, geo),
-             ha="center", va="bottom", fontsize=FS_BIGLABEL, color="#cc0000",
-             fontweight="bold")
+    if not reduced_text:
+        fig.text(0.5, 0.862,
+                 "rotate sheet %.1f\u00b0 %s (node moves %s) each pass"
+                 % (abs(shift), sense, geo),
+                 ha="center", va="bottom", fontsize=FS_BIGLABEL, color="#cc0000",
+                 fontweight="bold")
+
+    if reduced_text:
+        # The only text on this transparency sits INSIDE the circle: the
+        # satellite name and key orbit facts. Place it in the clearest part of
+        # the sheet -- the track's geometry varies a lot with inclination and
+        # hemisphere (prograde tracks climb one side, retrograde the other), so
+        # rather than a fixed angle we find the widest angular gap that the track
+        # (and the red EQX box) leave open, and drop the label at a mid radius
+        # there. This keeps it off the track and off the EQX marker for any orbit.
+        occupied = set()
+        for tth, trho, _m in ticks:
+            # only the mid-band radii matter for a label placed at ~0.6 rmax;
+            # ignore track points very close to the centre or right at the rim
+            if 0.30 * rmax <= trho <= 0.92 * rmax:
+                occupied.add(int(math.degrees(tth)) % 360)
+        # block the wedge around the EQX box (theta 250 N / 290 S, +/-25 deg)
+        eqx_deg = 290 if proj.is_south else 250
+        for d in range(eqx_deg - 28, eqx_deg + 29):
+            occupied.add(d % 360)
+        # also keep clear of the vertical EQX arrow (straight up, theta ~0/360)
+        for d in list(range(0, 12)) + list(range(348, 360)):
+            occupied.add(d % 360)
+        # find the widest contiguous gap of free degrees
+        free = [d for d in range(360) if d not in occupied]
+        best_centre = 200                          # sensible fallback
+        if free:
+            # rotate the circle so gaps don't wrap; scan for the longest run
+            runs = []
+            start = free[0]
+            prev = free[0]
+            for d in free[1:] + [free[0] + 360]:
+                if d == prev + 1:
+                    prev = d
+                else:
+                    runs.append((start, prev))
+                    start = d % 360 if d < 360 else d - 360
+                    prev = d
+            if runs:
+                s, e = max(runs, key=lambda r: r[1] - r[0])
+                best_centre = int(((s + e) / 2.0)) % 360
+        info = ("%s\nincl %.1f\u00b0   \u2022   period %.1f min\n"
+                "advance %.1f\u00b0 %s per pass"
+                % (sat.name, sat.incl, sat.period_min, abs(shift),
+                   "W" if shift < 0 else "E"))
+        ax.text(math.radians(best_centre), rmax * 0.6, info, color="#333333",
+                fontsize=8.5, ha="center", va="center", linespacing=1.5,
+                zorder=9,
+                bbox=dict(boxstyle="round,pad=0.4", fc="white", ec="#cccccc",
+                          lw=0.8, alpha=0.9))
+        pdf.savefig(fig)
+        plt.close(fig)
+        return
 
     if proj.is_polar:
         node = "descending node" if proj.is_south else "ascending node"
@@ -992,14 +1153,7 @@ def _draw_qth_rings_projected(ax, proj, obs, alt_km, rmax, foot_deg):
         # number on the footprint duplicates the base map's elevation rings)
     # km distance rings out to the footprint edge
     foot_km = foot_deg * KM_PER_DEG
-    if foot_km <= 1500:
-        step_km = 500
-    elif foot_km <= 3500:
-        step_km = 1000
-    elif foot_km <= 7000:
-        step_km = 2000
-    else:
-        step_km = 3000
+    step_km = _km_ring_step(foot_km)
     km = step_km
     while km < foot_km - step_km * 0.25:
         rdeg = km / KM_PER_DEG
@@ -1016,32 +1170,33 @@ def _draw_qth_rings_projected(ax, proj, obs, alt_km, rmax, foot_deg):
 
 
 def _base_map_with_footprint_page(pdf, proj, obs, qth_name, segments, rmax,
-                                  foot_deg, sat_name="", alt_km=None):
-    """Combined sheet: the base map plus the satellite footprint drawn at the
-    station's position. The footprint is always centred on the QTH (when the
+                                  foot_deg, sat_name="", alt_km=None,
+                                  reduced_text=False):
+    """Combined sheet: the base map plus the satellite range circle drawn at the
+    station's position. The range circle is always centred on the QTH (when the
     satellite is overhead), so this single sheet shows the coverage directly on
     the map -- no separate transparency needed."""
     fig = plt.figure(figsize=(PAGE_W_IN, PAGE_H_IN))
     foot_km = round(foot_deg * KM_PER_DEG, -1)
     # use non-breaking spaces (\u00a0) inside value+unit groups so the line
     # wrapper never breaks "2240 km", "20.2 deg" or "(~2240 km)" across lines
-    size = "footprint radius %.1f\u00b0 (~%d\u00a0km)" % (foot_deg, foot_km)
+    size = "range-circle radius %.1f\u00b0 (~%d\u00a0km)" % (foot_deg, foot_km)
     if alt_km:
         size += " at %.0f\u00a0km mean altitude" % alt_km
     if proj.is_polar:
         hemi = "southern" if proj.is_south else "northern"
-        _suffix = " \u2014 OSCARLOCATOR \u2014 Map + Footprint at QTH (%s)" % hemi
+        _suffix = " \u2014 OSCARLOCATOR \u2014 Map + Range Circle at QTH (%s)" % hemi
         nm = _fit_sat_name(sat_name, _suffix) if sat_name else ""
         title = (nm + _suffix) if nm else \
-            "OSCARLOCATOR \u2014 Map + Footprint at QTH (%s)" % hemi
-        sub = ("Footprint over %s on the %s polar map \u2014 %s"
+            "OSCARLOCATOR \u2014 Map + Range Circle at QTH (%s)" % hemi
+        sub = ("Range circle over %s on the %s polar map \u2014 %s"
                % (qth_name, hemi, size))
     else:
-        _suffix = " \u2014 OSCARLOCATOR \u2014 Map + Footprint at QTH"
+        _suffix = " \u2014 OSCARLOCATOR \u2014 Map + Range Circle at QTH"
         nm = _fit_sat_name(sat_name, _suffix) if sat_name else ""
         title = (nm + _suffix) if nm else \
-            "OSCARLOCATOR \u2014 Map + Footprint at QTH"
-        sub = ("Footprint over %s (%.3f, %.3f) \u2014 %s"
+            "OSCARLOCATOR \u2014 Map + Range Circle at QTH"
+        sub = ("Range circle over %s (%.3f, %.3f) \u2014 %s"
                % (qth_name, obs.lat, obs.lon, size))
     ax = _polar_axes(fig, title, sub, rmax=rmax, proj=proj)
     _draw_graticule(ax, proj, rmax)
@@ -1078,33 +1233,57 @@ def _base_map_with_footprint_page(pdf, proj, obs, qth_name, segments, rmax,
         _draw_footprint_overlay(ax, foot_deg, rmax, with_rose=False)
         # mark the QTH itself at the centre
         ax.plot([0], [0], marker="*", color="#cc0000", markersize=13, zorder=7)
-    _draw_footer(fig,
-                 "Print on paper or card at 100%. The red circle is the "
-                 "satellite's footprint when it is directly over your station "
-                 "(red star). The base map's spokes give azimuth and the rings "
-                 "inside the footprint give elevation and ground distance to the "
-                 "sub-point. Use the separate path-arc overlay to see when the "
-                 "satellite enters this circle.")
+    if reduced_text:
+        note = (
+            "OSCARLOCATOR \u2014 print this sheet on paper/card at 100%% (actual "
+            "size) and print the path-arc overlay on transparency at 100%%. The "
+            "red circle is the satellite's range circle, centred on your station "
+            "(red star); spokes are azimuth and rim ticks are 1\u00b0. Pin the "
+            "path-arc through the centre, rotate it %s to the node longitude from "
+            "the Crossings List, then %s for each successive pass. The satellite "
+            "is workable while its track is inside the red circle; read AOS/LOS "
+            "where the track crosses it." % (
+                "to", "rotate by the per-pass advance"))
+    else:
+        note = (
+            "Print on paper or card at 100%. The red circle is the satellite's "
+            "range circle when it is directly over your station (red star). The "
+            "base map's spokes give azimuth and the rings inside the circle give "
+            "elevation and ground distance to the sub-point. Use the separate "
+            "path-arc overlay to see when the satellite enters this circle.")
+    _draw_footer(fig, note)
+    _draw_branding(fig)
     pdf.savefig(fig)
     plt.close(fig)
 
 
 def generate_oscarlocator_pdf(path, store, sat, when_unix=None,
-                              projection="qth", footprint_on_qth=False):
+                              projection="qth", footprint_on_qth=False,
+                              reduced_text=False):
     """Write an OSCARLOCATOR PDF for ``sat``.
 
-    Standard output (``footprint_on_qth`` False) is 3 pages: base map, footprint
-    overlay (transparency), orbit/arc overlay (transparency).
+    Standard output (``footprint_on_qth`` False) is 3 pages: base map, range
+    circle overlay (transparency), orbit/arc overlay (transparency).
 
     With ``footprint_on_qth`` True the output is a 2-page set: page 1 is the base
-    map with the satellite footprint drawn directly at the station (no separate
-    footprint transparency needed), and page 2 is the path-arc overlay. Available
-    for both the QTH-centred and the polar maps.
+    map with the satellite range circle drawn directly at the station (no separate
+    transparency needed), and page 2 is the path-arc overlay. Available for both
+    the QTH-centred and the polar maps.
+
+    With ``reduced_text`` True the transparencies are kept visually clean: the
+    base map carries ALL the printed how-to-use instructions, and the overlay
+    sheets put nothing outside their circular area except the azimuth labels --
+    the range-circle transparency just names the satellite unobtrusively inside
+    the circle, and the path-arc transparency lists the satellite name,
+    inclination, period and per-pass advance inside the circle. The base map in
+    this mode is kept generic (no satellite-specific text) so it can be reused
+    with any satellite -- except that, when the range circle is drawn on the QTH
+    map, the satellite name appears inside that circle.
 
     ``projection`` selects the base map:
       * "qth"         - azimuthal-equidistant map centred on the station.
       * "polar"       - North-pole-centred polar great-circle map (PE1RAH
-                        OSCARLATOR style; generic, usable by anyone with the
+                        OSCARLOCATOR style; generic, usable by anyone with the
                         ascending-node EQX list). Best for northern stations.
       * "polar-south" - South-pole-centred version for southern-hemisphere
                         stations; use with the descending-node EQX list.
@@ -1150,17 +1329,20 @@ def generate_oscarlocator_pdf(path, store, sat, when_unix=None,
     segments = _coastline_segments()
     with PdfPages(path) as pdf:
         if footprint_on_qth:
-            # 2-page set: map+footprint, then the path arc
+            # 2-page set: map+range-circle, then the path arc
             _base_map_with_footprint_page(pdf, proj, obs, qth_name, segments,
                                           rmax, foot_deg, sat_name=sat.name,
-                                          alt_km=alt_km)
-            _arc_page(pdf, pred, sat, proj, rmax)
+                                          alt_km=alt_km,
+                                          reduced_text=reduced_text)
+            _arc_page(pdf, pred, sat, proj, rmax, reduced_text=reduced_text)
         else:
-            # standard 3-page set: map, footprint transparency, path arc
+            # standard 3-page set: map, range-circle transparency, path arc
             _base_map_page(pdf, proj, qth_name, segments, rmax,
-                           alt_km=alt_km, sat_name=sat.name)
-            _footprint_page(pdf, sat.name, alt_km, proj, rmax)
-            _arc_page(pdf, pred, sat, proj, rmax)
+                           alt_km=alt_km, sat_name=sat.name,
+                           reduced_text=reduced_text)
+            _footprint_page(pdf, sat.name, alt_km, proj, rmax,
+                            reduced_text=reduced_text)
+            _arc_page(pdf, pred, sat, proj, rmax, reduced_text=reduced_text)
         d = pdf.infodict()
         kind = {"polar": "polar-north", "polar-south": "polar-south"}.get(
             projection, "QTH-centred")

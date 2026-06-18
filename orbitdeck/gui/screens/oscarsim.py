@@ -19,8 +19,8 @@ import math
 import tkinter as tk
 from tkinter import ttk
 
-from . import (Screen, MplPanel, COL_PANEL, COL_TEXT, COL_MUTED, COL_ACCENT,
-               COL_ACCENT2, COL_WARN, COL_GRID, COL_BG, FONT_MONO, fmt_utc,
+from . import (Screen, MplPanel, COL_PANEL, COL_MUTED, COL_ACCENT,
+               COL_ACCENT2, COL_WARN, COL_GRID, FONT_MONO, fmt_utc,
                now_unix)
 from ...data.worldmap_data import COASTLINES
 
@@ -38,6 +38,10 @@ class OscarSimScreen(Screen):
         self._proj_mode = tk.StringVar(value="polar-auto")
         self._eqx_lon = tk.DoubleVar(value=0.0)
         self._minute = tk.DoubleVar(value=0.0)
+        # two independent overlays: the QTH range circle (fixed, centred on the
+        # station) and the satellite's own footprint (its instantaneous coverage
+        # circle at its current sub-point)
+        self._show_range = tk.BooleanVar(value=True)
         self._show_foot = tk.BooleanVar(value=True)
 
         body = ttk.Frame(self.frame, style="TFrame")
@@ -92,7 +96,11 @@ class OscarSimScreen(Screen):
                   style="Muted.TLabel").pack(anchor="w")
 
         ttk.Separator(ctrl, orient="horizontal").pack(fill="x", pady=8, padx=8)
-        ttk.Checkbutton(ctrl, text="Show footprint", variable=self._show_foot,
+        ttk.Checkbutton(ctrl, text="Show QTH range circle",
+                        variable=self._show_range,
+                        command=self._render).pack(anchor="w", padx=14)
+        ttk.Checkbutton(ctrl, text="Show satellite footprint",
+                        variable=self._show_foot,
                         command=self._render).pack(anchor="w", padx=14)
         ttk.Button(ctrl, text="Make printable OSCARLOCATOR\u2026",
                    command=self.make_oscarlocator_pdf).pack(anchor="w",
@@ -309,7 +317,6 @@ class OscarSimScreen(Screen):
             self.map.draw()
             return
         mode = self._resolve_proj()
-        is_south = (mode == "polar-south")
         if mode in ("polar", "polar-south"):
             rmax = 90.0
         else:
@@ -601,21 +608,21 @@ class OscarSimScreen(Screen):
             ax.plot([theta], [rho], marker="o", markersize=9,
                     color=COL_ACCENT2, markeredgecolor="white",
                     markeredgewidth=1.0, zorder=8)
-        if self._show_foot.get():
-            # The QTH range reticle covers the MAX ground distance at which this
+        if self._show_range.get():
+            # The QTH range circle covers the MAX ground distance at which this
             # satellite is ever visible -- i.e. the footprint radius at the
             # satellite's MEAN orbital altitude. This is a fixed circle (it
             # doesn't jitter with the live sub-point altitude).
             reticle = self._footprint_deg(self._mean_alt_km(s))
             self._draw_footprint(ax, mode, rmax, self.store.obs.lat,
                                  self.store.obs.lon, reticle, color="#d29922")
-            # in live view also show the satellite's ACTUAL coverage circle at
-            # its current sub-point (its instantaneous footprint), so you can see
-            # whether your QTH is inside it
-            if live and rho <= rmax:
-                foot = self._footprint_deg(alt)
-                self._draw_footprint(ax, mode, rmax, lat, lon, foot,
-                                     color=COL_ACCENT2, lw=1.2, dashed=True)
+        if self._show_foot.get() and rho <= rmax:
+            # the satellite's ACTUAL coverage circle at its current sub-point
+            # (its instantaneous footprint), so you can see whether your QTH is
+            # inside it. Shown in live mode (true sub-point) and along the arc.
+            foot = self._footprint_deg(alt)
+            self._draw_footprint(ax, mode, rmax, lat, lon, foot,
+                                 color=COL_ACCENT2, lw=1.2, dashed=True)
 
     @staticmethod
     def _mean_alt_km(s):

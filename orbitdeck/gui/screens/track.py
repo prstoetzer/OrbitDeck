@@ -10,7 +10,7 @@ import math
 import tkinter as tk
 from tkinter import ttk
 
-from . import (Screen, MplPanel, COL_PANEL, COL_TEXT, COL_MUTED, COL_ACCENT,
+from . import (Screen, MplPanel, COL_MUTED, COL_ACCENT,
                COL_ACCENT2, COL_WARN, COL_GRID, FONT_MONO, FONT_BIG,
                fmt_hms, fmt_utc, now_unix, compass)
 

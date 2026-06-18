@@ -40,7 +40,6 @@ def _draw_sky_polar(ax, pred, p, n=80):
     matching the on-screen Pass Detail view: N-up, clockwise, radius 90deg
     (zenith) at centre to 0deg (horizon) at the rim, AOS = green circle,
     LOS = orange square."""
-    import math
     azs, els = [], []
     for i in range(n + 1):
         tt = p.aos + (p.los - p.aos) * i / n
@@ -854,7 +853,6 @@ def _draw_mutual_station_polar(ax, pred, w, n=120):
     """Draw a station's full pass containing mutual window ``w`` on polar axes,
     with the mutually-visible portion highlighted in orange. ``pred`` must be a
     Predictor for that station with the satellite already set."""
-    import math
     # find the full-pass bounds (walk outward from the window while up)
     step = 10.0
     aos = w.start

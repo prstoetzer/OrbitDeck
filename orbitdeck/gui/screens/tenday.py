@@ -7,14 +7,12 @@ its time-of-day, its width = duration, shaded by max elevation. The whole thing
 is vertically scrollable so you can keep adding days and scroll through them.
 """
 
-import math
 import datetime as dt
 import tkinter as tk
 from tkinter import ttk
 
-from . import (Screen, COL_BG, COL_PANEL, COL_TEXT, COL_MUTED, COL_ACCENT,
-               COL_ACCENT2, COL_WARN, COL_GRID, FONT_MONO,
-               fmt_hms, fmt_utc, now_unix, compass, autohide_scrollbar)
+from . import (Screen, COL_BG, COL_PANEL, COL_MUTED, COL_ACCENT,
+               COL_ACCENT2, COL_GRID, fmt_hms, fmt_utc, now_unix, compass, autohide_scrollbar)
 
 
 def _el_color(el):

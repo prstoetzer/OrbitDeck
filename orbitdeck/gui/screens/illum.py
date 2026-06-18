@@ -14,8 +14,7 @@ import tkinter as tk
 from tkinter import ttk
 import numpy as np
 
-from . import (Screen, MplPanel, TabBar, COL_TEXT, COL_MUTED, COL_ACCENT,
-               COL_ACCENT2, COL_WARN, COL_GRID, now_unix, fmt_utc,
+from . import (Screen, MplPanel, TabBar, COL_TEXT, now_unix, fmt_utc,
                make_scrolled_tree)
 from .. import exports as EX
 

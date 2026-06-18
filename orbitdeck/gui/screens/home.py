@@ -13,9 +13,9 @@ import math
 import tkinter as tk
 from tkinter import ttk
 
-from . import (Screen, MplPanel, COL_BG, COL_PANEL, COL_TEXT, COL_MUTED,
-               COL_ACCENT, COL_ACCENT2, COL_WARN, COL_GRID, FONT_MONO,
-               fmt_hms, fmt_utc, now_unix, compass, autohide_scrollbar)
+from . import (Screen, MplPanel, COL_PANEL, COL_TEXT, COL_MUTED,
+               COL_ACCENT, COL_ACCENT2, COL_WARN, FONT_MONO,
+               fmt_hms, fmt_utc, now_unix, autohide_scrollbar)
 from ..mapdraw import draw_basemap
 from ...engine import Predictor
 from ...engine.predict import _sun_eci_unit, _gmst_rad, jd_of

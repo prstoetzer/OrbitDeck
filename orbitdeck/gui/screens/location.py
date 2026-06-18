@@ -1,15 +1,33 @@
-"""location.py - set the observer site by lat/lon/alt or Maidenhead grid."""
+"""location.py - set the observer site by lat/lon/alt or Maidenhead grid,
+plus an About tab with credits and project/AMSAT links."""
 
 import tkinter as tk
+import webbrowser
 from tkinter import ttk, messagebox
 
-from . import Screen, COL_TEXT, COL_MUTED, COL_ACCENT, FONT_MONO
+from . import Screen, TabBar, COL_ACCENT
+
+
+GITHUB_URL = "https://github.com/prstoetzer/OrbitDeck"
+AMSAT_URL = "https://www.amsat.org"
 
 
 class LocationScreen(Screen):
     def build(self):
-        self.header("Settings \u2014 observer site")
-        panel = ttk.Frame(self.frame, style="Panel.TFrame")
+        self.header("Settings")
+        tabs = TabBar(self.frame)
+        self._t_settings = tabs.add("Observer & preferences")
+        self._t_about = tabs.add("About")
+        tabs.pack(fill="both", expand=True)
+        self._build_settings(self._t_settings)
+        self._build_about(self._t_about)
+
+    def _build_settings(self, parent):
+        self._parent = parent
+        ttk.Label(parent, text="Observer site", style="TLabel",
+                  font=("DejaVu Sans", 12, "bold")).pack(
+            anchor="w", padx=16, pady=(10, 2))
+        panel = ttk.Frame(parent, style="Panel.TFrame")
         panel.pack(fill="x", padx=16, pady=10)
 
         self.lat = tk.StringVar()
@@ -32,23 +50,86 @@ class LocationScreen(Screen):
         ttk.Separator(panel, orient="horizontal").pack(fill="x", pady=8)
         row("Maidenhead grid", self.grid, "e.g. FM29nw")
 
-        btns = ttk.Frame(self.frame, style="TFrame")
+        btns = ttk.Frame(parent, style="TFrame")
         btns.pack(fill="x", padx=16, pady=8)
         ttk.Button(btns, text="Apply lat/lon/alt",
                    command=self._apply_latlon).pack(side="left")
         ttk.Button(btns, text="Apply grid",
                    command=self._apply_grid).pack(side="left", padx=8)
         self.info = tk.StringVar(value="")
-        ttk.Label(self.frame, textvariable=self.info,
+        ttk.Label(parent, textvariable=self.info,
                   style="MutedBg.TLabel").pack(
             anchor="w", padx=16, pady=6)
 
-        self._build_gp_source()
-        self._build_pass_prefs()
+        self._build_gp_source(parent)
+        self._build_pass_prefs(parent)
 
-    def _build_pass_prefs(self):
-        self.header("Pass prediction")
-        panel = ttk.Frame(self.frame, style="Panel.TFrame")
+    def _build_about(self, parent):
+        wrap = ttk.Frame(parent, style="TFrame")
+        wrap.pack(fill="both", expand=True, padx=20, pady=16)
+
+        ttk.Label(wrap, text="OrbitDeck", style="TLabel",
+                  font=("DejaVu Sans", 18, "bold")).pack(anchor="w")
+        from ... import __version__
+        ttk.Label(wrap, text="Version %s" % __version__,
+                  style="Muted.TLabel").pack(anchor="w", pady=(0, 10))
+
+        ttk.Label(wrap,
+                  text="A cross-platform desktop tracker and orbital-analysis "
+                       "tool for amateur radio satellites.",
+                  style="TLabel", wraplength=560, justify="left").pack(
+            anchor="w", pady=(0, 12))
+
+        ttk.Label(wrap, text="Author", style="TLabel",
+                  font=("DejaVu Sans", 11, "bold")).pack(anchor="w")
+        ttk.Label(wrap, text="Paul Stoetzer, N8HM",
+                  style="TLabel").pack(anchor="w", pady=(0, 10))
+
+        ttk.Label(wrap, text="Project", style="TLabel",
+                  font=("DejaVu Sans", 11, "bold")).pack(anchor="w")
+        self._link(wrap, GITHUB_URL, GITHUB_URL)
+        ttk.Label(wrap,
+                  text="Source code, issue tracker, and releases.",
+                  style="Muted.TLabel").pack(anchor="w", pady=(0, 12))
+
+        ttk.Separator(wrap, orient="horizontal").pack(fill="x", pady=8)
+
+        ttk.Label(wrap, text="Support AMSAT", style="TLabel",
+                  font=("DejaVu Sans", 11, "bold")).pack(anchor="w",
+                                                         pady=(4, 2))
+        ttk.Label(
+            wrap,
+            text="If you find OrbitDeck useful, please consider joining and/or "
+                 "donating to AMSAT \u2014 the Radio Amateur Satellite "
+                 "Corporation. AMSAT is a volunteer, member-supported non-profit "
+                 "that designs, builds, and helps launch the amateur radio "
+                 "satellites this program is built to track, and works to keep "
+                 "amateur radio in space. Your membership and donations directly "
+                 "fund the next generation of satellites.",
+            style="TLabel", wraplength=560, justify="left").pack(
+            anchor="w", pady=(0, 6))
+        self._link(wrap, "www.amsat.org", AMSAT_URL)
+
+    def _link(self, parent, text, url):
+        from . import COL_BG
+        lbl = tk.Label(parent, text=text, fg=COL_ACCENT, bg=COL_BG,
+                       cursor="hand2",
+                       font=("DejaVu Sans", 10, "underline"))
+        lbl.pack(anchor="w", pady=(0, 2))
+        lbl.bind("<Button-1>", lambda _e: self._open(url))
+
+    def _open(self, url):
+        try:
+            webbrowser.open(url)
+        except Exception:
+            pass
+
+    def _build_pass_prefs(self, parent=None):
+        parent = parent or self.frame
+        ttk.Label(parent, text="Pass prediction", style="TLabel",
+                  font=("DejaVu Sans", 12, "bold")).pack(
+            anchor="w", padx=16, pady=(10, 2))
+        panel = ttk.Frame(parent, style="Panel.TFrame")
         panel.pack(fill="x", padx=16, pady=10)
         r = ttk.Frame(panel, style="Panel.TFrame")
         r.pack(fill="x", padx=14, pady=6)
@@ -63,7 +144,7 @@ class LocationScreen(Screen):
                    command=self._apply_minel).pack(side="left", padx=14,
                                                    pady=(2, 10))
         self.minel_info = tk.StringVar(value="")
-        ttk.Label(self.frame, textvariable=self.minel_info,
+        ttk.Label(parent, textvariable=self.minel_info,
                   style="MutedBg.TLabel").pack(anchor="w", padx=16, pady=(0, 6))
 
     def _apply_minel(self):
@@ -80,10 +161,13 @@ class LocationScreen(Screen):
         self.minel_info.set("Minimum elevation set to %g\u00b0. Applied to pass "
                             "tables and reports." % v)
 
-    def _build_gp_source(self):
+    def _build_gp_source(self, parent=None):
+        parent = parent or self.frame
         from ..store import CELESTRAK_GROUPS
-        self.header("GP element source")
-        panel = ttk.Frame(self.frame, style="Panel.TFrame")
+        ttk.Label(parent, text="GP element source", style="TLabel",
+                  font=("DejaVu Sans", 12, "bold")).pack(
+            anchor="w", padx=16, pady=(10, 2))
+        panel = ttk.Frame(parent, style="Panel.TFrame")
         panel.pack(fill="x", padx=16, pady=10)
 
         r1 = ttk.Frame(panel, style="Panel.TFrame")
@@ -117,14 +201,14 @@ class LocationScreen(Screen):
         self.gp_url_entry = ttk.Entry(r3, textvariable=self.gp_url, width=40)
         self.gp_url_entry.pack(side="left")
 
-        b = ttk.Frame(self.frame, style="TFrame")
+        b = ttk.Frame(parent, style="TFrame")
         b.pack(fill="x", padx=16, pady=(0, 4))
         ttk.Button(b, text="Save GP source",
                    command=self._save_gp_source).pack(side="left")
         self.gp_info = tk.StringVar(value="")
         ttk.Label(b, textvariable=self.gp_info, style="MutedBg.TLabel").pack(
             side="left", padx=12)
-        ttk.Label(self.frame,
+        ttk.Label(parent,
                   text="Note: CelesTrak rate-limits requests and updates data "
                        "at most every 2 hours. If an update fails, wait a while "
                        "or use AMSAT.",

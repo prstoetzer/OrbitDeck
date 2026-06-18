@@ -5,10 +5,10 @@ Thanks for your interest in improving OrbitDeck!
 ## Development setup
 
 ```bash
-git clone https://github.com/prstoetzer/orbitdeck
-cd orbitdeck
+git clone https://github.com/prstoetzer/OrbitDeck
+cd OrbitDeck
 python -m venv .venv && source .venv/bin/activate   # Windows: .venv\Scripts\activate
-pip install -e ".[dev,full]"
+pip install -e ".[dev]"      # add ,full for the optional sgp4 + cartopy + openpyxl extras
 ```
 
 Run the app:
@@ -37,11 +37,15 @@ ruff check orbitdeck
 
 ## Architecture
 
+See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for a full orientation. In brief:
+
 - `orbitdeck/engine/` — the portable orbital core (no GUI imports). If you can
-  do it without Tkinter, it probably belongs here.
+  do it without Tkinter, it probably belongs here. The propagator backend
+  (`engine/propagator.py`) picks the optional `sgp4` package when present and
+  otherwise uses the bundled pure-Python `sgp4_lite.py`.
 - `orbitdeck/gui/` — the Tkinter app; one module per screen under
-  `gui/screens/`. Screens subclass `Screen` and override `build/on_show/
-  on_hide/on_tick`.
+  `gui/screens/`. Screens subclass `Screen` and build into `self.frame`, reading
+  shared state through the single `Store` (`gui/store.py`).
 - `orbitdeck/data/` — bundled offline catalog and the simplified coastline.
 
 ## Scope
