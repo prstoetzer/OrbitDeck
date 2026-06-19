@@ -19,8 +19,7 @@ Depends: ${python3:Depends},
          python3-matplotlib,
          python3-numpy,
          python3-certifi
-Recommends: python3-sgp4, python3-openpyxl
-Suggests: python3-cartopy
+Recommends: python3-sgp4, python3-cartopy, python3-openpyxl
 Description: desktop satellite tracking and orbital analysis for amateur radio
  OrbitDeck is a desktop application for satellite tracking and orbital
  analysis, built for amateur-radio operators who work the birds. It provides

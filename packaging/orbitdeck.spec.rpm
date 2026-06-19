@@ -28,6 +28,7 @@ Requires:       python3-matplotlib
 Requires:       python3-numpy
 Requires:       python3-certifi
 Recommends:     python3-sgp4
+Recommends:     python3-cartopy
 Recommends:     python3-openpyxl
 
 %description

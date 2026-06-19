@@ -16,10 +16,15 @@ installed**.
 # from the repo root, ideally in a clean virtual environment
 python -m venv .venv
 source .venv/bin/activate            # Windows: .venv\Scripts\activate
-pip install -e .                     # install OrbitDeck + its dependencies
+pip install -e ".[full]"             # OrbitDeck + ALL optional dependencies
 pip install pyinstaller
 pyinstaller orbitdeck.spec
 ```
+
+> **Always build with `[full]`.** A standalone bundle should include every
+> optional dependency (`sgp4`, `cartopy`, `openpyxl`) so the shipped app has the
+> C-accelerated propagator, high-resolution coastlines, and native `.xlsx`
+> export baked in — end users of a frozen build can't add extras themselves.
 
 The bundle appears in `dist/OrbitDeck/` (a one-folder app). Launch it with:
 

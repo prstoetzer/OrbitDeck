@@ -22,6 +22,9 @@
   helpers — Arch `PKGBUILD`, an RPM spec (`orbitdeck.spec.rpm`), a Debian
   packaging tree (`debian/`), a freedesktop `.desktop` launcher, and AppStream
   metainfo — with instructions for `.deb`, `.rpm`, Arch, AppImage, and Flatpak.
+  Build and packaging instructions always install the **full optional set**
+  (`sgp4`, `cartopy`, `openpyxl`): PyInstaller/AppImage/Flatpak build with
+  `[full]`, and the deb/rpm recommend all three so they install by default.
 - **`docs/ENGINE.md`** — complete API documentation for the headless
   `orbitdeck.engine` (SatDb, Predictor, the dataclasses, and the `analysis`,
   `linkbudget`, `planning`, and `celestial` submodules), with conventions and a

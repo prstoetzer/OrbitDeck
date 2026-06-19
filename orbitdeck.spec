@@ -4,9 +4,13 @@ PyInstaller spec for OrbitDeck.
 
 Build (run on the OS you want to target -- PyInstaller does NOT cross-compile):
 
+    pip install -e ".[full]"     # OrbitDeck + ALL optional deps (sgp4, cartopy, openpyxl)
     pip install pyinstaller
     pyinstaller orbitdeck.spec
 
+A standalone bundle should always be built with the [full] extras so the shipped
+app includes the C-accelerated propagator, high-resolution coastlines, and native
+xlsx export.
 Output goes to dist/OrbitDeck/ (a one-folder bundle) or dist/OrbitDeck(.exe)
 for the one-file variant. See packaging/BUILD.md for details and per-platform
 notes (icons, code signing, installers).

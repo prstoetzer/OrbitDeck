@@ -82,7 +82,7 @@ installs cleanly from wheels — no system libraries needed).
 
 ```powershell
 pip install pyinstaller
-pip install -e ".[full]"        # bundle the extras you want included
+pip install -e ".[full]"        # always build with ALL optional dependencies
 pyinstaller orbitdeck.spec
 ```
 
@@ -263,9 +263,10 @@ pip install -e ".[full]"
 
 ### 3. Build / package
 
-For a standalone bundle: `pip install pyinstaller && pyinstaller orbitdeck.spec`.
-For a real Arch package, a ready-to-use **`PKGBUILD`** is provided — see the
-[packaging guide](../packaging/PACKAGING.md).
+For a standalone bundle: `pip install -e ".[full]" && pip install pyinstaller && pyinstaller orbitdeck.spec`
+(always build with the full extras so the bundle ships sgp4 + cartopy +
+openpyxl). For a real Arch package, a ready-to-use **`PKGBUILD`** is provided —
+see the [packaging guide](../packaging/PACKAGING.md).
 
 ---
 
@@ -310,10 +311,16 @@ PyInstaller works on the Pi and produces an **ARM** binary (runs on Pi only, not
 x86):
 
 ```bash
+pip install -e ".[full]"        # always build with all optional dependencies
 pip install pyinstaller
 pyinstaller orbitdeck.spec
 ./dist/OrbitDeck/OrbitDeck
 ```
+
+> On ARM, the `cartopy` part of `[full]` needs the GEOS/PROJ dev packages
+> (`sudo apt install libgeos-dev libproj-dev`) and can take a while to build. If
+> you only need a quick bundle, `pip install -e ".[accurate,excel]"` ships the
+> propagator and `.xlsx` extras and falls back to the bundled coastlines.
 
 ---
 

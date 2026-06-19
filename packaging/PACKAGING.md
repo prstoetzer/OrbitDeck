@@ -13,6 +13,13 @@ These produce packages that depend on the **distro's** Python packages
 (matplotlib, numpy, tkinter). For a self-contained bundle that needs no system
 Python at all, use the [PyInstaller build](BUILD.md) instead.
 
+> **The full optional set is included by default.** Every packaging route here
+> pulls in `sgp4`, `cartopy`, and `openpyxl` as well as the required packages —
+> as `Recommends` (deb/rpm, installed by default), `optdepends` (Arch), or
+> bundled modules (AppImage/Flatpak/PyInstaller `[full]`) — so a normal install
+> gets the C-accelerated propagator, high-resolution coastlines, and native
+> `.xlsx` export.
+
 Helper files referenced below live in this `packaging/` directory:
 
 | File | Purpose |
@@ -49,13 +56,15 @@ dpkg-buildpackage -us -uc -b      # -b = binary only, unsigned
 The `.deb` is written to the **parent** directory. Install and run:
 
 ```bash
-sudo apt install ../orbitdeck_0.35.0-1_all.deb   # pulls deps automatically
+sudo apt install ../orbitdeck_0.35.0-1_all.deb   # pulls deps + the full optional set
 orbitdeck
 ```
 
 The package depends on `python3-tk`, `python3-matplotlib`, `python3-numpy`, and
-`python3-certifi`, and **recommends** `python3-sgp4` / `python3-openpyxl`
-(installed by default on Ubuntu/Debian unless you pass `--no-install-recommends`).
+`python3-certifi`, and **recommends the full optional set** — `python3-sgp4`,
+`python3-cartopy`, and `python3-openpyxl` — which `apt` installs by default
+(unless you pass `--no-install-recommends`), so a normal install gets the
+C-accelerated propagator, high-resolution coastlines, and native `.xlsx` export.
 
 > The provided `debian/source/format` is `3.0 (native)`, which is simplest for
 > in-tree builds. For an official upload to a Debian/Ubuntu archive you'd switch
@@ -91,7 +100,9 @@ orbitdeck
 ```
 
 It requires `python3-tkinter`, `python3-matplotlib`, `python3-numpy`,
-`python3-certifi`, and recommends `python3-sgp4` / `python3-openpyxl`.
+`python3-certifi`, and **recommends the full optional set** (`python3-sgp4`,
+`python3-cartopy`, `python3-openpyxl`), which dnf installs by default with weak
+dependencies enabled.
 
 > Building from a local checkout instead of a tag? Just tar the working tree
 > with the matching `OrbitDeck-<version>/` prefix into
@@ -111,8 +122,17 @@ orbitdeck
 ```
 
 `makepkg` produces `orbitdeck-0.35.0-1-any.pkg.tar.zst`. The recipe pulls
-`tk`, `python-matplotlib`, `python-numpy`, and `python-certifi`, and lists
-`python-sgp4` / `python-cartopy` / `python-openpyxl` as optional depends.
+`tk`, `python-matplotlib`, `python-numpy`, and `python-certifi` as hard
+dependencies, and lists `python-sgp4` / `python-cartopy` / `python-openpyxl` as
+`optdepends`. On Arch, optdepends are **not** auto-installed, so to get the full
+optional set install them alongside the package:
+
+```bash
+sudo pacman -S python-sgp4 python-cartopy python-openpyxl
+```
+
+(Or, for a build that always carries them, move those three from `optdepends`
+into `depends` in the `PKGBUILD`.)
 
 > The default `PKGBUILD` fetches the release tarball for tag `v$pkgver` and uses
 > `sha256sums=('SKIP')`. For a real AUR submission, replace `SKIP` with the
@@ -172,8 +192,9 @@ finish-args:
   - --device=dri
   - --filesystem=home        # save printable PDFs / CSV exports, ~/.orbitdeck
 modules:
-  # matplotlib, numpy, certifi (+ optional sgp4/openpyxl) as python3 pip modules,
-  # then OrbitDeck itself:
+  # Required: matplotlib, numpy, certifi. Plus the full optional set — sgp4,
+  # cartopy, openpyxl — so the Flatpak ships with the C-accelerated propagator,
+  # high-resolution coastlines, and native xlsx export. Then OrbitDeck itself:
   - name: orbitdeck
     buildsystem: simple
     build-commands:
