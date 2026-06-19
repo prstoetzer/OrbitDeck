@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.32.3]
+
+### Fixed
+- On the **clean (transparency-set) OSCARLOCATOR polar base map**, the 0°
+  longitude label at the bottom no longer touches the explanatory note. That
+  sheet carries the full how-to-use text for the whole set, which wrapped to six
+  lines and reached up into the label. The note is now tightened and wrapped to
+  a wider measure so it occupies fewer lines — lowering its top edge to clear
+  the label — while its baseline (and the OrbitDeck/author credit beneath it)
+  stays put, well inside the printer's safe bottom margin.
+
 ## [0.32.2]
 
 ### Fixed

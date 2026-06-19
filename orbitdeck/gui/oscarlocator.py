@@ -157,11 +157,13 @@ def _draw_title(fig, title, subtitle):
                  fontsize=FS_SUBTITLE, color="#222222", linespacing=1.3)
 
 
-def _draw_footer(fig, note, y=0.072):
+def _draw_footer(fig, note, y=0.072, width_frac=TEXT_W):
     """Draw a centred footer note wrapped to the page margins. The baseline sits
     a little above the very bottom so the OrbitDeck/author credit can occupy the
-    bottom band without colliding (both stay inside the printer's safe area)."""
-    wrapped = _wrap_to_width(note, FS_NOTE)
+    bottom band without colliding (both stay inside the printer's safe area).
+    A wider ``width_frac`` lets a long note wrap to fewer lines, so its top edge
+    stays clear of map labels at the bottom of the sheet."""
+    wrapped = _wrap_to_width(note, FS_NOTE, width_frac=width_frac)
     fig.text(0.5, y, wrapped, ha="center", va="bottom", fontsize=FS_NOTE,
              color="#333333", linespacing=1.3)
 
@@ -609,15 +611,20 @@ def _base_map_page(pdf, proj, qth_name, segments, rmax, alt_km=None,
         # the transparencies can stay clean
         if proj.is_polar:
             note = (
-                "OSCARLOCATOR \u2014 print this base map on paper/card at 100%% "
-                "(actual size); print the range-circle and path-arc overlays on "
-                "transparency film at 100%%. Centre is the %s Pole; rings are "
-                "latitude (15\u00b0), spokes are longitude, rim ticks are 1\u00b0. "
-                "Align overlay centres on the pole. Rotate the path-arc to the "
-                "ascending-node longitude from the Crossings List; the satellite "
-                "is workable while its track is inside the range circle. Read "
-                "AOS/LOS where the track crosses the circle; the rim ticks give "
-                "azimuth." % pole)
+                "Print this base map on paper/card and the range-circle and "
+                "path-arc overlays on transparency film, all at 100%% (actual "
+                "size). Centre is the %s Pole; rings are latitude (15\u00b0), "
+                "spokes are longitude, rim ticks 1\u00b0. Align overlay centres "
+                "on the pole; rotate the path-arc to the ascending-node longitude "
+                "from the Crossings List. The satellite is workable while its "
+                "track is inside the range circle \u2014 read AOS/LOS where it "
+                "crosses." % pole)
+            # the polar sheet puts 0 deg longitude at the BOTTOM, right above the
+            # note. Widen the note so it wraps to fewer lines: the block grows
+            # UPWARD from a fixed baseline, so fewer lines lowers its TOP edge and
+            # clears the 0 deg label -- without moving the baseline down toward the
+            # branding / the printer's unprintable bottom margin.
+            _draw_footer(fig, note, width_frac=0.96)
         else:
             note = (
                 "OSCARLOCATOR \u2014 print this base map on paper/card at 100% "
@@ -627,7 +634,7 @@ def _base_map_page(pdf, proj, qth_name, segments, rmax, alt_km=None,
                 "The satellite is workable while its ground track (path-arc) is "
                 "inside the range circle; read AOS/LOS where the track crosses "
                 "the circle.")
-        _draw_footer(fig, note)
+            _draw_footer(fig, note)
         _draw_branding(fig)
         pdf.savefig(fig)
         plt.close(fig)
