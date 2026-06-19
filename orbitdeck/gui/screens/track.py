@@ -330,7 +330,23 @@ class TrackScreen(Screen):
         if L.visible:
             ax.plot([math.radians(L.az)], [L.el], "o", color=COL_ACCENT2,
                     markersize=9)
+        else:
+            # below the horizon: park a faint marker at the horizon rim in the
+            # satellite's compass direction with a down-triangle label, matching
+            # the Sun/Moon sky view convention (rather than omitting it)
+            sthe = math.radians(L.az)
+            ax.plot([sthe], [2.0], "o", color=COL_ACCENT2, markersize=6,
+                    alpha=0.4, clip_on=False)
+            ax.annotate("\u25bc", (sthe, 0), color=COL_MUTED, fontsize=8,
+                        ha="center", va="bottom",
+                        xytext=(0, 3), textcoords="offset points",
+                        annotation_clip=False)
         if L.sun_el > 0:
             ax.plot([math.radians(L.sun_az)], [L.sun_el], "o",
                     color=COL_WARN, markersize=7)
+        else:
+            # below-horizon Sun parked at the rim too, for consistency
+            sthe = math.radians(L.sun_az)
+            ax.plot([sthe], [2.0], "o", color=COL_WARN, markersize=5,
+                    alpha=0.35, clip_on=False)
         self.mpl.draw()

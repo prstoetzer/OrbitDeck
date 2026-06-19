@@ -25,6 +25,9 @@ _SLIDERS = [
     ("Mean anomaly", "ma", 0.0, 360.0, "\u00b0", 0.1),
 ]
 
+# field -> snap resolution, so a dragged slider lands on clean values
+_RES = {field: res for (_lbl, field, _lo, _hi, _u, res) in _SLIDERS}
+
 # named preset orbits for the gallery: field dict (no name)
 PRESETS = {
     "ISS-like LEO": {"alt_km": 420.0, "ecc": 0.0, "incl": 51.6,
@@ -86,6 +89,9 @@ class LabDialog:
         self._building = True
         self._vars = {}                # field -> DoubleVar
         self._entries = {}             # field -> StringVar
+        self._getters = {}             # field -> callable returning current val
+        self._fmts = {}                # field -> formatter callable
+        self._emit_after = None        # pending debounced render handle
 
         self.win = tk.Toplevel(parent)
         self.win.title("Lab satellite \u2014 orbital elements")
@@ -132,29 +138,30 @@ class LabDialog:
         sf = tk.Frame(self.win, bg=COL_BG)
         sf.pack(fill="x", pady=4, **pad)
         for (label, field, lo, hi, unit, res) in _SLIDERS:
-            row = tk.Frame(sf, bg=COL_BG)
-            row.pack(fill="x", pady=3)
-            head = tk.Frame(row, bg=COL_BG)
-            head.pack(fill="x")
-            tk.Label(head, text=label, bg=COL_BG, fg=COL_TEXT,
-                     font=("DejaVu Sans", 9)).pack(side="left")
-            tk.Label(head, text=unit, bg=COL_BG, fg=COL_MUTED,
-                     font=("DejaVu Sans", 8)).pack(side="left", padx=4)
-            evar = tk.StringVar()
-            e = tk.Entry(head, textvariable=evar, width=9, bg=COL_PANEL,
-                         fg=COL_ACCENT, insertbackground=COL_TEXT,
-                         relief="flat", justify="right",
-                         highlightthickness=1, highlightbackground=COL_GRID)
-            e.pack(side="right")
-            e.bind("<Return>", lambda _e, f=field: self._on_entry(f))
-            e.bind("<FocusOut>", lambda _e, f=field: self._on_entry(f))
-            self._entries[field] = evar
-            dvar = tk.DoubleVar(value=self.el[field])
-            sc = ttk.Scale(row, from_=lo, to=hi, variable=dvar,
-                           style="Accent.Horizontal.TScale",
-                           command=lambda _v, f=field: self._on_slider(f))
-            sc.pack(fill="x")
-            self._vars[field] = dvar
+            self._build_slider_row(
+                sf, label, lo, hi, unit, self.el[field],
+                getter=lambda f=field: self.el[f],
+                fmt=lambda v, f=field: self._fmt(f, v),
+                on_slide=lambda v, f=field: self._on_slider_value(f, v),
+                on_type=lambda v, f=field: self._on_entry_value(f, v),
+                key=field)
+
+        # Apogee / perigee as sliders too (like the other parameters), each with
+        # a linked entry. They are not independent elements -- they map to mean
+        # altitude + eccentricity -- so moving either solves back for alt/ecc and
+        # the pair re-syncs. Ranges span the altitude limits.
+        for key, label in (("apogee", "Apogee altitude"),
+                           ("perigee", "Perigee altitude")):
+            apo0, peri0 = lab.apsides_from_alt_ecc(self.el["alt_km"],
+                                                   self.el["ecc"])
+            cur = apo0 if key == "apogee" else peri0
+            self._build_slider_row(
+                sf, label, lab.ALT_MIN_KM, lab.ALT_MAX_KM, "km", cur,
+                getter=lambda k=key: self._apsis_value(k),
+                fmt=lambda v: "%.0f" % v,
+                on_slide=lambda v, k=key: self._on_apsis_value(k, v),
+                on_type=lambda v, k=key: self._on_apsis_value(k, v),
+                key=key)
 
         # explainer line
         self._explain = tk.StringVar(value="")
@@ -188,12 +195,58 @@ class LabDialog:
         ttk.Button(af, text="Save as manual satellite",
                    command=self._on_save_click).pack(side="right")
 
+    # ---- slider row builder ----
+    def _build_slider_row(self, parent, label, lo, hi, unit, value,
+                          getter, fmt, on_slide, on_type, key):
+        """Build one labelled slider + linked entry box. ``key`` indexes the
+        widget dicts; ``getter`` returns the current value for syncing; ``fmt``
+        formats it; ``on_slide``/``on_type`` receive a float value."""
+        row = tk.Frame(parent, bg=COL_BG)
+        row.pack(fill="x", pady=3)
+        head = tk.Frame(row, bg=COL_BG)
+        head.pack(fill="x")
+        tk.Label(head, text=label, bg=COL_BG, fg=COL_TEXT,
+                 font=("DejaVu Sans", 9)).pack(side="left")
+        tk.Label(head, text=unit, bg=COL_BG, fg=COL_MUTED,
+                 font=("DejaVu Sans", 8)).pack(side="left", padx=4)
+        evar = tk.StringVar(value=fmt(value))
+        e = tk.Entry(head, textvariable=evar, width=9, bg=COL_PANEL,
+                     fg=COL_ACCENT, insertbackground=COL_TEXT, relief="flat",
+                     justify="right", highlightthickness=1,
+                     highlightbackground=COL_GRID)
+        e.pack(side="right")
+
+        def _typed(_e=None):
+            if self._building:
+                return
+            try:
+                v = float(evar.get())
+            except ValueError:
+                evar.set(fmt(getter()))
+                return
+            on_type(v)
+        e.bind("<Return>", _typed)
+        e.bind("<FocusOut>", _typed)
+        self._entries[key] = evar
+        dvar = tk.DoubleVar(value=value)
+        sc = ttk.Scale(row, from_=lo, to=hi, variable=dvar,
+                       style="Accent.Horizontal.TScale",
+                       command=lambda _v, k=key: (
+                           None if self._building else on_slide(
+                               self._vars[k].get())))
+        sc.pack(fill="x")
+        self._vars[key] = dvar
+        self._getters[key] = getter
+        self._fmts[key] = fmt
+
     # ---- value plumbing ----
     def _sync_all_from_el(self):
-        for field, dvar in self._vars.items():
-            dvar.set(self.el[field])
-        for field, evar in self._entries.items():
-            evar.set(self._fmt(field, self.el[field]))
+        """Push the current elements out to every slider + entry (including the
+        derived apogee/perigee rows)."""
+        for key, dvar in self._vars.items():
+            val = self._getters[key]()
+            dvar.set(val)
+            self._entries[key].set(self._fmts[key](val))
         self._name.set(self.el["name"])
 
     @staticmethod
@@ -204,30 +257,73 @@ class LabDialog:
             return "%.0f" % val
         return "%.1f" % val
 
-    def _on_slider(self, field):
-        if self._building:
-            return
-        val = self._vars[field].get()
+    @staticmethod
+    def _snap(field, val):
+        """Round a raw slider value to that field's resolution so it's easy to
+        land on the value you want."""
+        res = _RES.get(field)
+        if not res:
+            return val
+        return round(val / res) * res
+
+    def _on_slider_value(self, field, val):
+        val = self._snap(field, val)
         self.el[field] = val
-        self._entries[field].set(self._fmt(field, val))
+        self.el = lab.clamp_elements(self.el)
+        self._entries[field].set(self._fmt(field, self.el[field]))
+        self._explain.set(lab.explain(field, self.el))
+        self._sync_apsides()
+        self._update_derived()
+        # heavy sim re-render is coalesced so dragging stays smooth
+        self._emit(debounce=True)
+
+    def _on_entry_value(self, field, val):
+        self.el = lab.clamp_elements({**self.el, field: val})
+        self._sync_all_from_el()
         self._explain.set(lab.explain(field, self.el))
         self._update_derived()
         self._emit()
 
-    def _on_entry(self, field):
-        if self._building:
-            return
-        try:
-            val = float(self._entries[field].get())
-        except ValueError:
-            self._entries[field].set(self._fmt(field, self.el[field]))
-            return
-        self.el = lab.clamp_elements({**self.el, field: val})
-        self._vars[field].set(self.el[field])
-        self._entries[field].set(self._fmt(field, self.el[field]))
-        self._explain.set(lab.explain(field, self.el))
+    # ---- apogee / perigee sliders (map to alt_km + ecc) ----
+    def _apsis_value(self, which):
+        apo, peri = lab.apsides_from_alt_ecc(self.el["alt_km"], self.el["ecc"])
+        return apo if which == "apogee" else peri
+
+    def _on_apsis_value(self, which, val):
+        """An apogee or perigee slider/entry moved: combine with the OTHER apsis
+        (held fixed) to solve back for mean altitude + eccentricity."""
+        val = round(val)
+        apo, peri = lab.apsides_from_alt_ecc(self.el["alt_km"], self.el["ecc"])
+        if which == "apogee":
+            apo = val
+        else:
+            peri = val
+        alt, ecc = lab.alt_ecc_from_apsides(apo, peri)
+        self.el = lab.clamp_elements({**self.el, "alt_km": alt, "ecc": ecc})
+        # re-sync BOTH apsis rows and the alt/ecc rows from the clamped result
+        self._sync_all_from_el()
+        got_apo, got_peri = lab.apsides_from_alt_ecc(self.el["alt_km"],
+                                                     self.el["ecc"])
+        if abs(got_apo - apo) > 1.0 or abs(got_peri - peri) > 1.0:
+            self._explain.set(
+                "Apogee/perigee clamped to the safe range: apogee %.0f km / "
+                "perigee %.0f km (alt %.0f km, ecc %.3f)."
+                % (got_apo, got_peri, self.el["alt_km"], self.el["ecc"]))
+        else:
+            self._explain.set(
+                "Apogee %.0f km, perigee %.0f km \u2014 mean altitude %.0f km, "
+                "eccentricity %.3f." % (got_apo, got_peri, self.el["alt_km"],
+                                        self.el["ecc"]))
         self._update_derived()
-        self._emit()
+        self._emit(debounce=True)
+
+    def _sync_apsides(self):
+        """Refresh the apogee/perigee slider rows from the current alt_km + ecc."""
+        for key in ("apogee", "perigee"):
+            if key in self._vars:
+                v = self._apsis_value(key)
+                self._vars[key].set(v)
+                self._entries[key].set("%.0f" % v)
 
     def _on_name(self):
         if self._building:
@@ -271,7 +367,30 @@ class LabDialog:
                d["footprint_km"], d["node_drift_degday"], ss,
                d["perigee_drift_degday"], repeat_txt, d["decay_text"]))
 
-    def _emit(self):
+    def _emit(self, debounce=False):
+        if not self.on_change:
+            return
+        if not debounce:
+            # immediate (entry box, preset, name): cancel any pending render
+            if getattr(self, "_emit_after", None) is not None:
+                try:
+                    self.win.after_cancel(self._emit_after)
+                except Exception:
+                    pass
+                self._emit_after = None
+            self.on_change(dict(self.el))
+            return
+        # coalesce rapid slider moves: (re)schedule a single render after a short
+        # idle so dragging stays smooth and we don't rebuild/redraw per pixel
+        if getattr(self, "_emit_after", None) is not None:
+            try:
+                self.win.after_cancel(self._emit_after)
+            except Exception:
+                pass
+        self._emit_after = self.win.after(60, self._emit_now)
+
+    def _emit_now(self):
+        self._emit_after = None
         if self.on_change:
             self.on_change(dict(self.el))
 

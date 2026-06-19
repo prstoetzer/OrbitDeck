@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "orbitdeck"
-version = "0.32.4"
+version = "0.35.0"
 description = "Cross-platform desktop satellite tracking and orbital analysis tool for amateur radio operators"
 readme = "README.md"
 requires-python = ">=3.8"

@@ -37,7 +37,8 @@ ruff check orbitdeck
 
 ## Architecture
 
-See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for a full orientation. In brief:
+See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for a full orientation, and
+[docs/ENGINE.md](docs/ENGINE.md) for the headless engine's public API. In brief:
 
 - `orbitdeck/engine/` — the portable orbital core (no GUI imports). If you can
   do it without Tkinter, it probably belongs here. The propagator backend
@@ -57,6 +58,6 @@ tools for that, and the original device project already does it.
 ## Good first issues
 
 - Higher-resolution bundled coastline (without pulling in cartopy).
-- Antenna/observer obstruction mask for pass filtering.
-- Export passes to iCal / CSV.
-- Per-satellite Doppler tuning presets.
+- Antenna/observer obstruction (horizon) mask for pass filtering.
+- More transponder-tuning presets per satellite.
+- Additional unit tests for the `engine.planning` / `engine.celestial` helpers.

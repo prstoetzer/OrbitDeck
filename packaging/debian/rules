@@ -1,0 +1,17 @@
+#!/usr/bin/make -f
+# Build OrbitDeck as a Debian package using dh-python / pybuild.
+
+export PYBUILD_NAME=orbitdeck
+
+%:
+	dh $@ --with python3 --buildsystem=pybuild
+
+# Install desktop entry, icon and AppStream metadata into the package.
+override_dh_install:
+	dh_install
+	install -Dm644 packaging/orbitdeck.desktop \
+		debian/orbitdeck/usr/share/applications/orbitdeck.desktop
+	install -Dm644 orbitdeck/gui/assets/icon-256.png \
+		debian/orbitdeck/usr/share/icons/hicolor/256x256/apps/orbitdeck.png
+	install -Dm644 packaging/io.github.prstoetzer.OrbitDeck.metainfo.xml \
+		debian/orbitdeck/usr/share/metainfo/io.github.prstoetzer.OrbitDeck.metainfo.xml

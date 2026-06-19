@@ -1,0 +1,33 @@
+Source: orbitdeck
+Section: hamradio
+Priority: optional
+Maintainer: Paul Stoetzer, N8HM <noreply@example.com>
+Build-Depends: debhelper-compat (= 13),
+               dh-python,
+               python3-all,
+               python3-setuptools,
+               pybuild-plugin-pyproject
+Standards-Version: 4.6.2
+Homepage: https://github.com/prstoetzer/OrbitDeck
+Rules-Requires-Root: no
+
+Package: orbitdeck
+Architecture: all
+Depends: ${python3:Depends},
+         ${misc:Depends},
+         python3-tk,
+         python3-matplotlib,
+         python3-numpy,
+         python3-certifi
+Recommends: python3-sgp4, python3-openpyxl
+Suggests: python3-cartopy
+Description: desktop satellite tracking and orbital analysis for amateur radio
+ OrbitDeck is a desktop application for satellite tracking and orbital
+ analysis, built for amateur-radio operators who work the birds. It provides
+ live look angles, sky and ground tracks, pass prediction, Doppler and
+ link-budget tools, an interactive and printable OSCARLOCATOR, illumination
+ and mutual-window analysis, and a built-in classroom of orbital-mechanics
+ explainers.
+ .
+ Radio (CAT) and rotator control are intentionally out of scope, since
+ excellent dedicated tools already cover those.

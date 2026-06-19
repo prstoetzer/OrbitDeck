@@ -2,8 +2,9 @@
 
 A short orientation for contributors. The aim is to explain how the pieces fit
 together so you can find the right file quickly and add features in keeping with
-the existing patterns. For end-user documentation see [MANUAL.md](MANUAL.md); for
-a feature overview see the [README](../README.md).
+the existing patterns. For end-user documentation see [MANUAL.md](MANUAL.md);
+for the headless engine's public API see [ENGINE.md](ENGINE.md); for a feature
+overview see the [README](../README.md).
 
 ## Layered design
 

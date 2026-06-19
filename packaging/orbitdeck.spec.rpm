@@ -1,0 +1,72 @@
+# RPM spec for OrbitDeck (Fedora / RHEL / Rocky / Alma).
+#
+# Build:
+#     # from the repo root, create a release tarball matching Source0, e.g.
+#     #   git archive --format=tar.gz --prefix=OrbitDeck-0.35.0/ \
+#     #       -o ~/rpmbuild/SOURCES/orbitdeck-0.35.0.tar.gz v0.35.0
+#     rpmbuild -ba packaging/orbitdeck.spec
+#
+# Keep Version in sync with orbitdeck/__init__.py.
+Name:           orbitdeck
+Version:        0.35.0
+Release:        1%{?dist}
+Summary:        Desktop satellite tracking and orbital analysis for amateur radio
+
+License:        MIT
+URL:            https://github.com/prstoetzer/OrbitDeck
+Source0:        %{name}-%{version}.tar.gz
+
+BuildArch:      noarch
+BuildRequires:  python3-devel
+BuildRequires:  python3-pip
+BuildRequires:  python3-wheel
+BuildRequires:  python3-setuptools
+
+Requires:       python3
+Requires:       python3-tkinter
+Requires:       python3-matplotlib
+Requires:       python3-numpy
+Requires:       python3-certifi
+Recommends:     python3-sgp4
+Recommends:     python3-openpyxl
+
+%description
+OrbitDeck is a desktop application for satellite tracking and orbital analysis,
+built for amateur-radio operators who work the birds. It provides live look
+angles, sky and ground tracks, pass prediction, Doppler and link-budget tools,
+an interactive and printable OSCARLOCATOR, illumination and mutual-window
+analysis, and a built-in classroom of orbital-mechanics explainers. Radio (CAT)
+and rotator control are intentionally out of scope.
+
+%prep
+%autosetup -n OrbitDeck-%{version}
+
+%build
+%py3_build
+
+%install
+%py3_install
+
+# desktop integration
+install -Dm644 packaging/orbitdeck.desktop \
+  %{buildroot}%{_datadir}/applications/orbitdeck.desktop
+install -Dm644 orbitdeck/gui/assets/icon-256.png \
+  %{buildroot}%{_datadir}/icons/hicolor/256x256/apps/orbitdeck.png
+install -Dm644 packaging/io.github.prstoetzer.OrbitDeck.metainfo.xml \
+  %{buildroot}%{_metainfodir}/io.github.prstoetzer.OrbitDeck.metainfo.xml
+
+%files
+%license LICENSE
+%doc README.md docs/MANUAL.md
+%{python3_sitelib}/orbitdeck/
+%{python3_sitelib}/orbitdeck-%{version}*
+%{_bindir}/orbitdeck
+%{_datadir}/applications/orbitdeck.desktop
+%{_datadir}/icons/hicolor/256x256/apps/orbitdeck.png
+%{_metainfodir}/io.github.prstoetzer.OrbitDeck.metainfo.xml
+
+%changelog
+* Fri Jun 19 2026 Paul Stoetzer, N8HM - 0.35.0-1
+- Apogee/perigee sliders; per-platform docs; native packaging helpers.
+* Thu Jun 19 2026 Paul Stoetzer, N8HM - 0.34.0-1
+- Packaged release.

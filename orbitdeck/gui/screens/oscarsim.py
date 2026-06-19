@@ -2,12 +2,14 @@
 
 Lets the user play with a virtual OSCARLOCATOR without printing transparencies:
 a polar (or QTH-centred) azimuthal-equidistant base map with a rotatable orbit
-path-arc overlay and the satellite footprint. The overlay can be driven three
+path-arc overlay and the satellite footprint. The overlay can be driven these
 ways:
 
   * LIVE      - follow the satellite's real current position and EQX.
-  * EQX slider- pin the ascending/descending node to a chosen longitude and
-                step the minutes-into-orbit to see where the satellite is.
+  * DRAG      - drag the map disc to rotate the ground-track arc by hand (pin
+                the node to any longitude); drag near the moving dot to step the
+                minutes after the equator crossing. Works for the catalog
+                satellite and the lab satellite alike.
   * NEXT PASS - jump the EQX to the node of the next pass from the station.
 
 The projection conventions match the printable OSCARLOCATOR (north pole: 0 deg
@@ -38,6 +40,17 @@ class OscarSimScreen(Screen):
         self._proj_mode = tk.StringVar(value="polar-auto")
         self._eqx_lon = tk.DoubleVar(value=0.0)
         self._minute = tk.DoubleVar(value=0.0)
+        # interactive "drag the disc to rotate the arc" state (replaces the EQX /
+        # minutes sliders): a press remembers where the drag began and the EQX
+        # longitude at that moment, so motion rotates the whole ground track
+        # east-west by the angular sweep of the pointer about the map centre.
+        self._drag_eqx0 = None         # EQX longitude at button-press
+        self._drag_ang0 = None         # pointer angle (rad) at button-press
+        self._drag_kind = None         # "arc" (rotate) or "minute" (slide marker)
+        # when True the arc is positioned by hand (via dragging) rather than
+        # following the live sub-point. This lets BOTH catalog and lab satellites
+        # be swept by hand; "Go live" clears it.
+        self._manual_arc = False
         # two independent overlays: the QTH range circle (fixed, centred on the
         # station) and the satellite's own footprint (its instantaneous coverage
         # circle at its current sub-point)
@@ -64,7 +77,7 @@ class OscarSimScreen(Screen):
                   font=("DejaVu Sans", 11, "bold")).pack(anchor="w", padx=10,
                                                          pady=(10, 4))
         for txt, val in (("Live (current position)", "live"),
-                         ("Manual EQX + minutes", "manual"),
+                         ("Manual (drag the map)", "manual"),
                          ("Next pass from QTH", "nextpass"),
                          ("Lab satellite", "lab")):
             ttk.Radiobutton(ctrl, text=txt, value=val, variable=self._mode,
@@ -84,29 +97,36 @@ class OscarSimScreen(Screen):
                             command=self._render).pack(anchor="w", padx=14)
 
         ttk.Separator(ctrl, orient="horizontal").pack(fill="x", pady=8, padx=8)
+        # --- "Sweep the arc": the EQX longitude and minutes-after-crossing are
+        # now driven by dragging the map disc directly (like the web simulator),
+        # so these rows show the live values and the seed/live actions instead of
+        # sliders.
         self._eqx_row = ttk.Frame(ctrl, style="Panel.TFrame")
         self._eqx_row.pack(fill="x", padx=10, pady=2)
-        ttk.Label(self._eqx_row, text="EQX longitude", style="Muted.TLabel").pack(
-            anchor="w")
-        self._eqx_scale = ttk.Scale(self._eqx_row, from_=-180, to=180, style="Accent.Horizontal.TScale",
-                                    variable=self._eqx_lon,
-                                    command=lambda *_: self._render())
-        self._eqx_scale.pack(fill="x")
+        ttk.Label(self._eqx_row, text="Sweep the arc", style="PanelH.TLabel",
+                  font=("DejaVu Sans", 11, "bold")).pack(anchor="w")
+        self._sweep_hint = tk.StringVar(value="")
+        ttk.Label(self._eqx_row, textvariable=self._sweep_hint,
+                  style="Muted.TLabel", wraplength=210,
+                  justify="left").pack(anchor="w", pady=(0, 4))
         self._eqx_lbl = tk.StringVar(value="")
         ttk.Label(self._eqx_row, textvariable=self._eqx_lbl,
-                  style="Muted.TLabel").pack(anchor="w")
-
-        self._min_row = ttk.Frame(ctrl, style="Panel.TFrame")
-        self._min_row.pack(fill="x", padx=10, pady=2)
-        ttk.Label(self._min_row, text="Minutes after EQX",
-                  style="Muted.TLabel").pack(anchor="w")
-        self._min_scale = ttk.Scale(self._min_row, from_=0, to=100, style="Accent.Horizontal.TScale",
-                                    variable=self._minute,
-                                    command=lambda *_: self._render())
-        self._min_scale.pack(fill="x")
+                  style="Mono.TLabel").pack(anchor="w")
         self._min_lbl = tk.StringVar(value="")
-        ttk.Label(self._min_row, textvariable=self._min_lbl,
-                  style="Muted.TLabel").pack(anchor="w")
+        ttk.Label(self._eqx_row, textvariable=self._min_lbl,
+                  style="Mono.TLabel").pack(anchor="w")
+        btnrow = ttk.Frame(self._eqx_row, style="Panel.TFrame")
+        btnrow.pack(fill="x", pady=(6, 2))
+        ttk.Button(btnrow, text="Next pass",
+                   command=self._seed_next_pass_manual).pack(side="left")
+        ttk.Button(btnrow, text="Go live",
+                   command=self._go_live).pack(side="left", padx=6)
+        # the minutes-after-EQX span is one orbit; kept as a plain attribute so
+        # the drag handler can clamp to it without a Scale widget
+        self._min_span = 95.0
+        # keep a hidden reference so older code paths that call _min_row don't
+        # break; it is no longer packed as a slider
+        self._min_row = self._eqx_row
 
         ttk.Separator(ctrl, orient="horizontal").pack(fill="x", pady=8, padx=8)
         ttk.Checkbutton(ctrl, text="Show QTH range circle",
@@ -157,6 +177,10 @@ class OscarSimScreen(Screen):
         right.pack(side="left", fill="both", expand=True)
         self.map = MplPanel(right, figsize=(6.4, 6.4), polar=True, dpi=150)
         self.map.pack(fill="both", expand=True, padx=6, pady=6)
+        # interactive disc: drag to rotate the arc (and slide the minute marker)
+        self.map.canvas.mpl_connect("button_press_event", self._on_press)
+        self.map.canvas.mpl_connect("motion_notify_event", self._on_drag)
+        self.map.canvas.mpl_connect("button_release_event", self._on_release)
 
     # ---- mode handling -----------------------------------------------------
     def on_show(self):
@@ -165,13 +189,22 @@ class OscarSimScreen(Screen):
 
     def _on_mode(self):
         mode = self._mode.get()
-        # show/hide the manual sliders
-        manual = (mode == "manual")
-        for w in (self._eqx_row, self._min_row):
-            if manual:
-                w.pack(fill="x", padx=10, pady=2)
-            else:
-                w.pack_forget()
+        # The "Sweep the arc" panel (drag readouts + Next pass / Go live) is now
+        # useful in every mode EXCEPT live: dragging the disc hand-positions the
+        # arc for the catalog or lab satellite alike. Switching drive mode clears
+        # any hand positioning so the chosen mode takes over.
+        self._manual_arc = (mode == "manual")
+        self._eqx_row.pack(fill="x", padx=10, pady=2)
+        # the hint reflects whether dragging is available in this mode
+        if mode == "live":
+            self._sweep_hint.set(
+                "Live mode follows the satellite in real time. To rotate the "
+                "arc by hand, switch to \u201cManual (drag the map)\u201d or "
+                "\u201cNext pass\u201d.")
+        else:
+            self._sweep_hint.set(
+                "Drag the map to rotate the ground-track arc by hand. Drag near "
+                "the moving dot to step the minutes after the equator crossing.")
         # entering lab mode: ensure the lab satellite exists and open the editor
         if mode == "lab":
             self._ensure_lab_sat()
@@ -179,14 +212,11 @@ class OscarSimScreen(Screen):
             self._open_lab_editor()
         else:
             self._lab_extras.pack_forget()
-        # the 'minutes after EQX' slider should span exactly one orbit
+        # the 'minutes after EQX' range spans exactly one orbit
         s = self.sat()
         if s is not None:
             per = s.period_min if s.period_min else 95.0
-            try:
-                self._min_scale.configure(to=round(per))
-            except Exception:
-                pass
+            self._min_span = round(per)
         if mode == "nextpass":
             self._seed_next_pass()
         self._render()
@@ -256,12 +286,9 @@ class OscarSimScreen(Screen):
     def _on_lab_change(self, elements):
         self._lab_elements = elements
         self._ensure_lab_sat()
-        # keep the minutes slider spanning one orbit of the new orbit
+        # keep the minutes span matching one orbit of the new lab orbit
         per = self._lab_sat.period_min if self._lab_sat.period_min else 95.0
-        try:
-            self._min_scale.configure(to=round(per))
-        except Exception:
-            pass
+        self._min_span = round(per)
         self._render()
         self._refresh_eqx_list()
 
@@ -296,6 +323,98 @@ class OscarSimScreen(Screen):
         except Exception as e:
             messagebox.showerror("Save failed", str(e))
 
+
+    # ---- interactive disc: drag to rotate the arc -------------------------
+    def _seed_next_pass_manual(self):
+        """Jump the hand-positioned arc to the next visible pass, then keep it
+        hand-positioned so the user can fine-tune by dragging. Works for the
+        catalog satellite and the lab satellite alike."""
+        self._manual_arc = True
+        self._seed_next_pass()
+        self._render()
+
+    def _go_live(self):
+        """Return to the live, real-time overlay (clears any hand positioning).
+        In lab mode this resumes following the lab satellite; otherwise it
+        switches to the live catalog drive."""
+        self._manual_arc = False
+        if self._mode.get() not in ("live", "lab"):
+            self._mode.set("live")
+        self._on_mode()
+
+    def _pointer_angle(self, event):
+        """Pointer angle (radians) about the map centre, or None if off-axes.
+        The polar axes already report event.xdata as theta, which is exactly the
+        on-screen angle we want for rotating the arc."""
+        if event.inaxes is not self.map.ax or event.xdata is None:
+            return None
+        return float(event.xdata)          # theta in radians
+
+    def _on_press(self, event):
+        ang = self._pointer_angle(event)
+        if ang is None:
+            return
+        # Live mode follows the real satellite, so dragging must NOT take it
+        # over -- the user picks "Manual (drag the map)", "Next pass", or "Lab
+        # satellite" first. (In those modes the arc is hand-positionable, and for
+        # lab the lab satellite stays active.)
+        if self._mode.get() == "live":
+            return
+        # dragging positions the arc by hand. This works in manual, next-pass,
+        # and lab modes without leaving them (lab keeps rendering the lab sat).
+        if not self._manual_arc:
+            # seed the hand arc from wherever the seeded arc currently is, so the
+            # first drag starts smoothly from the on-screen position
+            _t, lon, minute = self._current_state(self.sat(), self._resolve_proj())
+            self._eqx_lon.set(lon)
+            self._minute.set(minute)
+            self._manual_arc = True
+        # decide what the drag adjusts: if the press lands near the minute dot,
+        # slide the minute marker; otherwise rotate the whole arc.
+        self._drag_kind = "minute" if self._near_minute_dot(event) else "arc"
+        self._drag_ang0 = ang
+        self._drag_eqx0 = self._eqx_lon.get()
+        self._drag_min0 = self._minute.get()
+
+    def _on_drag(self, event):
+        if self._drag_ang0 is None:
+            return
+        ang = self._pointer_angle(event)
+        if ang is None:
+            return
+        dtheta = math.degrees(ang - self._drag_ang0)
+        # normalise to (-180, 180] so a drag across the 180 seam doesn't jump
+        dtheta = (dtheta + 180.0) % 360.0 - 180.0
+        if self._drag_kind == "minute":
+            # one full turn of the disc ~ one orbit of minute travel
+            span = getattr(self, "_min_span", 95.0) or 95.0
+            m = self._drag_min0 + dtheta / 360.0 * span
+            self._minute.set(min(max(m, 0.0), span))
+        else:
+            # rotate the ground-track east-west; on the south sheet the on-screen
+            # sense is mirrored, so flip the sign to keep "drag east -> arc east"
+            sign = -1.0 if self._resolve_proj() == "polar-south" else 1.0
+            lon = self._drag_eqx0 + sign * dtheta
+            lon = ((lon + 180.0) % 360.0) - 180.0
+            self._eqx_lon.set(lon)
+        self._render()
+
+    def _on_release(self, _event):
+        self._drag_ang0 = None
+        self._drag_eqx0 = None
+        self._drag_kind = None
+
+    def _near_minute_dot(self, event):
+        """True if the press is near the satellite's current minute marker, so
+        the drag slides the marker along the arc instead of rotating it."""
+        dot = getattr(self, "_minute_dot_rt", None)
+        if dot is None or event.xdata is None or event.ydata is None:
+            return False
+        th0, r0 = dot
+        # crude angular+radial proximity in the polar data frame
+        dth = abs(((math.degrees(event.xdata - th0) + 180) % 360) - 180)
+        dr = abs(event.ydata - r0)
+        return dth < 12.0 and dr < 12.0
 
     def _seed_next_pass(self):
         """Seed the overlay to the next pass that is actually VISIBLE from the
@@ -488,7 +607,9 @@ class OscarSimScreen(Screen):
         # followed accurately across either sheet regardless of where the
         # station is.
         t, eqx_lon, minute = self._current_state(s, mode)
-        live = (self._mode.get() in ("live", "lab"))
+        # a hand-positioned (dragged) arc overrides live-following, so both
+        # catalog and lab satellites can be swept by hand
+        live = (self._mode.get() in ("live", "lab")) and not self._manual_arc
 
         # in lab compare mode, draw the frozen "ghost B" orbit underneath first
         if self._lab_active() and self._lab_compare is not None:
@@ -593,6 +714,12 @@ class OscarSimScreen(Screen):
         """
         pred = self.pred()
         mode = self._mode.get()
+        # a hand-positioned (dragged) arc uses the manual EQX/minute regardless
+        # of the drive mode, so lab and live sats can both be swept by hand
+        if getattr(self, "_manual_arc", False):
+            minute = self._minute.get()
+            tc = getattr(self, "_seed_unix", now_unix())
+            return tc + minute * 60.0, self._eqx_lon.get(), minute
         if mode in ("live", "lab"):
             t = now_unix()
             south = (view_mode == "polar-south")
@@ -914,6 +1041,9 @@ class OscarSimScreen(Screen):
             # altitude from the ephemeris (near-constant for these orbits)
             _a, _o, alt = pred.subpoint_at(now_unix())
         rho, theta = self._to_polar(mode, lat, lon)
+        # remember the dot's polar position so a drag starting near it slides the
+        # minute marker instead of rotating the whole arc
+        self._minute_dot_rt = (theta, rho) if rho <= rmax else None
         if rho <= rmax:
             ax.plot([theta], [rho], marker="o", markersize=9,
                     color=COL_ACCENT2, markeredgecolor="white",
@@ -1007,7 +1137,8 @@ class OscarSimScreen(Screen):
         vis = "VISIBLE" if el > 0 else "below horizon"
         hemi_e = "E" if eqx_lon >= 0 else "W"
         self._eqx_lbl.set("%.1f\u00b0 %s" % (abs(eqx_lon), hemi_e))
-        self._min_lbl.set("%.0f min after EQX" % minute)
+        self._min_lbl.set("%.0f min after EQX" % (minute + 0.0 if minute > 0.05
+                                                  else 0))
         self._readout.set(
             "Sub-point: %.1f\u00b0%s, %.1f\u00b0%s\n"
             "Altitude: %.0f km\n"
@@ -1019,7 +1150,7 @@ class OscarSimScreen(Screen):
                 fmt_utc(t, "%Y-%m-%d %H:%M:%S")))
 
     def on_tick(self, now_dt=None):
-        # keep the live view moving in real time; manual / next-pass modes are
-        # driven by the sliders, so don't redraw under them
-        if self._mode.get() in ("live", "lab"):
+        # keep the live view moving in real time; manual / next-pass modes and a
+        # hand-positioned (dragged) arc hold their position, so don't redraw
+        if self._mode.get() in ("live", "lab") and not self._manual_arc:
             self._render()

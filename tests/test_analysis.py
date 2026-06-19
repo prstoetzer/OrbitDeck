@@ -381,7 +381,7 @@ def test_listing_visible_only_filters(iss_predictor):
     assert 0 < len(vis) < len(full)
     assert all(r["el"] >= 0.0 for r in vis)
 
-def test_version_is_0_32_4():
+def test_version_is_0_35_0():
     """The package version was bumped for this release."""
     import orbitdeck
-    assert orbitdeck.__version__ == "0.32.4"
+    assert orbitdeck.__version__ == "0.35.0"

@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=OrbitDeck
+GenericName=Satellite Tracker
+Comment=Desktop satellite tracking and orbital analysis for amateur radio
+Exec=orbitdeck
+Icon=orbitdeck
+Terminal=false
+Categories=Science;Education;HamRadio;Network;
+Keywords=satellite;tracking;orbit;sgp4;amateur radio;oscar;ham;
+StartupNotify=true

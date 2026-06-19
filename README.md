@@ -8,11 +8,15 @@ who work the birds. It is **tracking and analysis only**: radio (CAT) and
 rotator control are intentionally out of scope, since excellent dedicated tools
 already cover that.
 
-It uses the reference [`sgp4`](https://pypi.org/project/sgp4/) propagator and
-[`cartopy`](https://pypi.org/project/Cartopy/) (both **required dependencies**,
-installed automatically) for accurate SGP4/SDP4 across low-Earth and deep-space
-orbits and full-resolution coastlines. A pure-Python propagator and a bundled
-coastline set ship as fallbacks.
+OrbitDeck ships its **own pure-Python SGP4 propagator** and a **bundled
+coastline set**, so it runs fully offline with only `matplotlib`, `numpy`, and
+`certifi`. For the **best performance and accuracy, the optional extras are
+strongly recommended** — they add the reference
+[`sgp4`](https://pypi.org/project/sgp4/) C-accelerated propagator (faster, and
+fully correct for deep-space / geostationary objects) and
+[`cartopy`](https://pypi.org/project/Cartopy/) for full-resolution Natural Earth
+coastlines. See [Optional extras](#optional-extras-strongly-recommended) and the
+[install & build guide](docs/INSTALL.md).
 
 <p align="center">
   <img src="docs/img/home.png" width="80%" alt="Home: all favorite satellites with footprints on the world map">
@@ -50,25 +54,36 @@ offline. Click **Update GP (online)** to pull the live AMSAT catalog, and use th
 > SGP4 is only trustworthy within ~1–2 weeks of an element set's epoch, so
 > refresh periodically.
 
-### Optional extras
+### Optional extras (strongly recommended)
 
-OrbitDeck runs fully on its bundled, pure-Python building blocks, but two
-optional packages improve it for users who want them:
+OrbitDeck runs fully on its bundled, pure-Python building blocks, but the
+optional packages are **strongly recommended for the best experience and
+performance** — install them unless you have a reason not to:
 
 | Extra | Adds | What you lose without it |
 |---|---|---|
-| `pip install "orbitdeck[accurate]"` | `sgp4` — the C-accelerated full SGP4/SDP4 backend | The bundled pure-Python propagator is used instead. It is accurate to well under a kilometre for typical LEO passes; the difference grows for deep-space / geostationary objects. |
+| `pip install "orbitdeck[accurate]"` | `sgp4` — the C-accelerated full SGP4/SDP4 backend | The bundled pure-Python propagator is used instead. It is accurate to well under a kilometre for typical LEO passes, but it is **slower** for the heavy repeated propagation behind pass- and node-finding, and its **deep-space (GEO/HEO/Molniya) terms are only approximate**. |
 | `pip install "orbitdeck[maps]"` | `cartopy` — high-resolution Natural Earth coastlines | The bundled lower-resolution coastlines are drawn instead (everything still works; the map outlines are just coarser). |
 | `pip install "orbitdeck[excel]"` | `openpyxl` — native `.xlsx` export | Spreadsheet exports fall back to CSV. |
 | `pip install "orbitdeck[full]"` | all of the above | — |
 
-`cartopy` in particular depends on the GEOS/PROJ system libraries and can be
-awkward to build, which is exactly why it is optional rather than required —
-install it only if you want the high-resolution coastlines.
+The simplest path is **`pip install "orbitdeck[full]"`**, which pulls every
+extra. `cartopy` depends on the GEOS/PROJ system libraries (see
+[docs/INSTALL.md](docs/INSTALL.md) for the one apt/dnf line per distro); if it's
+awkward on your platform, install `[accurate]` and `[excel]` and skip `[maps]`.
 
 > **tkinter note:** the python.org installers for Windows and macOS include
-> tkinter. On Linux: `sudo apt install python3-tk` (Debian/Ubuntu) or
-> `sudo dnf install python3-tkinter` (Fedora).
+> tkinter. On Linux it's a separate package: `sudo apt install python3-tk`
+> (Debian/Ubuntu/Raspberry Pi OS), `sudo dnf install python3-tkinter` (Fedora),
+> or `sudo pacman -S tk` (Arch).
+
+> 📖 **Per-platform install, run & build instructions** — including how to
+> install Python and build with every optional dependency on **Windows, macOS,
+> Debian/Ubuntu, Fedora, Arch, and Raspberry Pi OS** — are in
+> **[docs/INSTALL.md](docs/INSTALL.md)**. To build native packages
+> (`.deb`, `.rpm`, Arch `PKGBUILD`, AppImage, Flatpak) see
+> **[packaging/PACKAGING.md](packaging/PACKAGING.md)**; for a standalone
+> PyInstaller app see **[packaging/BUILD.md](packaging/BUILD.md)**.
 
 ---
 
@@ -86,14 +101,14 @@ left-hand navigation menu**.
 | 5 | **Next Passes** | Pass table for the next 7 days with selectable minimum elevation and a **quality score** (0\u2013100 from peak elevation and duration, best pass flagged \u2605); double-click a pass for its detail. Prints a **3-day grid of polar sky tracks**. |
 | 6 | **Pass Detail** | Polar sky-track plus an elevation-vs-time profile for a chosen pass. |
 | 7 | **Ground Track** | Forward ground track over the next 1, 3, 5, or 8 upcoming orbits. |
-| 8 | **Orbital Analysis** | Eleven pages (see the manual): Info, Live, Next Pass, Ground Track, Doppler, Nodal, Sun/Beta, Pass Outlook, Orbit Position, Equ. Crossings, and Crossings List. Clean grouped data cards and plots. The Crossings List exports the equator-crossing schedule to CSV. |
-| 9 | **Radio** | Pick an **upcoming pass** to plan against, then get a **link budget** (free-space path loss, propagation delay, estimated received power, with separate **your-station** and **satellite** (TX power + antenna gain) parameters) with a **time-in-pass scrubber** that evaluates the geometry anywhere from AOS to LOS (snap to TCA), plus range-rate and downlink-Doppler readouts. A **Doppler tuning playbook** gives a per-pass table of corrected RX/TX frequencies (with antenna **az/el** at each step) at a chosen interval, with its own **passband-position** slider so a linear bird's table is built around where you're tuned. For a linear transponder worked full duplex you can **hold the uplink OR the downlink fixed** and the other leg is round-trip corrected so you keep hearing yourself. Export the playbook to CSV or a printable PDF sheet. |
-| 10 | **Planning** | Goal-directed planning: **best time to work a target** (grid square, US state, DXCC entity, or lat/lon) by finding windows when you and the target share the footprint; **visible passes** with estimated optical magnitude and a twilight-darkness filter; **satellite-to-satellite** line-of-sight windows; a **rove route planner** (enter your planned grid stops with optional time-window hints and get, per stop, the covering passes and the US states / DXCC entities / grids workable through each, for the selected satellite **or all your favorites at once** \u2014 exportable to CSV and a printable rove sheet); and an **element-set trust** panel (epoch age, trust level, along-track drift estimate). Results export to CSV. |
-| 11 | **Illumination** | A **raster** tab: scrollable 30-day sunlit-vs-eclipse map (prints a 60-day summary with mean eclipse fraction). An **Eclipse table** tab: orbit-by-orbit umbral eclipse list (enter/exit/duration/interval/sun-angle) and a daily summary (total, longest, percent of day, beta angle) over a selectable 1–14 day span, exportable to CSV and a printable PDF report. |
-| 12 | **Pass Progression** | One satellite's passes across 10+ days as a scrollable stack of 24-hour timelines — each pass placed at its time of day, width = duration, shaded by max elevation. |
-| 13 | **Mutual Windows** | Co-visibility windows between you and a DX station (entered as a grid or lat,lon), for the **selected satellite** or **all your favorites** at once (one chronological table tagged by satellite). **Double-click a window** to see the pass on a polar plot from **each station's perspective side by side**, with the mutually-visible portion highlighted on each. Exportable to CSV and a PDF report. |
-| 14 | **Workable** | What's inside the footprint — **grids**, **US states**, or **DXCC entities** — live (now) or unioned across the next pass, for grid/state/DX chasing. Exports the current list to CSV. |
-| 15 | **OSCARLOCATOR Sim** | An interactive on-screen OSCARLOCATOR: rotate the path-arc overlay over a polar or QTH base map and watch the satellite position and QTH footprint move, without printing transparencies. The map has a **protractor-style rim** with per-degree tick marks and longitude / azimuth labels. Drive it live, by hand (EQX-longitude and minutes-after-EQX sliders), or seed it to the next pass; a compact next-equator-crossings list is built in. A **lab-satellite mode** (educational) lets you invent a hypothetical satellite and edit its orbital elements with sliders + entries in a pop-up \u2014 with live explainers, preset orbits, an A/B comparison ghost, a guided tour, and a glossary \u2014 then name it and print it as an OSCARLOCATOR. Exports the matching printable PDF. |
+| 8 | **Pass Progression** | One satellite's passes across 10+ days as a scrollable stack of 24-hour timelines — each pass placed at its time of day, width = duration, shaded by max elevation. |
+| 9 | **Orbital Analysis** | Eleven pages (see the manual): Info, Live, Next Pass, Ground Track, Doppler, Nodal, Sun/Beta, Pass Outlook, Position, EQX Map, and EQX List. Clean grouped data cards and plots. The EQX List exports the equator-crossing schedule to CSV. |
+| 10 | **Illumination** | A **raster** tab: scrollable 30-day sunlit-vs-eclipse map (prints a 60-day summary with mean eclipse fraction). An **Eclipse table** tab: orbit-by-orbit umbral eclipse list (enter/exit/duration/interval/sun-angle) and a daily summary (total, longest, percent of day, beta angle) over a selectable 1–14 day span, exportable to CSV and a printable PDF report. |
+| 11 | **Mutual Windows** | Co-visibility windows between you and a DX station (entered as a grid or lat,lon), for the **selected satellite** or **all your favorites** at once (one chronological table tagged by satellite). **Double-click a window** to see the pass on a polar plot from **each station's perspective side by side**, with the mutually-visible portion highlighted on each. Exportable to CSV and a PDF report. |
+| 12 | **Workable** | What's inside the footprint — **grids**, **US states**, or **DXCC entities** — live (now) or unioned across the next pass, for grid/state/DX chasing. Exports the current list to CSV. |
+| 13 | **Radio** | Pick an **upcoming pass** to plan against, then get a **link budget** (free-space path loss, propagation delay, estimated received power, with separate **your-station** and **satellite** (TX power + antenna gain) parameters) with a **time-in-pass scrubber** that evaluates the geometry anywhere from AOS to LOS (snap to TCA), plus range-rate and downlink-Doppler readouts. A **Doppler tuning playbook** gives a per-pass table of corrected RX/TX frequencies (with antenna **az/el** at each step) at a chosen interval, with its own **passband-position** slider so a linear bird's table is built around where you're tuned. For a linear transponder worked full duplex you can **hold the uplink OR the downlink fixed** and the other leg is round-trip corrected so you keep hearing yourself. Export the playbook to CSV or a printable PDF sheet. |
+| 14 | **Planning** | Goal-directed planning: **best time to work a target** (grid square, US state, DXCC entity, or lat/lon) by finding windows when you and the target share the footprint; **visible passes** with estimated optical magnitude and a twilight-darkness filter; **satellite-to-satellite** line-of-sight windows; a **rove route planner** (enter your planned grid stops with optional time-window hints and get, per stop, the covering passes and the US states / DXCC entities / grids workable through each, for the selected satellite **or all your favorites at once** \u2014 exportable to CSV and a printable rove sheet); and an **element-set trust** panel (epoch age, trust level, along-track drift estimate). Results export to CSV. |
+| 15 | **OSCARLOCATOR Sim** | An interactive on-screen OSCARLOCATOR: **drag the map** to rotate the path-arc overlay over a polar or QTH base map and watch the satellite position and QTH footprint move, without printing transparencies. The map has a **protractor-style rim** with per-degree tick marks and longitude / azimuth labels. Drive it live, **by hand (drag the disc to any equator-crossing longitude, and drag near the moving dot to step the minutes after the crossing)**, or seed it to the next pass; a compact next-equator-crossings list is built in. A **lab-satellite mode** lets you invent a hypothetical satellite and edit its orbital elements in a pop-up \u2014 with live explainers, preset orbits, an A/B comparison ghost, a guided tour, and a glossary \u2014 then hand-position, name, and print it as an OSCARLOCATOR exactly like a catalog bird. Exports the matching printable PDF. |
 | 16 | **Learn** | A home for OrbitDeck's teaching tools, organised into five groups (**Orbits**, **Geometry**, **Passes**, **Radio**, **Reference**) selected from a category row, with a **"use a lab orbit" toggle** so the orbit tools can run against a satellite you design. **Orbits:** a **Kepler** equal-areas demo, an **Anomalies** mean-vs-true visualiser, a **Speed** (vis-viva) plot, a **Transfers** Hohmann delta-v calculator, an **element-age** view, and a **Decay** lifetime-vs-altitude curve. **Geometry:** **Slant range** vs elevation, a **Horizon** reach view, a **Track drift** westward-shift view, a **Precession** sun-synchronous-orbit explainer, and a **Constellation** coverage estimator. **Passes:** a 24-hour **coverage heat map**, the **beta-angle sunlight** threshold, an **Eclipse** lit/shadow timeline, a **Pointing** sky-track, and a **Grid squares** Maidenhead locator tool. **Radio:** an interactive **Transponder** diagram, a two-leg **Doppler** plot, a **link-budget** sandbox, a **full-duplex tuning practice** widget, and an **Antenna** gain pattern. **Reference:** a broad satellite/RF/history reference and a printable four-page **Handouts** classroom set. |
 | 17 | **Exports** | Export the pass schedule to **CSV, Excel, iCal, or JSON** (the iCal events carry a 10-minute reminder alarm); a **multi-satellite comparison** of your favorites; a shareable **per-pass card**; a **Reference orbits** PDF (the first equator crossing of each UTC day for the next 30/60 days — ascending for northern stations, descending for southern — to set up a physical OSCARLOCATOR); and a **Listings** tab with Nova-style tabular ephemerides (one-observer stepped, AOS/LOS quick list, and two-observer stepped), each CSV-exportable. |
 | 18 | **Sun / Moon** | Solar and lunar az/el for your site, plus Moon phase and illumination. |
@@ -107,6 +122,29 @@ A **Pass alarms** toggle in the top bar raises AOS / TCA / LOS notifications (a
 gentle audible cue, the in-app status line, and a **native desktop toast** for
 "starting soon" and AOS) for favorite satellites' next passes, so you don't miss
 a rising bird while working in another screen or another app.
+
+### A look around
+
+<p align="center">
+  <img src="docs/img/track.png" width="48%" alt="Track: live look angles, transponder and Doppler with a sky plot">
+  <img src="docs/img/globe.png" width="48%" alt="3D Globe: favorites with footprints over a rotatable globe">
+</p>
+<p align="center">
+  <img src="docs/img/nextpasses.png" width="48%" alt="Next Passes: 7-day pass table with quality scores">
+  <img src="docs/img/groundtrack.png" width="48%" alt="Ground Track: forward orbits over the world map">
+</p>
+<p align="center">
+  <img src="docs/img/oscarsim.png" width="48%" alt="OSCARLOCATOR Simulator: drag the map to rotate the path arc">
+  <img src="docs/img/radio.png" width="48%" alt="Radio: link budget and Doppler tuning playbook">
+</p>
+<p align="center">
+  <img src="docs/img/orbital_analysis.png" width="48%" alt="Orbital Analysis: grouped data cards and plots">
+  <img src="docs/img/learn.png" width="48%" alt="Learn: built-in orbital-mechanics classroom">
+</p>
+<p align="center">
+  <img src="docs/img/sunmoon.png" width="40%" alt="Sun and Moon sky view">
+  <img src="docs/img/oscarlocator_pdf.png" width="34%" alt="Printable OSCARLOCATOR PDF">
+</p>
 
 ### Keyboard shortcuts
 
@@ -131,12 +169,6 @@ progression** (Pass Progression), and a **3-day sky-track grid** (Next Passes).
 
 For full, step-by-step documentation of every screen and workflow, see
 **[the OrbitDeck manual](docs/MANUAL.md)**.
-
-<p align="center">
-  <img src="docs/img/sunmoon.png" width="42%" alt="Sun and Moon sky dome">
-  &nbsp;&nbsp;
-  <img src="docs/img/doppler.png" width="50%" alt="Doppler curve">
-</p>
 
 Settings, favorites, your site and the cached catalog persist under
 `~/.orbitdeck/`.
@@ -180,8 +212,9 @@ removes the warning and restores full accuracy:
 pip install "orbitdeck[accurate]"   # or simply: pip install sgp4
 ```
 
-In short: the base install is exact enough for everyday LEO satellite operating;
-add `accurate` if you work deep-space birds or want the last bit of precision.
+In short: the base install is exact enough for everyday LEO satellite operating,
+but installing `accurate` (or `full`) is **strongly recommended** — it is faster
+and is the correct choice for deep-space birds and for the last bit of precision.
 
 ---
 
@@ -204,6 +237,13 @@ for p in pred.predict_passes(time.time(), min_el=5.0, max_n=5):
     print(p.aos, round(p.max_el, 1))
 ```
 
+The engine is a full headless library: catalog loading (`SatDb`), live look
+angles, passes, nodes, eclipses, Doppler and link budgets (`engine.linkbudget`),
+target/rove planning (`engine.planning`), Sun/Moon/planet/EME geometry
+(`engine.celestial`), and a large set of orbital-mechanics helpers
+(`engine.analysis`). **Complete API documentation is in
+[docs/ENGINE.md](docs/ENGINE.md).**
+
 ---
 
 ## Project layout
@@ -212,6 +252,11 @@ for p in pred.predict_passes(time.time(), min_el=5.0, max_n=5):
 orbitdeck/
 ├─ run.py                      dev entry point (python run.py)
 ├─ pyproject.toml              packaging + `orbitdeck` console script
+├─ orbitdeck.spec              PyInstaller spec (standalone app bundle)
+├─ docs/                       MANUAL.md, INSTALL.md, ENGINE.md, img/
+├─ packaging/                  native packagers: PACKAGING.md, BUILD.md,
+│                              PKGBUILD, orbitdeck.spec.rpm, debian/,
+│                              .desktop + AppStream metainfo
 ├─ tests/                      pytest suite, split by area (propagation,
 │                              oscarlocator, radio, reports, planning, …)
 └─ orbitdeck/

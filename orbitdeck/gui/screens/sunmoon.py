@@ -148,9 +148,15 @@ class SunMoonScreen(Screen):
                     alpha=0.95)
             ax.plot([sthe], [s_r], "o", color="#ffe08a", markersize=11)
         else:
-            ax.plot([sthe], [90], "o", color=COL_WARN, markersize=7,
-                    alpha=0.4)
-            ax.annotate("Sun", (sthe, 90), color=COL_MUTED, fontsize=7)
+            # below the horizon: park a faint marker at the horizon rim in the
+            # body's compass direction (not at the zenith centre, where it would
+            # sit on top of the "90" ring label), with the label nudged outward
+            ax.plot([sthe], [2.0], "o", color=COL_WARN, markersize=7,
+                    alpha=0.4, clip_on=False)
+            ax.annotate("Sun \u25bc", (sthe, 0), color=COL_MUTED, fontsize=7,
+                        ha="center", va="bottom",
+                        xytext=(0, 4), textcoords="offset points",
+                        annotation_clip=False)
 
         # Moon: disc shaded by illumination
         mthe = math.radians(maz)
@@ -164,7 +170,13 @@ class SunMoonScreen(Screen):
                 ax.plot([mthe], [m_r], "o", color=COL_PANEL,
                         markersize=15 * shade, alpha=0.85)
         else:
-            ax.plot([mthe], [90], "o", color="#cfe3ff", markersize=6,
-                    alpha=0.4)
-            ax.annotate("Moon", (mthe, 90), color=COL_MUTED, fontsize=7)
+            # below the horizon: faint marker at the horizon rim in the moon's
+            # direction with the label nudged outward, so neither sits on the
+            # "90" zenith ring label at the centre
+            ax.plot([mthe], [2.0], "o", color="#cfe3ff", markersize=6,
+                    alpha=0.4, clip_on=False)
+            ax.annotate("Moon \u25bc", (mthe, 0), color=COL_MUTED, fontsize=7,
+                        ha="center", va="bottom",
+                        xytext=(0, 4), textcoords="offset points",
+                        annotation_clip=False)
         self.mpl.draw()

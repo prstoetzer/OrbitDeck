@@ -30,6 +30,26 @@ ALT_MAX_KM = 40000.0
 ECC_MAX = 0.70
 
 
+def apsides_from_alt_ecc(mean_alt_km, ecc):
+    """Apogee and perigee ALTITUDES (km above the surface) for a mean-altitude /
+    eccentricity pair. a = Re + mean_alt; apogee = a(1+e) - Re, etc."""
+    a = RE_KM + mean_alt_km
+    apo = a * (1.0 + ecc) - RE_KM
+    peri = a * (1.0 - ecc) - RE_KM
+    return apo, peri
+
+
+def alt_ecc_from_apsides(apogee_km, perigee_km):
+    """Inverse: mean-altitude and eccentricity for given apogee/perigee
+    ALTITUDES (km). The semi-major axis is the mean of the two radii, and
+    e = (ra - rp)/(ra + rp). Perigee is forced not to exceed apogee."""
+    ra = RE_KM + max(apogee_km, perigee_km)
+    rp = RE_KM + min(apogee_km, perigee_km)
+    a = 0.5 * (ra + rp)
+    ecc = 0.0 if (ra + rp) <= 0 else (ra - rp) / (ra + rp)
+    return a - RE_KM, ecc
+
+
 def mean_motion_from_alt(mean_alt_km, ecc=0.0):
     """Rev/day for a circular-equivalent orbit of the given *mean altitude*.
 

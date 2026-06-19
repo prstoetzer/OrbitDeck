@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>io.github.prstoetzer.OrbitDeck</id>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>MIT</project_license>
+  <name>OrbitDeck</name>
+  <summary>Satellite tracking and orbital analysis for amateur radio</summary>
+  <description>
+    <p>
+      OrbitDeck is a desktop application for satellite tracking and orbital
+      analysis, built for amateur-radio operators who work the birds. It is
+      tracking and analysis only; radio (CAT) and rotator control are out of
+      scope.
+    </p>
+    <p>
+      It includes live look angles, sky and ground tracks, pass prediction,
+      Doppler and link-budget tools, an interactive OSCARLOCATOR, illumination
+      and mutual-window analysis, a printable PDF OSCARLOCATOR generator, and a
+      built-in classroom of orbital-mechanics explainers.
+    </p>
+  </description>
+  <launchable type="desktop-id">orbitdeck.desktop</launchable>
+  <url type="homepage">https://github.com/prstoetzer/OrbitDeck</url>
+  <url type="bugtracker">https://github.com/prstoetzer/OrbitDeck/issues</url>
+  <developer_name>Paul Stoetzer, N8HM</developer_name>
+  <content_rating type="oars-1.1"/>
+  <categories>
+    <category>Science</category>
+    <category>Education</category>
+    <category>HamRadio</category>
+  </categories>
+</component>

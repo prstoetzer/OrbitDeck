@@ -66,6 +66,18 @@ pip install -r requirements.txt
 python run.py
 ```
 
+> **Installing Python and per-platform steps.** Full instructions for
+> **Windows, macOS, Debian/Ubuntu, Fedora, Arch, and Raspberry Pi OS** —
+> including installing Python and Tkinter and building a standalone app — are in
+> **[INSTALL.md](INSTALL.md)**. On Linux, Tkinter is a separate package
+> (`python3-tk`, `python3-tkinter`, or `tk`).
+
+> **Optional extras are strongly recommended.** OrbitDeck runs on bundled
+> pure-Python building blocks, but `pip install "orbitdeck[full]"` adds the
+> C-accelerated `sgp4` propagator (faster, and fully accurate for deep-space
+> birds), `cartopy` high-resolution coastlines, and native `.xlsx` export.
+> Install them unless you have a reason not to.
+
 On first launch OrbitDeck loads a small **bundled demo catalog** (ISS, SO-50,
 AO-91, CAS-4B, RS-44) so every screen works immediately, even offline.
 
@@ -105,7 +117,7 @@ The window has three parts:
   descending three-beep at LOS) so you can tell them apart by ear. A **yellow
   banner** appears here when the loaded catalog is
   demo or stale data; it also carries an Update GP button.
-- **Navigation menu** (left) — the 22 screens, described below in order.
+- **Navigation menu** (left) — all 23 screens, described below.
 - **Content area** (right) — the active screen.
 
 Most screens act on the **currently selected satellite**, shown in a header
@@ -117,9 +129,11 @@ Times are shown in **UTC** throughout, the convention for satellite operating.
 
 ---
 
-## 3. The navigation menu (in order)
+## 3. The navigation menu
 
 ### 3.1 Home
+
+<p align="center"><img src="img/home.png" width="85%" alt="Home"></p>
 
 The default screen. Two tabs:
 
@@ -144,6 +158,8 @@ pass with quality scores and track directions, see the **Next Passes** screen.)
 
 ### 3.2 Track
 
+<p align="center"><img src="img/track.png" width="85%" alt="Track"></p>
+
 The live operating screen for the selected satellite. It shows:
 
 - **Look angles** — azimuth, elevation, slant range, and range-rate, updated
@@ -162,6 +178,8 @@ printable OSCARLOCATOR PDF** for the selected satellite from here (see
 [The OSCARLOCATOR system](#4-the-oscarlocator-system)).
 
 ### 3.3 3D Globe
+
+<p align="center"><img src="img/globe.png" width="85%" alt="3D Globe"></p>
 
 A rotatable **orthographic "view from space"** of the Earth showing **all your
 favorite satellites at once, live** — each as a coloured dot with its coverage
@@ -187,6 +205,8 @@ viewpoint) is hidden until it rotates into view. The orange star is your station
 
 ### 3.4 Sky Radar
 
+<p align="center"><img src="img/skyradar.png" width="85%" alt="Sky Radar"></p>
+
 A polar sky plot (N-up, zenith at centre, rim = horizon) with three modes chosen
 by the radio buttons:
 
@@ -205,6 +225,8 @@ by the radio buttons:
 
 ### 3.5 Next Passes
 
+<p align="center"><img src="img/nextpasses.png" width="85%" alt="Next Passes"></p>
+
 A table of upcoming passes for the selected satellite over the next 7 days. A
 **minimum-elevation** control filters out passes too low to be useful (presets
 plus whatever you set in Settings). Each pass carries a **quality score** (0–100,
@@ -221,11 +243,15 @@ Reached by double-clicking a pass on Next Passes.
 
 ### 3.7 Ground Track
 
+<p align="center"><img src="img/groundtrack.png" width="85%" alt="Ground Track"></p>
+
 The selected satellite's **forward ground track** over the next **1, 3, 5, or 8
 orbits** (selectable with the radio buttons), drawn on the world map so you can
 see where it will pass.
 
 ### 3.8 Orbital Analysis
+
+<p align="center"><img src="img/orbital_analysis.png" width="85%" alt="Orbital Analysis"></p>
 
 Eleven pages of detailed analysis for the selected satellite, navigated with the
 page control. Data pages are clean grouped key/value cards; graph pages embed a
@@ -244,14 +270,16 @@ plot.
 7. **Sun/Beta** — beta angle now, the beta\* eclipse threshold, eclipse fraction,
    and a 60-day beta plot.
 8. **Pass Outlook** — a 7-day planning summary with the best upcoming pass.
-9. **Orbit Position** — mean and true anomaly, argument of latitude, and time to
+9. **Position** — mean and true anomaly, argument of latitude, and time to
    perigee / apogee.
-10. **Equ. Crossings** — ascending-node times and longitudes for the next 7
+10. **EQX Map** — ascending-node times and longitudes for the next 7
     days, charted in the style used to set an OSCARLOCATOR.
-11. **Crossings List** — the same equator crossings as a date/time/longitude
+11. **EQX List** — the same equator crossings as a date/time/longitude
     table, with an **Export crossings CSV** button.
 
 ### 3.9 Radio
+
+<p align="center"><img src="img/radio.png" width="85%" alt="Radio"></p>
 
 Radio-planning analysis for the selected satellite, in two tabs. (OrbitDeck does
 **not** control a radio — these are calculators that *inform* operating.)
@@ -294,6 +322,8 @@ playbook is generated for that pass's AOS→LOS span.
 
 ### 3.10 Planning
 
+<p align="center"><img src="img/planning.png" width="85%" alt="Planning"></p>
+
 Goal-directed planning and element-status, in four tabs:
 
 - **Work a target** — pick a target as a **grid square**, a **US state**, a
@@ -334,6 +364,8 @@ Goal-directed planning and element-status, in four tabs:
   when to refresh. Quantifies the stale-data warning.
 
 ### 3.11 Illumination
+
+<p align="center"><img src="img/illumination.png" width="85%" alt="Illumination"></p>
 
 Two tabs for the selected satellite's illumination.
 
@@ -381,6 +413,8 @@ satellite is workable from both ends and how high it sits in each sky.
 
 ### 3.14 Workable
 
+<p align="center"><img src="img/workable.png" width="85%" alt="Workable"></p>
+
 What is **inside the satellite's footprint** — useful for grid-square, US-state,
 and DXCC chasing. Choose the category with the radio buttons:
 
@@ -398,6 +432,8 @@ chosen category and time mode.
 
 ### 3.15 OSCARLOCATOR Sim
 
+<p align="center"><img src="img/oscarsim.png" width="85%" alt="OSCARLOCATOR Sim"></p>
+
 An **interactive on-screen OSCARLOCATOR** — play with the classic transparency
 tool without printing anything. The display is a polar (or QTH-centered)
 azimuthal-equidistant base map with a **rotatable orbit path-arc overlay**, the
@@ -412,12 +448,23 @@ positions straight off the instrument.
 - **Live** — the overlay follows the satellite's real current position; the
   satellite's actual coverage footprint (green dashed) is drawn at its sub-point
   alongside the fixed QTH range reticle (orange).
-- **Manual** — set the **EQX longitude** and **minutes-after-EQX** with the
-  sliders; the marker slides along the drawn arc. This is exactly how you use a
-  physical OSCARLOCATOR: line the node up on the equator-crossing longitude, then
-  read along the track.
+- **Manual (drag the map)** — **drag anywhere on the disc** to rotate the whole
+  ground-track arc to any **equator-crossing longitude** by hand, and **drag near
+  the moving satellite dot** to step the **minutes after the crossing**; the
+  marker slides along the drawn arc. This is exactly how you use a physical
+  OSCARLOCATOR: line the node up on the equator-crossing longitude, then read
+  along the track. A live read-out under the **Sweep the arc** heading shows the
+  current EQX longitude and minute.
 - **Next pass** — seeds the overlay to the node of the next pass from your
   station.
+
+Dragging works in every mode **except Live** (Live follows the satellite in real
+time, so to take the arc over by hand you first pick **Manual**, **Next pass**,
+or **Lab satellite**). The **Next pass** button jumps the hand-positioned arc to
+the next visible pass to fine-tune from, and **Go live** resumes real-time
+following. Hand-dragging works the same way for the **lab satellite** (below) as
+for a catalog satellite, so you can sweep a hypothetical orbit by hand without
+leaving lab mode.
 
 **Base map** (radio buttons): polar auto (picks N or S from your latitude), polar
 north, polar south, or QTH-centered.
@@ -438,13 +485,17 @@ orbital altitude** — i.e. the **maximum ground distance** at which the satelli
 is ever visible. When the path arc touches or crosses that circle, the satellite
 is above your horizon (within the natural tolerances of an overlay system).
 
-#### Lab satellite (educational)
+#### Lab satellite
 
-Choose **"Lab satellite (educational)"** under *Drive the overlay* to switch the
+Choose **"Lab satellite"** under *Drive the overlay* to switch the
 simulator from the catalog satellite to a hypothetical one you design yourself.
 A pop-up **element editor** opens (reopen it any time with **"Edit lab
 satellite…"**). For each orbital element there is a **slider and a linked numeric
-entry box**, so you can drag for feel or type an exact value:
+entry box**, so you can drag for feel or type an exact value. The sliders **snap
+to clean values** as you drag (whole km for altitude, 0.001 for eccentricity,
+0.1° for the angles), so it's easy to land on the value you want:
+
+<p align="center"><img src="img/lab_editor.png" width="42%" alt="Lab satellite element editor with sliders, including apogee and perigee"></p>
 
 - **Mean altitude** — the primary size control; the orbital **period** updates
   live as you change it (Kepler's third law).
@@ -453,6 +504,15 @@ entry box**, so you can drag for feel or type an exact value:
 - **Inclination** — the orbit-plane tilt; sets the maximum latitude reached.
 - **RAAN**, **argument of perigee**, **mean anomaly** — the orientation and
   starting-position angles.
+
+**Apogee / perigee.** Below the element sliders there are two more sliders —
+**Apogee altitude** and **Perigee altitude** — each with its own entry box, just
+like the other parameters. They aren't independent elements: moving either one
+holds the other fixed and solves back for the mean altitude and eccentricity
+(clamping to the safe range and telling you if it had to). They also update live
+as you drag the altitude or eccentricity sliders, so you can dial an orbit in by
+its high and low points or by mean size and shape — whichever is easier for the
+orbit you have in mind.
 
 As you edit, the map's path arc, footprint, and range circle update immediately,
 and a **derived read-out** shows the period, mean motion, apogee/perigee
@@ -491,6 +551,8 @@ geostationary orbit, recreate a Molniya) and checks live whether your orbit meet
 them.
 
 ### 3.16 Learn
+
+<p align="center"><img src="img/learn.png" width="85%" alt="Learn"></p>
 
 The **Learn** screen gathers OrbitDeck's standalone teaching tools, so they stay
 out of the operating screens. Each reuses the same models as the rest of the
@@ -612,6 +674,8 @@ its elements and watch the coverage and pass geometry change.
 
 ### 3.17 Exports
 
+<p align="center"><img src="img/exports.png" width="85%" alt="Exports"></p>
+
 Data export and sharing, in five tabs:
 
 - **Pass schedule** — the next 1/3/7 days of passes for the selected satellite,
@@ -649,11 +713,15 @@ Data export and sharing, in five tabs:
 
 ### 3.18 Sun / Moon
 
+<p align="center"><img src="img/sunmoon.png" width="85%" alt="Sun / Moon"></p>
+
 Solar and lunar **azimuth/elevation** for your site, plus the **Moon phase and
 illumination** percentage. Handy for visual passes and for knowing sky
 conditions.
 
 ### 3.19 Celestial
+
+<p align="center"><img src="img/celestial.png" width="85%" alt="Celestial"></p>
 
 Tracking and analysis for objects beyond satellites, in two tabs:
 
@@ -854,7 +922,7 @@ single options dialog where you choose:
 2. Print the base map on paper or card; print the path-arc (and range-circle)
    pages on transparency film.
 3. Pin the transparencies through the center so they rotate.
-4. From the **Equ. Crossings** page (Orbital Analysis) or the **Sim** page's
+4. From the **EQX Map** page (Orbital Analysis) or the **Sim** page's
    crossing list, read the **longitude** of the next equator crossing.
 5. Rotate the path-arc overlay so its **EQX mark** points at that longitude on
    the base map.
@@ -897,7 +965,7 @@ Additional one-click reports live on specific screens:
 | **Eclipse tables** (CSV) | Illumination → Eclipse table |
 | **Work-a-target** / **visible passes** CSV | Planning |
 | **Workable** grids/states/DXCC CSV | Workable |
-| **Equator crossings** CSV | Orbital Analysis → Crossings List |
+| **Equator crossings** CSV | Orbital Analysis → EQX List |
 | **Satellites by type** / **what's up** CSV | Satellites |
 
 Beyond PDF reports, OrbitDeck can export **data** for use in other tools — pass
@@ -964,12 +1032,21 @@ OrbitDeck keeps your existing catalog rather than wiping it on a failed fetch.
 satellites have no transponder entries; you can add one manually on Track.
 
 **The app won't start — tkinter missing.** Install Tk: `sudo apt install
-python3-tk` (Debian/Ubuntu) or `sudo dnf install python3-tkinter` (Fedora). The
-python.org installers for Windows and macOS already include it.
+python3-tk` (Debian/Ubuntu/Raspberry Pi OS), `sudo dnf install python3-tkinter`
+(Fedora), or `sudo pacman -S tk` (Arch). The python.org installers for Windows
+and macOS already include it. Full per-platform steps are in
+[INSTALL.md](INSTALL.md).
 
 **Coastlines look coarse.** Full-resolution coastlines come from cartopy; if
 cartopy isn't installed (or its map data hasn't been downloaded yet), OrbitDeck
-falls back to a lower-resolution bundled outline.
+falls back to a lower-resolution bundled outline. Install it with
+`pip install "orbitdeck[maps]"` (it is one of the strongly-recommended extras).
+
+**A reduced-accuracy warning on a deep-space bird.** When the bundled
+pure-Python propagator is used for a deep-space object (period ≥ 225 min — GEO,
+Molniya, AO-7), its deep-space terms are only approximate and OrbitDeck flags it.
+Install the reference backend — `pip install "orbitdeck[accurate]"` — to remove
+the warning and restore full accuracy (and faster propagation generally).
 
 **Printed OSCARLOCATOR overlays don't register.** Make sure every page is printed
 at **100% / actual size** (no "fit to page" scaling), and that the transparencies

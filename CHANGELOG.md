@@ -1,5 +1,100 @@
 # Changelog
 
+## [0.35.0]
+
+### Changed
+- **Apogee and perigee are now full sliders** (each with a linked entry box) in
+  the lab satellite editor, matching the other element controls. They map to mean
+  altitude + eccentricity: moving either one holds the other apsis fixed and
+  solves back, and both re-sync when you drag the altitude or eccentricity
+  sliders.
+
+### Added
+- **Screenshots throughout the README and manual** — a visual tour gallery in the
+  README and a screenshot under each screen's section in `docs/MANUAL.md`,
+  including the lab editor with its new apogee/perigee sliders.
+- **`docs/INSTALL.md`** — per-platform install, run, and build instructions for
+  **Windows, macOS, Debian/Ubuntu, Fedora, Arch, and Raspberry Pi OS**, covering
+  how to install Python and Tkinter, run from source, build with every optional
+  dependency, and produce a standalone PyInstaller app, plus a troubleshooting
+  table.
+- **Native packaging** (`packaging/`): a `PACKAGING.md` guide plus ready-to-use
+  helpers — Arch `PKGBUILD`, an RPM spec (`orbitdeck.spec.rpm`), a Debian
+  packaging tree (`debian/`), a freedesktop `.desktop` launcher, and AppStream
+  metainfo — with instructions for `.deb`, `.rpm`, Arch, AppImage, and Flatpak.
+- **`docs/ENGINE.md`** — complete API documentation for the headless
+  `orbitdeck.engine` (SatDb, Predictor, the dataclasses, and the `analysis`,
+  `linkbudget`, `planning`, and `celestial` submodules), with conventions and a
+  note that the optional `sgp4` backend is strongly recommended for performance
+  and deep-space accuracy.
+
+### Documentation
+- Full audit and rework of the README, manual, and contributor docs for the
+  current state of the project: the optional extras are now framed as **strongly
+  recommended for best performance**; the README feature table is reordered to
+  match the live navigation menu; Orbital Analysis page names, the screen count,
+  and a stale "required dependencies" claim are corrected; and cross-links to the
+  new INSTALL/ENGINE/PACKAGING docs are added throughout.
+
+## [0.34.0]
+
+### Added
+- **Lab satellites can now be dialed in by apogee and perigee directly.** A new
+  "Apogee / perigee (direct)" row in the lab element editor takes either altitude
+  and solves back for mean altitude and eccentricity (clamped to the safe range,
+  with a note if the request had to be adjusted). The two boxes also update live
+  as you drag the altitude or eccentricity sliders.
+
+### Changed
+- **Lab element sliders are easier to land on the value you want.** Dragging now
+  snaps to each field's natural resolution (whole km for altitude, 0.001 for
+  eccentricity, 0.1° for angles), and the heavy sim re-render is debounced so the
+  slider stays smooth during a drag instead of rebuilding on every pixel.
+
+### Performance
+- The SGP4 propagation core now **memoises recent states** (keyed on time), so
+  the equator-crossing node finder — which bisects ~40× per crossing and is hit
+  hard by the OSCARLOCATOR EQX list, multi-day pass progression, and mutual-
+  window screens — reuses results instead of re-propagating the same instants.
+  Warm node-finding is roughly 3× faster, with identical output.
+
+## [0.33.2]
+
+### Changed
+- In the **OSCARLOCATOR Simulator, dragging no longer works in Live mode** —
+  Live follows the satellite in real time, so to position the arc by hand you now
+  explicitly pick "Manual (drag the map)" or "Next pass" first. The "Sweep the
+  arc" hint says so in Live mode.
+- The **Track sky plot now shows a below-horizon satellite** (and Sun) as a
+  faint marker parked at the horizon rim in its compass direction with a "▼"
+  indicator, instead of omitting it — matching the Sun / Moon sky-view
+  convention so below-horizon bodies are handled the same way across screens.
+
+## [0.33.1]
+
+### Fixed
+- On the **Sun / Moon sky view**, a body below the horizon was drawn at the
+  zenith centre, where its label collided with the "90" elevation-ring label
+  (e.g. a down Moon rendered as "90oon"). Below-horizon bodies are now parked as
+  a faint marker at the **horizon rim in their compass direction** with a clear
+  "▼" label, so the centre label stays readable and you can still see which way
+  the Sun or Moon is.
+
+## [0.33.0]
+
+### Changed
+- The **OSCARLOCATOR Simulator is now driven by dragging the map** instead of
+  the EQX-longitude and minutes-after-crossing sliders, matching the feel of the
+  web OSCARLOCATOR simulator. Drag anywhere on the disc to rotate the ground-
+  track arc by hand to any equator-crossing longitude; drag near the moving
+  satellite dot to step the minutes after the crossing. A live read-out shows
+  the current EQX longitude and minute, with **Next pass** (seed to the next
+  visible pass) and **Go live** buttons.
+- **Lab satellites can now be hand-positioned too.** Hand-dragging the arc is
+  independent of which satellite is shown, so a user-designed lab orbit can be
+  swept by hand exactly like a catalog satellite — without leaving lab mode.
+  "Go live" resumes real-time following.
+
 ## [0.32.4]
 
 ### Fixed

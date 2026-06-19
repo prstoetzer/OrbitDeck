@@ -292,7 +292,72 @@ def test_oscarsim_track_point_on_arc():
     lat_t, lon_t = sim._track_point(S(), 0.0, pt[2], is_south=False)
     assert abs(lat_t - pt[1]) < 0.5
 
-def test_qth_reticle_uses_mean_altitude_footprint():
+def test_oscarsim_drag_rotates_arc_and_works_in_lab():
+    """Dragging the disc rotates the ground-track arc by the angular sweep of the
+    pointer, sets the hand-positioned flag, and works regardless of which
+    satellite (catalog or lab) is active -- the lab satellite must be hand-
+    controllable too."""
+    import math
+    import tkinter as tk
+    from orbitdeck.gui.screens.oscarsim import OscarSimScreen
+
+    try:
+        root = tk.Tk()
+    except Exception:
+        return
+    root.withdraw()
+
+    sim = OscarSimScreen.__new__(OscarSimScreen)
+    # minimal stubbed state the drag handlers touch (no real GUI/map needed)
+    sim._eqx_lon = tk.DoubleVar(value=0.0)
+    sim._minute = tk.DoubleVar(value=0.0)
+    sim._manual_arc = True            # already hand-positioned
+    sim._drag_kind = "arc"
+    sim._min_span = 95.0
+    sim._minute_dot_rt = None
+    # pretend the resolved projection is the north polar sheet
+    sim._resolve_proj = lambda: "polar"
+    sim._render = lambda: None
+
+    class Ev:
+        def __init__(self, th, r):
+            self.inaxes = sim.map_ax
+            self.xdata = th
+            self.ydata = r
+
+    # give _pointer_angle something to compare inaxes against
+    sim.map_ax = object()
+    sim.map = type("M", (), {"ax": sim.map_ax})()
+    sim._pointer_angle = lambda e: (e.xdata if e.inaxes is sim.map.ax else None)
+
+    # press at theta=0, then drag 40 deg -> EQX rotates ~40 deg on the north sheet
+    sim._drag_ang0 = 0.0
+    sim._drag_eqx0 = 0.0
+    sim._drag_min0 = 0.0
+    sim._on_drag(Ev(math.radians(40), 30.0))
+    assert abs(sim._eqx_lon.get() - 40.0) < 1e-6
+
+    # on the south sheet the on-screen sense is mirrored
+    sim._resolve_proj = lambda: "polar-south"
+    sim._eqx_lon.set(0.0)
+    sim._drag_ang0 = 0.0
+    sim._drag_eqx0 = 0.0
+    sim._on_drag(Ev(math.radians(40), 30.0))
+    assert abs(sim._eqx_lon.get() - (-40.0)) < 1e-6
+
+    # dragging near the minute dot slides the minute marker instead
+    sim._resolve_proj = lambda: "polar"
+    sim._drag_kind = "minute"
+    sim._minute.set(0.0)
+    sim._drag_ang0 = 0.0
+    sim._drag_min0 = 0.0
+    sim._on_drag(Ev(math.radians(170), 30.0))   # ~half a turn -> ~half an orbit
+    assert 40.0 < sim._minute.get() < 55.0
+
+    root.destroy()
+
+
+
     """The QTH reticle (simulator and printout) is sized to the footprint radius
     at the satellite's MEAN orbital altitude (max ground distance of visibility),
     not the instantaneous sub-point altitude."""

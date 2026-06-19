@@ -173,6 +173,9 @@ class Predictor:
         self._have = False
         self._incl = 0.0
         self._raan = 0.0
+        # memoised SGP4 states keyed on rounded unix time (see _eci_state)
+        self._eci_cache = {}
+        self._eci_cache_max = 4096
 
     def set_site(self, o: Observer):
         self._o = o
@@ -188,6 +191,7 @@ class Predictor:
         self._incl = s.incl
         self._raan = s.raan
         self._have = (self._sat.error == 0)
+        self._eci_cache.clear()      # new orbit -> previous states are invalid
         return self._have
 
     def deepspace_approximate(self) -> bool:
@@ -212,8 +216,25 @@ class Predictor:
         return self._sat.sgp4(tsince)
 
     def _eci_state(self, unix: float):
-        r, v = self._propagate(unix)
-        return r, v
+        # SGP4 propagation is the dominant cost on every screen: the node-finder
+        # bisects ~40x per crossing and a single render asks for the same instant
+        # through subpoint_at / azel_at / look. Memoise on the unix time (rounded
+        # to 1 ms so float jitter still hits) with a small bounded dict, cleared
+        # whenever the satellite or epoch changes. This turns repeated lookups of
+        # the same instant into a dict hit and roughly halves node-finding time.
+        key = round(unix, 3)
+        cache = getattr(self, "_eci_cache", None)
+        if cache is None:
+            # object built without __init__ (e.g. some test paths): no caching
+            return self._propagate(unix)
+        hit = cache.get(key)
+        if hit is not None:
+            return hit
+        rv = self._propagate(unix)
+        if len(cache) >= self._eci_cache_max:
+            cache.clear()           # cheap bounded eviction (whole-cache reset)
+        cache[key] = rv
+        return rv
 
     # ---- live look ----
     def look(self, unix: float) -> LiveLook:

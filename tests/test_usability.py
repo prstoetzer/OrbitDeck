@@ -213,6 +213,55 @@ def test_lab_satellite_roundtrips_through_predictor():
     assert len(nodes) >= 1
 
 
+def test_lab_apsides_roundtrip():
+    """Apogee/perigee <-> mean-altitude/eccentricity conversions are mutual
+    inverses within the valid range, and a circular orbit gives equal apsides."""
+    from orbitdeck.gui import lab
+    # circular: apogee == perigee == mean altitude
+    apo, peri = lab.apsides_from_alt_ecc(800.0, 0.0)
+    assert abs(apo - 800.0) < 1e-6 and abs(peri - 800.0) < 1e-6
+    # round-trip a spread of eccentric orbits
+    for alt, ecc in ((420.0, 0.0), (8000.0, 0.3), (20000.0, 0.5), (1000.0, 0.1)):
+        apo, peri = lab.apsides_from_alt_ecc(alt, ecc)
+        assert apo >= peri
+        alt2, ecc2 = lab.alt_ecc_from_apsides(apo, peri)
+        assert abs(alt2 - alt) < 1e-6
+        assert abs(ecc2 - ecc) < 1e-9
+    # swapped inputs are tolerated (perigee given larger than apogee)
+    a1, e1 = lab.alt_ecc_from_apsides(500.0, 39000.0)
+    a2, e2 = lab.alt_ecc_from_apsides(39000.0, 500.0)
+    assert abs(a1 - a2) < 1e-9 and abs(e1 - e2) < 1e-9
+
+
+def test_lab_apsides_sliders_hold_other_fixed():
+    """The lab editor's apogee/perigee sliders map to alt/ecc: moving one holds
+    the other apsis fixed and solves back, and both rows re-sync from an
+    eccentricity change."""
+    import tkinter as tk
+    from orbitdeck.gui.labdialog import LabDialog
+    from orbitdeck.gui import lab
+    try:
+        root = tk.Tk()
+    except Exception:
+        return
+    root.withdraw()
+    el = lab.default_elements()
+    el["alt_km"] = 8000.0
+    el["ecc"] = 0.0
+    dlg = LabDialog(root, el, on_change=lambda e: None)
+    # circular to start: both apsides equal the mean altitude
+    assert abs(dlg._vars["apogee"].get() - 8000.0) < 1.0
+    assert abs(dlg._vars["perigee"].get() - 8000.0) < 1.0
+    # raise apogee, perigee should stay put and alt/ecc move accordingly
+    dlg._on_apsis_value("apogee", 15000.0)
+    assert abs(dlg._vars["perigee"].get() - 8000.0) < 5.0
+    assert dlg.el["ecc"] > 0.1 and dlg.el["alt_km"] > 8000.0
+    # an eccentricity change re-syncs both apsis sliders
+    dlg._on_slider_value("ecc", 0.0)
+    assert abs(dlg._vars["apogee"].get() - dlg._vars["perigee"].get()) < 5.0
+    root.destroy()
+
+
 def test_lab_altitude_period_roundtrip():
     """Altitude <-> mean-motion conversions are mutual inverses, and period
     matches Kepler for a known altitude."""
