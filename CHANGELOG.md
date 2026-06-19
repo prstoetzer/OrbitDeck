@@ -1,5 +1,33 @@
 # Changelog
 
+## [0.32.2]
+
+### Fixed
+- The OSCARLOCATOR **polar base maps now keep the 0° and 180° longitude
+  labels** (and 90°E / 90°W). These had been dropped in 0.32.1 to avoid a
+  collision; they are restored and positioned with a small inward nudge and a
+  white backing so the bottom (0°) clears the footer note and the top (180°)
+  clears the subtitle — nothing overlaps.
+- The **per-pass rotation arrow no longer sits on the footer text** of the
+  polar arc overlays. The polar sheets place 0° longitude at the bottom of the
+  page, so the indicator (designed for the top) was landing on the explanatory
+  note; it is now anchored to the actual top of the page for every projection,
+  and the arrowhead direction is resolved from on-screen geometry so it stays
+  correct on the north, south, and QTH sheets.
+
+## [0.32.1]
+
+### Fixed
+- OSCARLOCATOR pass-arc overlays no longer draw a **"0" minute label** — it sat
+  on the equator-crossing node where the EQX indicator already is, so it was
+  superfluous and collided. The tick dot is kept; the number is dropped (both on
+  screen and in the printable sheet).
+- On the polar OSCARLOCATOR base maps, the **0° longitude label** (which falls at
+  the bottom of the sheet, where the explanatory footer text sits) no longer
+  overlaps that text. The four cardinal-spoke longitude numbers (0/90/180/270)
+  are now omitted, since the **N/E/S/W** letters already mark those spokes —
+  matching how the QTH-centred map already handles its cardinals.
+
 ## [0.32.0]
 
 A broad readability, polish, and interaction pass across every screen.

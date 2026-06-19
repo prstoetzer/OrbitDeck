@@ -857,6 +857,11 @@ class OscarSimScreen(Screen):
                 ax.plot([theta], [rho], marker="o", markersize=5,
                         markerfacecolor="#9ecbff", markeredgecolor=COL_PANEL,
                         markeredgewidth=0.8, zorder=5)
+                # the 0-minute mark sits on the equator-crossing node, where the
+                # EQX indicator already is -- its label is superfluous and
+                # collides, so draw the dot but skip the number.
+                if target == 0:
+                    continue
                 ax.annotate(
                     "%d" % target, xy=(theta, rho),
                     xytext=(6, 0), textcoords="offset points",

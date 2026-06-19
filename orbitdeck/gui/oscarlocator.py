@@ -422,11 +422,18 @@ def _draw_az_grid(ax, proj, rmax, alt_km=None, skip_horizon=False,
                     color="#b0b0b0", linewidth=LW_SPOKE, zorder=1)
             disp = a if a <= 180 else a - 360
             hemi = "E" if 0 < disp < 180 else ("W" if disp < 0 else "")
-            # well clear of the rim circle so the longitude labels don't touch it
-            ax.text(math.radians(a), rmax * 1.10,
+            # 0 deg points down and 180 deg up on the sheet (where the footer and
+            # title sit), so nudge those two labels radially inward a touch and
+            # give them a white backing so they read clearly and never collide
+            # with the surrounding text. 90 E / 90 W sit left/right with room.
+            cardinal = a in (0, 90, 180, 270)
+            r_label = rmax * 1.065 if a in (0, 180) else rmax * 1.10
+            bbox = (dict(boxstyle="round,pad=0.10", fc="white", ec="none",
+                        alpha=0.9) if cardinal else None)
+            ax.text(math.radians(a), r_label,
                     "%d\u00b0%s" % (abs(disp), hemi),
                     ha="center", va="center", fontsize=FS_AZLABEL,
-                    color="#444444", fontweight="bold")
+                    color="#444444", fontweight="bold", zorder=4, bbox=bbox)
         # latitude rings every 15 deg. Labels sit on a quiet spoke (just off the
         # 60 deg meridian) with a small white backing so they read clearly over
         # the ring lines, and the outermost ring (the equator / rim) is NOT
@@ -961,9 +968,12 @@ def _arc_page(pdf, pred, sat, proj, rmax, reduced_text=False):
         ax.plot(seg_t, seg_r, color="#001f7a" if major else "#2255cc",
                 linewidth=3.0 if major else 1.8, zorder=5,
                 solid_capstyle="butt")
-        if major:
+        if major and mm != 0:
             # place the number just beyond the OUTER end of the tick, pushed a
-            # little further along the perpendicular so it clears the arc
+            # little further along the perpendicular so it clears the arc.
+            # Minute 0 is omitted: it sits on the equator-crossing node where the
+            # EQX indicator and its "0 min" label already are, so the number is
+            # superfluous and collides.
             lx = cx + px * (hl + 3.2)
             ly = cy + py * (hl + 3.2)
             lt, lr = _rt(lx, ly)
@@ -1020,16 +1030,32 @@ def _arc_page(pdf, pred, sat, proj, rmax, reduced_text=False):
     if not reduced_text:
         r_ind = rmax * 1.18  # radius of the indicator arc, beyond the plot edge
         half = math.radians(abs(shift)) / 2.0
-        a_lo, a_hi = -half, half          # centred on North (top)
+        # The arc must sit in the clear band at the TOP of the printed page. The
+        # azimuth (QTH) sheet has theta=0 at the top, but the polar sheets put
+        # theta=0 at the BOTTOM (zero-location "S") -- there the page top is
+        # theta=180. Centre the arc on whichever theta points up, so it never
+        # drops onto the footer text at the bottom of the sheet.
+        top = math.pi if (proj is not None and proj.is_polar) else 0.0
+        a_lo, a_hi = top - half, top + half
         arc = [a_lo + (a_hi - a_lo) * k / 60 for k in range(61)]
         ax.plot(arc, [r_ind] * len(arc), color="#cc0000",
                 linewidth=LW_INDICATOR, zorder=7, clip_on=False,
                 solid_capstyle="round")
-        # CCW (screen) -> head at the left end (a_lo); CW -> head at right (a_hi)
-        if ccw:
-            tip, pre = a_lo, a_lo + math.radians(0.6)
-        else:
-            tip, pre = a_hi, a_hi - math.radians(0.6)
+        # Put the arrowhead on the correct END for the on-screen sense. The
+        # theta->screen mapping differs by projection (zero-location and
+        # direction), so resolve "which end is screen-left" geometrically rather
+        # than from raw theta ordering: project both ends to display pixels and
+        # pick by x. CCW sweep -> head on the LEFT end; CW -> the RIGHT end.
+        try:
+            px_lo = ax.transData.transform((a_lo, r_ind))[0]
+            px_hi = ax.transData.transform((a_hi, r_ind))[0]
+        except Exception:
+            px_lo, px_hi = (0.0, 1.0)
+        left_ang = a_lo if px_lo <= px_hi else a_hi
+        right_ang = a_hi if px_lo <= px_hi else a_lo
+        tip = left_ang if ccw else right_ang
+        # the short tail sits just inside the arc, toward its centre angle
+        pre = tip + math.copysign(math.radians(0.6), top - tip)
         ax.annotate("", xy=(tip, r_ind), xytext=(pre, r_ind),
                     arrowprops=dict(arrowstyle="-|>", color="#cc0000",
                                     lw=LW_INDICATOR),
