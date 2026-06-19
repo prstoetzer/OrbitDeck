@@ -87,8 +87,13 @@ pyinstaller orbitdeck.spec
 ```
 
 The app appears at `dist\OrbitDeck\OrbitDeck.exe`. Zip the `dist\OrbitDeck\`
-folder to distribute it. See [`packaging/BUILD.md`](../packaging/BUILD.md) for
-icons and code-signing.
+folder to distribute it, or wrap it in a proper **Setup.exe** installer (Inno
+Setup) — see
+[Professional installers](../packaging/BUILD.md#professional-installers). See
+[`packaging/BUILD.md`](../packaging/BUILD.md) for icons, and
+[Code signing & notarization](../packaging/BUILD.md#code-signing--notarization)
+for how to get a certificate (Microsoft Artifact Signing or a commercial OV cert)
+and sign the `.exe` with `signtool` so SmartScreen trusts it.
 
 ---
 
@@ -139,9 +144,14 @@ open dist/OrbitDeck.app
 ```
 
 For a Retina-quality icon, generate `icon.icns` first (see
-[`packaging/BUILD.md`](../packaging/BUILD.md)). Gatekeeper will warn about an
-unsigned app; right-click → **Open** the first time, or sign + notarize for
-distribution.
+[`packaging/BUILD.md`](../packaging/BUILD.md)). For distribution, wrap the
+`.app` in a drag-install **DMG** (or a `.pkg`) — see
+[Professional installers](../packaging/BUILD.md#professional-installers).
+Gatekeeper will warn about an unsigned app; right-click → **Open** the first
+time, or **sign + notarize** for distribution — step-by-step instructions (Apple
+Developer Program enrolment, `Developer ID` certificate, `codesign`,
+`notarytool`, stapling) are in
+[`packaging/BUILD.md` → Code signing & notarization](../packaging/BUILD.md#code-signing--notarization).
 
 ---
 

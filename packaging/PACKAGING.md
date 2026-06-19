@@ -26,12 +26,16 @@ Helper files referenced below live in this `packaging/` directory:
 |---|---|
 | `orbitdeck.desktop` | Freedesktop menu launcher |
 | `io.github.prstoetzer.OrbitDeck.metainfo.xml` | AppStream metadata (software centers) |
-| `PKGBUILD` | Arch package recipe |
+| `PKGBUILD` | Arch package recipe (tagged **release**) |
+| `.SRCINFO` | AUR metadata for `PKGBUILD` (regenerate before pushing) |
+| `PKGBUILD-git` | Arch recipe for the `orbitdeck-git` AUR package (latest **git `HEAD`**) |
+| `.SRCINFO-git` | AUR metadata for `PKGBUILD-git` |
 | `orbitdeck.spec.rpm` | RPM spec |
 | `debian/` | Debian packaging tree (`control`, `rules`, `changelog`, `source/`) |
 
 > Keep the version in each helper in sync with `orbitdeck/__init__.py`. A
-> release tag `vX.Y.Z` is assumed where a source tarball is fetched.
+> release tag `vX.Y.Z` is assumed where a source tarball is fetched. For AUR
+> submission specifics, see [Submitting to the AUR](#submitting-to-the-aur).
 
 ---
 
@@ -56,7 +60,7 @@ dpkg-buildpackage -us -uc -b      # -b = binary only, unsigned
 The `.deb` is written to the **parent** directory. Install and run:
 
 ```bash
-sudo apt install ../orbitdeck_0.35.0-1_all.deb   # pulls deps + the full optional set
+sudo apt install ../orbitdeck_0.35.2-1_all.deb   # pulls deps + the full optional set
 orbitdeck
 ```
 
@@ -86,8 +90,8 @@ rpmdev-setuptree                  # creates ~/rpmbuild/{SOURCES,SPECS,...}
 
 ```bash
 # from the repo root: create the source tarball the spec expects
-git archive --format=tar.gz --prefix=OrbitDeck-0.35.0/ \
-    -o ~/rpmbuild/SOURCES/orbitdeck-0.35.0.tar.gz v0.35.0
+git archive --format=tar.gz --prefix=OrbitDeck-0.35.2/ \
+    -o ~/rpmbuild/SOURCES/orbitdeck-0.35.2.tar.gz v0.35.2
 
 rpmbuild -ba packaging/orbitdeck.spec.rpm
 ```
@@ -95,7 +99,7 @@ rpmbuild -ba packaging/orbitdeck.spec.rpm
 The binary RPM lands in `~/rpmbuild/RPMS/noarch/`. Install and run:
 
 ```bash
-sudo dnf install ~/rpmbuild/RPMS/noarch/orbitdeck-0.35.0-1.*.noarch.rpm
+sudo dnf install ~/rpmbuild/RPMS/noarch/orbitdeck-0.35.2-1.*.noarch.rpm
 orbitdeck
 ```
 
@@ -121,7 +125,7 @@ makepkg -si                       # build + install, pulling dependencies
 orbitdeck
 ```
 
-`makepkg` produces `orbitdeck-0.35.0-1-any.pkg.tar.zst`. The recipe pulls
+`makepkg` produces `orbitdeck-0.35.2-1-any.pkg.tar.zst`. The recipe pulls
 `tk`, `python-matplotlib`, `python-numpy`, and `python-certifi` as hard
 dependencies, and lists `python-sgp4` / `python-cartopy` / `python-openpyxl` as
 `optdepends`. On Arch, optdepends are **not** auto-installed, so to get the full
@@ -138,7 +142,109 @@ into `depends` in the `PKGBUILD`.)
 > `sha256sums=('SKIP')`. For a real AUR submission, replace `SKIP` with the
 > actual checksum (`updpkgsums`) and add a `.SRCINFO` (`makepkg --printsrcinfo
 > > .SRCINFO`). To build straight from a **local checkout**, point `source=()`
-> at the working tree or use a `-git` style recipe.
+> at the working tree or use the `orbitdeck-git` recipe (below).
+
+---
+
+## Submitting to the AUR
+
+The [Arch User Repository](https://aur.archlinux.org) hosts the **recipe**
+(`PKGBUILD` + `.SRCINFO`), not a built package — users build it themselves with
+`makepkg` or an AUR helper. This repo ships everything you need:
+
+| File | AUR package | Builds |
+|---|---|---|
+| `packaging/PKGBUILD` + `packaging/.SRCINFO` | `orbitdeck` | the latest tagged **release** |
+| `packaging/PKGBUILD-git` + `packaging/.SRCINFO-git` | `orbitdeck-git` | the latest **git `HEAD`** |
+
+> In an AUR git repo the recipe file must be named exactly **`PKGBUILD`** and the
+> metadata **`.SRCINFO`**. The `-git` suffixes here only distinguish the two
+> variants inside this source tree — drop them when you copy the files across.
+
+### 1. One-time account setup
+
+1. Create an account at <https://aur.archlinux.org>.
+2. Add your **SSH public key** under *My Account → SSH Public Key* (AUR pushes go
+   over SSH). Generate one if needed:
+   ```bash
+   ssh-keygen -t ed25519 -C "aur"
+   cat ~/.ssh/id_ed25519.pub      # paste into the AUR profile
+   ```
+3. Check access: `ssh aur@aur.archlinux.org help`
+
+### 2. Prepare the release recipe (`orbitdeck`)
+
+The shipped `.SRCINFO` carries `sha256sums = SKIP`, which is fine for a local
+build but **not** for the AUR — fill in the real checksum first. This needs the
+`v$pkgver` tag to already be pushed to GitHub (the `source=` URL points at it),
+and `pacman-contrib` + `namcap` installed (`sudo pacman -S pacman-contrib namcap`).
+
+```bash
+cp packaging/PKGBUILD .
+updpkgsums                          # downloads the tagged tarball, fills sha256sums
+makepkg --printsrcinfo > .SRCINFO   # regenerate to match
+namcap PKGBUILD                     # lint the recipe
+makepkg -si                         # smoke-test the build locally
+```
+
+(The `packaging/.SRCINFO` in the repo is provided so you can diff against your
+generated one; always commit the freshly generated file.)
+
+### 3. Prepare the git recipe (`orbitdeck-git`)
+
+The VCS package pins by commit, so it keeps `sha256sums=('SKIP')` and derives the
+version with a `pkgver()` function — no checksum step:
+
+```bash
+cp packaging/PKGBUILD-git ./PKGBUILD
+makepkg --printsrcinfo > .SRCINFO   # pkgver is filled in from `git describe`
+makepkg -si                         # smoke-test (clones the repo, builds HEAD)
+```
+
+### 4. Clone the AUR repo and push
+
+The AUR repo is created on first push. Use the package name as the repo name:
+
+```bash
+git clone ssh://aur@aur.archlinux.org/orbitdeck.git aur-orbitdeck
+cd aur-orbitdeck
+cp /path/to/PKGBUILD /path/to/.SRCINFO .   # ONLY these (plus any .install)
+git add PKGBUILD .SRCINFO
+git commit -m "Initial import: orbitdeck 0.35.2-1"
+git push
+```
+
+Repeat with `ssh://aur@aur.archlinux.org/orbitdeck-git.git` for the git variant.
+The package then appears at `https://aur.archlinux.org/packages/orbitdeck`.
+
+### 5. Updating on a new release
+
+```bash
+# in the aur-orbitdeck checkout:
+# 1. bump pkgver (reset pkgrel=1) in PKGBUILD  — git variant updates itself
+# 2. refresh checksum + metadata
+updpkgsums
+makepkg --printsrcinfo > .SRCINFO
+# 3. commit + push
+git commit -am "Update to 0.36.0-1"
+git push
+```
+
+Bump `pkgrel` (not `pkgver`) when only the packaging changes. Regenerate
+`.SRCINFO` on **every** change — the AUR rejects a push whose `.SRCINFO` is out
+of date.
+
+### Notes
+
+- The AUR git repo holds **only** the recipe — never the source tree, the built
+  package, or `src/`/`pkg/` directories.
+- The `v0.35.2` **tag must be live and public on GitHub** or `updpkgsums` and
+  users' builds will 404 on the `source=` URL.
+- `arch=('any')` is correct (pure-Python / noarch): one package serves every
+  architecture.
+- `optdepends` are not auto-installed on Arch; the full optional set
+  (`python-sgp4` / `python-cartopy` / `python-openpyxl`) is opt-in, as described
+  above.
 
 ---
 

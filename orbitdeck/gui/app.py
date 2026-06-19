@@ -8,6 +8,8 @@ Analysis (9 pages), Sun/Moon, Mutual Windows, Space Wx, Satellites, Settings.
 """
 
 import datetime as dt
+import os
+import sys
 import threading
 
 import tkinter as tk
@@ -88,15 +90,20 @@ class OrbitDeckApp:
         self.root.after(400, self._first_run_check)
 
     def _set_window_icon(self, root):
-        """Set the taskbar / title-bar icon from the bundled asset, if present."""
-        import os
-        here = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-        assets = os.path.join(here, "gui", "assets")
+        """Set the taskbar / title-bar icon from the bundled asset, if present.
+        Resolves assets from the PyInstaller bundle dir when frozen, and applies
+        BOTH the .ico (title bar) and the PNG (iconphoto, which Windows also uses
+        for the taskbar) so the OrbitDeck icon shows reliably."""
+        base = getattr(sys, "_MEIPASS", None)
+        if base:
+            assets = os.path.join(base, "orbitdeck", "gui", "assets")
+        else:
+            here = os.path.dirname(os.path.abspath(__file__))
+            assets = os.path.join(here, "assets")
         try:
             ico = os.path.join(assets, "icon.ico")
             if os.name == "nt" and os.path.exists(ico):
-                root.iconbitmap(ico)
-                return
+                root.iconbitmap(default=ico)
         except Exception:
             pass
         try:
@@ -104,7 +111,7 @@ class OrbitDeckApp:
             if os.path.exists(png):
                 img = tk.PhotoImage(file=png)
                 root.iconphoto(True, img)
-                self._icon_img = img      # keep a reference
+                self._icon_img = img      # keep a reference so it isn't GC'd
         except Exception:
             pass
 
@@ -771,7 +778,23 @@ def _ensure_ca_certs():
         pass
 
 
+def _set_windows_app_id():
+    """On Windows, give the process an explicit AppUserModelID so the taskbar
+    shows OrbitDeck's own icon and groups its windows under OrbitDeck -- instead
+    of inheriting the generic Python / pythonw host icon (a frozen Tkinter app
+    has no app id of its own otherwise). Harmless / no-op off Windows."""
+    if os.name != "nt":
+        return
+    try:
+        import ctypes
+        ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(
+            "OrbitDeck.SatelliteTracker")
+    except Exception:
+        pass
+
+
 def main():
+    _set_windows_app_id()
     _ensure_ca_certs()
     root = tk.Tk()
     OrbitDeckApp(root)

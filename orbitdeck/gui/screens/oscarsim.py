@@ -382,22 +382,58 @@ class OscarSimScreen(Screen):
         ang = self._pointer_angle(event)
         if ang is None:
             return
-        dtheta = math.degrees(ang - self._drag_ang0)
-        # normalise to (-180, 180] so a drag across the 180 seam doesn't jump
-        dtheta = (dtheta + 180.0) % 360.0 - 180.0
         if self._drag_kind == "minute":
-            # one full turn of the disc ~ one orbit of minute travel
-            span = getattr(self, "_min_span", 95.0) or 95.0
-            m = self._drag_min0 + dtheta / 360.0 * span
-            self._minute.set(min(max(m, 0.0), span))
-        else:
-            # rotate the ground-track east-west; on the south sheet the on-screen
-            # sense is mirrored, so flip the sign to keep "drag east -> arc east"
-            sign = -1.0 if self._resolve_proj() == "polar-south" else 1.0
-            lon = self._drag_eqx0 + sign * dtheta
-            lon = ((lon + 180.0) % 360.0) - 180.0
-            self._eqx_lon.set(lon)
+            # Slide the satellite ALONG the arc by snapping to the arc sample
+            # nearest the pointer. (Mapping the pointer's angle about the centre
+            # to minutes fails badly: near the centre a tiny move spins the angle
+            # wildly, and near the rim a big move barely changes it -- so the dot
+            # would jump or refuse to move. Projecting onto the arc tracks the
+            # pointer smoothly the whole way across the pass.)
+            m = self._minute_for_pointer(event)
+            if m is not None:
+                span = getattr(self, "_min_span", 95.0) or 95.0
+                self._minute.set(min(max(m, 0.0), span))
+                self._render()
+            return
+        # rotate the ground-track east-west; on the south sheet the on-screen
+        # sense is mirrored, so flip the sign to keep "drag east -> arc east"
+        dtheta = math.degrees(ang - self._drag_ang0)
+        dtheta = (dtheta + 180.0) % 360.0 - 180.0
+        sign = -1.0 if self._resolve_proj() == "polar-south" else 1.0
+        lon = self._drag_eqx0 + sign * dtheta
+        lon = ((lon + 180.0) % 360.0) - 180.0
+        self._eqx_lon.set(lon)
         self._render()
+
+    def _minute_for_pointer(self, event):
+        """Minute-after-EQX of the arc point closest to the pointer, found by
+        projecting the pointer's screen position onto the drawn arc. Returns
+        None if the pointer is off-axes or no arc is available."""
+        if event.xdata is None or event.ydata is None:
+            return None
+        s = self.sat()
+        if s is None:
+            return None
+        mode = self._resolve_proj()
+        is_south = (mode == "polar-south")
+        eqx_lon = self._eqx_lon.get()
+        period = s.period_min if s.period_min else 95.0
+        # pointer in Cartesian screen space (theta, rho) -> (x, y)
+        px = event.ydata * math.cos(event.xdata)
+        py = event.ydata * math.sin(event.xdata)
+        best_m, best_d2 = None, None
+        # walk the orbit in ~1-minute steps and keep the closest projected point
+        steps = max(60, int(period))
+        for k in range(steps + 1):
+            m = period * k / steps
+            lat, lon = self._track_point(s, eqx_lon, m, is_south)
+            rho, theta = self._to_polar(mode, lat, lon)
+            x = rho * math.cos(theta)
+            y = rho * math.sin(theta)
+            d2 = (x - px) ** 2 + (y - py) ** 2
+            if best_d2 is None or d2 < best_d2:
+                best_d2, best_m = d2, m
+        return best_m
 
     def _on_release(self, _event):
         self._drag_ang0 = None
@@ -406,15 +442,18 @@ class OscarSimScreen(Screen):
 
     def _near_minute_dot(self, event):
         """True if the press is near the satellite's current minute marker, so
-        the drag slides the marker along the arc instead of rotating it."""
+        the drag slides the marker along the arc instead of rotating the whole
+        arc. Compared in Cartesian screen space so the target is an even disc at
+        any radius (an angular tolerance would shrink to nothing near the
+        centre, making the dot impossible to grab there)."""
         dot = getattr(self, "_minute_dot_rt", None)
         if dot is None or event.xdata is None or event.ydata is None:
             return False
         th0, r0 = dot
-        # crude angular+radial proximity in the polar data frame
-        dth = abs(((math.degrees(event.xdata - th0) + 180) % 360) - 180)
-        dr = abs(event.ydata - r0)
-        return dth < 12.0 and dr < 12.0
+        dx = event.ydata * math.cos(event.xdata) - r0 * math.cos(th0)
+        dy = event.ydata * math.sin(event.xdata) - r0 * math.sin(th0)
+        # ~10 rho-units of pickup radius, uniform around the dot
+        return (dx * dx + dy * dy) <= 10.0 ** 2
 
     def _seed_next_pass(self):
         """Seed the overlay to the next pass that is actually VISIBLE from the

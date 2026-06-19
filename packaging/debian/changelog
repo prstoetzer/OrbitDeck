@@ -1,3 +1,17 @@
+orbitdeck (0.35.2-1) unstable; urgency=medium
+
+  * Fix the OrbitDeck taskbar icon on a built Windows exe (set an explicit
+    AppUserModelID). Replace literal unicode escapes in README/CHANGELOG.
+
+ -- Paul Stoetzer, N8HM <noreply@example.com>  Fri, 19 Jun 2026 00:00:00 +0000
+
+orbitdeck (0.35.1-1) unstable; urgency=medium
+
+  * Fix dragging the satellite along the pass arc in the OSCARLOCATOR simulator's
+    manual mode; add professional-installer instructions (Inno Setup / DMG / pkg).
+
+ -- Paul Stoetzer, N8HM <noreply@example.com>  Fri, 19 Jun 2026 00:00:00 +0000
+
 orbitdeck (0.35.0-1) unstable; urgency=medium
 
   * Apogee/perigee as sliders; per-platform install/build docs; native

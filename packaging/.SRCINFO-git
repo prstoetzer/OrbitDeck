@@ -1,0 +1,26 @@
+pkgbase = orbitdeck-git
+	pkgdesc = Desktop satellite tracking and orbital analysis for amateur radio (git)
+	pkgver = 0.35.2.r0.g0000000
+	pkgrel = 1
+	url = https://github.com/prstoetzer/OrbitDeck
+	arch = any
+	license = MIT
+	makedepends = git
+	makedepends = python-build
+	makedepends = python-installer
+	makedepends = python-wheel
+	makedepends = python-setuptools
+	depends = python
+	depends = tk
+	depends = python-matplotlib
+	depends = python-numpy
+	depends = python-certifi
+	optdepends = python-sgp4: C-accelerated full SGP4/SDP4 propagator
+	optdepends = python-cartopy: full-resolution Natural Earth coastlines
+	optdepends = python-openpyxl: native .xlsx export
+	provides = orbitdeck
+	conflicts = orbitdeck
+	source = orbitdeck::git+https://github.com/prstoetzer/OrbitDeck.git
+	sha256sums = SKIP
+
+pkgname = orbitdeck-git

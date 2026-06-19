@@ -1,0 +1,64 @@
+# Maintainer: Paul Stoetzer, N8HM
+#
+# Arch Linux -git package for OrbitDeck: builds the latest commit on the main
+# branch (a VCS package) rather than a tagged release.
+#
+# To publish this to the AUR as `orbitdeck-git`, copy this file to the AUR repo
+# AS `PKGBUILD` (drop the -git suffix in the filename), regenerate .SRCINFO, and
+# push. See packaging/PACKAGING.md -> "Submitting to the AUR".
+#
+# Build & install locally from a checkout:
+#     cp packaging/PKGBUILD-git ./PKGBUILD
+#     makepkg -si
+#
+# Note: VCS sources use sha256sums=('SKIP') by design — the commit is pinned by
+# git, not by a checksum — and pkgver() derives the version from `git describe`.
+pkgname=orbitdeck-git
+_pkgname=orbitdeck
+pkgver=0.35.2.r0.g0000000
+pkgrel=1
+pkgdesc="Desktop satellite tracking and orbital analysis for amateur radio (git)"
+arch=('any')
+url="https://github.com/prstoetzer/OrbitDeck"
+license=('MIT')
+depends=('python' 'tk' 'python-matplotlib' 'python-numpy' 'python-certifi')
+optdepends=(
+  'python-sgp4: C-accelerated full SGP4/SDP4 propagator'
+  'python-cartopy: full-resolution Natural Earth coastlines'
+  'python-openpyxl: native .xlsx export'
+)
+makedepends=('git' 'python-build' 'python-installer' 'python-wheel'
+             'python-setuptools')
+provides=("$_pkgname=$pkgver")
+conflicts=("$_pkgname")
+source=("$_pkgname::git+https://github.com/prstoetzer/OrbitDeck.git")
+sha256sums=('SKIP')
+
+pkgver() {
+  cd "$_pkgname"
+  # Prefer the most recent v* tag, e.g. 0.35.0.r12.gabcdef0; fall back to a
+  # plain commit count if the repo has no tags yet.
+  ( git describe --long --tags --abbrev=7 2>/dev/null \
+      | sed 's/^v//; s/\([^-]*-g\)/r\1/; s/-/./g' ) || \
+  printf 'r%s.g%s' "$(git rev-list --count HEAD)" "$(git rev-parse --short=7 HEAD)"
+}
+
+build() {
+  cd "$_pkgname"
+  python -m build --wheel --no-isolation
+}
+
+package() {
+  cd "$_pkgname"
+  python -m installer --destdir="$pkgdir" dist/*.whl
+
+  # desktop entry, icon, AppStream metadata, license
+  install -Dm644 packaging/orbitdeck.desktop \
+    "$pkgdir/usr/share/applications/orbitdeck.desktop"
+  install -Dm644 orbitdeck/gui/assets/icon-256.png \
+    "$pkgdir/usr/share/icons/hicolor/256x256/apps/orbitdeck.png"
+  install -Dm644 packaging/io.github.prstoetzer.OrbitDeck.metainfo.xml \
+    "$pkgdir/usr/share/metainfo/io.github.prstoetzer.OrbitDeck.metainfo.xml"
+  install -Dm644 LICENSE \
+    "$pkgdir/usr/share/licenses/$_pkgname/LICENSE"
+}

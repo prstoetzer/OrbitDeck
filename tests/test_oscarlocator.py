@@ -345,14 +345,67 @@ def test_oscarsim_drag_rotates_arc_and_works_in_lab():
     sim._on_drag(Ev(math.radians(40), 30.0))
     assert abs(sim._eqx_lon.get() - (-40.0)) < 1e-6
 
-    # dragging near the minute dot slides the minute marker instead
+    # dragging near the minute dot slides the marker ALONG THE ARC: the drag
+    # now projects the pointer onto the arc via _minute_for_pointer (rather than
+    # mapping the pointer's angle about the centre, which jumped near the centre)
     sim._resolve_proj = lambda: "polar"
     sim._drag_kind = "minute"
     sim._minute.set(0.0)
     sim._drag_ang0 = 0.0
-    sim._drag_min0 = 0.0
-    sim._on_drag(Ev(math.radians(170), 30.0))   # ~half a turn -> ~half an orbit
-    assert 40.0 < sim._minute.get() < 55.0
+    sim._min_span = 95.0
+    sim._minute_for_pointer = lambda e: 47.5     # stub the arc projection
+    sim._on_drag(Ev(math.radians(170), 30.0))
+    assert abs(sim._minute.get() - 47.5) < 1e-6   # marker snaps to projected min
+
+    # the projected minute is clamped to [0, span]
+    sim._minute_for_pointer = lambda e: 999.0
+    sim._on_drag(Ev(math.radians(10), 30.0))
+    assert sim._minute.get() == sim._min_span
+
+    root.destroy()
+
+
+def test_oscarsim_minute_drag_projects_onto_arc():
+    """The satellite marker slides along the FULL arc as the pointer moves:
+    _minute_for_pointer returns the minute of the arc point nearest the pointer,
+    so dragging tracks smoothly even through the centre of the disc (where the
+    old angle-based mapping jumped)."""
+    import math
+    import tkinter as tk
+    from orbitdeck.gui.app import OrbitDeckApp
+
+    try:
+        root = tk.Tk()
+    except Exception:
+        return
+    import os
+    try:
+        os.remove(os.path.expanduser("~/.orbitdeck/config.json"))
+    except OSError:
+        pass
+    app = OrbitDeckApp(root)
+    app.store.save_config(onboarded=True)
+    sat = next(s for s in app.store.db.sats if s.name == "RS-44")
+    app.store.select(sat.norad)
+    app.show("oscarsim")
+    sim = app.current
+    sim._mode.set("manual")
+    sim._on_mode()
+
+    class Ev:
+        def __init__(self, th, r):
+            self.inaxes = sim.map.ax
+            self.xdata = th
+            self.ydata = r
+
+    # for several target minutes, put the pointer exactly on that arc point and
+    # confirm the projection recovers (close to) that minute -- including near
+    # the centre of the disc, which the old mapping handled badly
+    for target in (5.0, 20.0, 30.0, 45.0, 60.0):
+        lat, lon = sim._track_point(sat, sim._eqx_lon.get(), target, False)
+        rho, theta = sim._to_polar("polar", lat, lon)
+        m = sim._minute_for_pointer(Ev(theta, rho))
+        assert m is not None and abs(m - target) < 2.0, (target, m)
 
     root.destroy()
 
