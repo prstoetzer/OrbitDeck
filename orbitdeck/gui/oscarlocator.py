@@ -1290,15 +1290,19 @@ def _base_map_with_footprint_page(pdf, proj, obs, qth_name, segments, rmax,
         ax.plot([0], [0], marker="*", color="#cc0000", markersize=13, zorder=7)
     if reduced_text:
         note = (
-            "OSCARLOCATOR \u2014 print this sheet on paper/card at 100%% (actual "
-            "size) and print the path-arc overlay on transparency at 100%%. The "
-            "red circle is the satellite's range circle, centred on your station "
-            "(red star); spokes are azimuth and rim ticks are 1\u00b0. Pin the "
-            "path-arc through the centre, rotate it %s to the node longitude from "
-            "the Crossings List, then %s for each successive pass. The satellite "
-            "is workable while its track is inside the red circle; read AOS/LOS "
-            "where the track crosses it." % (
-                "to", "rotate by the per-pass advance"))
+            "Print this sheet on paper/card and the path-arc overlay on "
+            "transparency, both at 100% (actual size). The red circle is the "
+            "satellite's range circle, centred on your station (red star); "
+            "spokes are azimuth, rim ticks 1\u00b0. Pin the path-arc through the "
+            "centre, rotate it to the node longitude from the Crossings List, "
+            "then by the per-pass advance for each pass. The satellite is "
+            "workable while its track is inside the red circle \u2014 read "
+            "AOS/LOS where it crosses.")
+        # on the polar sheet 0 deg longitude sits at the BOTTOM, just above this
+        # note, so wrap it wider (fewer lines) to keep its top edge clear of the
+        # label; the baseline and the credit beneath it stay in the safe margin.
+        _draw_footer(fig, note,
+                     width_frac=0.96 if proj.is_polar else TEXT_W)
     else:
         note = (
             "Print on paper or card at 100%. The red circle is the satellite's "
@@ -1306,7 +1310,7 @@ def _base_map_with_footprint_page(pdf, proj, obs, qth_name, segments, rmax,
             "base map's spokes give azimuth and the rings inside the circle give "
             "elevation and ground distance to the sub-point. Use the separate "
             "path-arc overlay to see when the satellite enters this circle.")
-    _draw_footer(fig, note)
+        _draw_footer(fig, note)
     _draw_branding(fig)
     pdf.savefig(fig)
     plt.close(fig)

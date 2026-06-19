@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.32.4]
+
+### Fixed
+- Applied the clean-mode footer fix to the **2-page combined polar set** as
+  well (the "Map + Range Circle at QTH" sheet), which is built by a separate
+  code path that 0.32.3 missed: its full how-to note wrapped to six lines and
+  still touched the 0° longitude label at the bottom of the polar sheet. The
+  note is tightened and wrapped wider (polar only) so its top edge clears the
+  label, and a stray doubled "to" in the wording was corrected.
+
 ## [0.32.3]
 
 ### Fixed
