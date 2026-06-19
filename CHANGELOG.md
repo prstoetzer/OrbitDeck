@@ -1,5 +1,349 @@
 # Changelog
 
+## [0.32.0]
+
+A broad readability, polish, and interaction pass across every screen.
+
+### Added
+- **The 3D Globe is now mouse-interactive** — a new "Free (drag)" view lets you
+  click and drag to spin the globe to any viewpoint; the satellite, track,
+  footprint, terminator, and station redraw at the new orientation.
+- **The Rove planner can plan for all favorites at once** — a "Selected / All
+  favorites" choice, with a new Satellite column in the results (and in the CSV
+  and PDF exports) so each covering pass shows which bird it belongs to.
+- **The Celestial sky view now plots the selected satellite** alongside the Sun,
+  Moon, planets, and radio sources (a pink star), with its az/el in the table.
+
+### Changed
+- **Home consolidates the Dashboard and Next Passes** — the redundant Next
+  Passes tab is gone; the dashboard keeps the upcoming-passes table and now
+  carries the "Print 7-day schedule (all favorites)" button. (The separate
+  Next Passes screen, with its quality scores and track directions, stays.)
+- **The OSCARLOCATOR arc time labels scale with the orbital period** (on screen
+  and in the printable sheet), so a long high-orbit pass no longer crowds dozens
+  of overlapping minute numbers — the interval and font size adapt to keep about
+  a dozen evenly-spaced labels.
+- The Orbital Analysis tab strip was tightened ("Slant range", "Position",
+  "EQX Map", "EQX List") so all tabs fit on one row.
+
+### Fixed
+- Removed the faint dark rectangles behind text on panels (the OSCARLOCATOR Sim
+  headers, radio buttons, and check boxes, and the Handouts/rove labels) by
+  adding panel-matched label and control styles; text now prints cleanly on its
+  background everywhere.
+- **Removing a secondary observer site now updates the pass-comparison view** —
+  it previously kept the removed site until the next manual refresh.
+- Learn chart fixes: the Constellation and Decay log-scale y-axis labels are no
+  longer drawn in black; the Sunlight reference-orbit labels (ISS/LEO/MEO/GEO)
+  no longer overprint each other; the Transponder UPLINK/DOWNLINK band labels no
+  longer crush the passband frequencies; the Duplex-practice x-axis label is no
+  longer clipped; the Grid-squares locator is centred in its square.
+- The lab satellite mode is now just "Lab satellite" (the "(educational)" tag is
+  gone).
+- The Pass Detail screen no longer shows an empty, unstyled plot frame before a
+  pass is chosen.
+- The Mutual Windows toolbar moved its action buttons to a second row so they are
+  never clipped in a narrow window.
+
+## [0.31.0]
+
+### Added
+- **Precession tab** (Learn / Geometry) \u2014 nodal precession from Earth's
+  equatorial bulge versus inclination, with the **sun-synchronous** rate marked
+  and the sun-sync inclination found for the chosen altitude; explains why
+  imaging and weather satellites use these orbits.
+- **Decay tab** (Learn / Orbits) \u2014 estimated orbital lifetime versus altitude
+  with a solar-activity control, showing why low satellites reenter in weeks
+  while higher ones last for centuries.
+- **Anomalies tab** (Learn / Orbits) \u2014 an interactive ellipse showing how the
+  mean and true anomaly diverge on an eccentric orbit (the satellite races
+  through perigee and lingers at apogee).
+- **Grid squares tab** (Learn / Passes) \u2014 the Maidenhead locator system that
+  operators exchange via satellite, with a field/square map for any location and
+  a "my location" shortcut.
+- **Reference** gains sections on **coordinate frames** (ECI / ECEF / topocentric
+  and why each conversion matters) and a short **history of amateur satellites**
+  (OSCAR-1 to CubeSats).
+
+### Changed
+- The Learn screen is reorganised into **five groups** \u2014 Orbits, Geometry,
+  Passes, Radio, and Reference \u2014 to keep each group to one tidy row as the
+  teaching set grew to twenty-three tools. (The slant-range tab is now under
+  Geometry, labelled "Slant range".)
+
+## [0.30.0]
+
+### Added
+- **Eclipse tab** (Learn / Passes group) \u2014 a lit-versus-shadow timeline over
+  the next several orbits, showing when and how long the satellite runs on
+  battery in the Earth's shadow and how that ties to the beta angle.
+- **Transfers tab** (Learn / Orbits group) \u2014 an interactive Hohmann-transfer
+  calculator: the two burns needed to move between two circular altitudes and the
+  extra cost of changing the orbit's inclination, teaching why satellites launch
+  into their target plane rather than change it later.
+- The classroom handout's geometry page now also covers sunlight/eclipse and
+  orbit changes (delta-v).
+
+### Changed
+- **The Learn screen's tabs are now organised into four groups** \u2014 Orbits,
+  Passes, Radio, and Reference \u2014 selected from a category row above the tab
+  strip. With nineteen teaching tools this keeps each group to a single tidy row
+  instead of a long wrapping strip, so the screen reads like a curriculum.
+
+## [0.29.0]
+
+### Added
+- **Speed tab** (Learn) \u2014 the vis-viva law made visual: orbital speed versus
+  altitude, with the selected orbit's perigee and apogee speeds marked, showing
+  why a satellite races at perigee and ambles at apogee and why low orbits are
+  faster overall.
+- **Geometry tab** (Learn) \u2014 slant range versus elevation for the selected
+  orbit, showing why a low pass is several times farther away (and weaker) than
+  one overhead.
+- **Horizon tab** (Learn) \u2014 how far a satellite can "see" versus altitude (the
+  footprint/radio-horizon distance), and why higher orbits cover more and can
+  cross-link.
+- **Track drift tab** (Learn) \u2014 the westward ground-track shift per orbit from
+  Earth's rotation, why passes cluster, and when a track repeats.
+- **Constellation tab** (Learn) \u2014 how many evenly-spaced satellites in a plane
+  are needed for continuous coverage versus altitude, explaining why LEO internet
+  constellations need thousands while GEO needs only three.
+- **Pass quality score** in the Next Passes table \u2014 a transparent 0\u2013100
+  rating combining peak elevation and duration, with the best upcoming pass
+  flagged \u2605, so you can pick which passes are worth working.
+- The classroom handout gains a **fourth page** on orbit geometry, drift, and
+  constellations.
+
+### Changed
+- Learn tabs now **render the moment you select them**, so a chart or diagram is
+  never blank on first view (the expensive pass-search tabs keep their button).
+
+### Notes
+- A due-diligence pass confirmed several candidate features already exist and
+  were intentionally not duplicated: visible/optical passes and satellite-to-
+  satellite windows live on the Planning screen, the Doppler tune schedule lives
+  on the Radio screen, and time-to-perigee/apogee, longest-possible-pass, true
+  anomaly, and eclipse depth are on the Orbital Analysis screen.
+
+## [0.28.0]
+
+### Added
+- **Pointing tab** (Learn) \u2014 a sky-track polar plot of the next pass in
+  azimuth and elevation, explaining why low passes are hard (longer slant range,
+  horizon obstruction) and high passes are easy.
+- **Antenna tab** (Learn) \u2014 an interactive antenna gain pattern with a gain
+  slider, showing the gain-versus-beamwidth trade-off: high gain means a narrow
+  beam that must be aimed and tracked, low gain hears the whole sky weakly.
+- **Expanded Reference tab** (formerly Radio 101) \u2014 added operating practice
+  & etiquette, the amateur-satellite bands & licensing, modulation modes, noise/
+  sensitivity and why the downlink is the hard part, time & reference frames
+  (UTC and the element epoch), and the bigger picture of constellations.
+- The classroom handout is now **three pages**, adding a page on operating
+  practice, bands, and antennas.
+
+### Changed
+- The Learn tab bar now **wraps to multiple rows** when there are many tabs, so
+  a long tab set never runs off the edge. The radio reference tab is renamed
+  "Reference" and the handout tab "Handouts".
+
+## [0.27.0]
+
+### Added
+- **Full-duplex tuning practice** (new Learn tab). Scrub through a simulated pass
+  and adjust your uplink to keep your own signal on a fixed target downlink, the
+  way you work a linear bird in real life. The round-trip Doppler is modelled
+  exactly (both legs), an "ideal tuning" hint can be shown, and inverting
+  transponders correctly require tuning the opposite way.
+- **Lab orbit in the Learn tools.** A "Use a lab orbit" toggle (with an
+  "Edit lab orbit\u2026" editor) lets the orbit-based tools \u2014 Coverage,
+  Sunlight, Element age, Doppler \u2014 run against a satellite you design, so you
+  can change an element and immediately see its coverage and pass geometry.
+
+### Changed
+- **Coverage map polish.** The 24-hour coverage tab is now a clean accumulated
+  heat map (brighter = revisited more often) with a percent-of-Earth-covered
+  read-out, instead of thousands of overplotted footprint outlines \u2014 making
+  the pole-favouring of polar/sun-synchronous orbits obvious at a glance.
+- **Sunlight tab** now marks the current (catalog or lab) satellite's altitude on
+  the beta\* curve.
+
+## [0.26.0]
+
+### Added
+- **Radio & transponder teaching tools** on the Learn screen:
+  - **Transponder** — an interactive diagram of the selected satellite's actual
+    transponder. The uplink and downlink passbands are drawn to scale; drag your
+    transmit position and watch where your signal lands on the downlink. On an
+    **inverting** linear transponder (e.g. RS-44) tuning your uplink up moves the
+    downlink down, shown directly.
+  - **Doppler** now plots **both the uplink and downlink** legs across the next
+    pass for a linear bird, with guidance on retuning the uplink to keep the
+    downlink centred (the opposite direction on an inverting transponder).
+  - **Link budget** gains a **per-mode workable verdict** (FM needs a stronger
+    signal than narrow SSB/CW) and a **free-space-loss-by-band** chart, so you
+    can see why higher bands need more antenna gain.
+  - **Radio 101** — a scrollable reference covering operating **modes** (which
+    band is up/down), why satellites use **circular polarization**, the main
+    satellite **subsystems**, and **beacons & telemetry**.
+- The **Orbits 101** handout is now two pages, the second covering transponder
+  types, modes, Doppler, and the link.
+
+### Changed
+- The Learn tabs are reordered and renamed (Coverage, Sunlight, Kepler, Element
+  age, then the radio tools) so the orbit and radio groups read in order.
+
+## [0.25.0]
+
+### Added
+- **New "Learn" screen** gathering OrbitDeck's standalone teaching tools as tabs
+  so they don't clutter the operating screens:
+  - **Coverage map** — accumulates a satellite's footprint over 24 h to show why
+    polar orbits eventually see the whole Earth while low-inclination ones cover
+    only a band.
+  - **Doppler** — plots the downlink tune-through curve across the next pass.
+  - **Sunlight** — the full-sun beta\* threshold versus altitude, with reference
+    orbits marked.
+  - **Link budget** — an interactive free-space link sandbox (range, frequency,
+    power, gains) showing received power and path loss.
+  - **Kepler** — an equal-areas two-body demonstration with an eccentricity
+    slider.
+  - **Element diff** — element-set age and the estimated along-track error growth
+    for the selected satellite.
+  - **Orbits 101** — prints a one-page classroom handout (elements, orbit
+    families, key formulas) through the PDF pipeline, with the OrbitDeck credit.
+- **Lab satellite gains analytical read-outs**: the editor now shows the J2
+  **nodal and perigee precession** rates, a live **sun-synchronous** verdict, the
+  **ground-track repeat** cycle, and an **estimated orbital lifetime** (so a low
+  perigee visibly shortens it).
+- **Multi-orbit ground-track trace** in the lab (a "Trace orbits" control) that
+  draws several successive orbits as progressively fainter tracks, making the
+  per-orbit westward drift from Earth's rotation visible.
+- **Design-to-a-requirement challenges** in the lab: pick a goal (cover a
+  continent, repeat the track daily, build a sun-synchronous or geostationary
+  orbit, recreate a Molniya) and the panel checks live whether your orbit meets
+  it.
+
+## [0.24.0]
+
+### Added
+- **Educational lab satellite** in the OSCARLOCATOR Simulator. A new "Lab
+  satellite (educational)" drive mode lets you invent a hypothetical satellite
+  and watch its path, footprint, and range circle respond as you edit its
+  orbital elements. A pop-up editor gives a **slider plus linked numeric entry**
+  for each element \u2014 mean altitude (with the period shown live), eccentricity,
+  inclination, RAAN, argument of perigee, and mean anomaly \u2014 with live derived
+  read-outs (period, apogee/perigee, footprint radius, orbit type). The lab
+  satellite is **nameable**, can be **printed as an OSCARLOCATOR** with its custom
+  name, and is **ephemeral until you click Save** (which stores it as a manual
+  satellite in the catalog).
+- **Element-effect explainers.** As you move a control, a plain-language line
+  explains the consequence (e.g. the 63.4\u00b0 "magic" critical inclination, what
+  sun-synchronous means, why eccentricity makes the satellite linger over
+  apogee).
+- **Preset orbit gallery.** One-click presets \u2014 ISS-like LEO, sun-synchronous,
+  polar, Molniya, GPS-like MEO, and geostationary \u2014 to load a recognisable
+  archetype and then perturb it.
+- **Side-by-side comparison.** Freeze the current orbit as a faint dashed "ghost"
+  and edit a second orbit over it to see a single element's effect directly.
+- **Guided tour.** A stepped walkthrough that drives the lab through altitude
+  \u2192 footprint \u2192 inclination \u2192 latitudes \u2192 sun-synchronous \u2192 Molniya \u2192
+  reading a pass, building intuition one variable at a time.
+- **Glossary / formula cards.** A scrollable reference of each element and
+  derived quantity with the governing relationship (Kepler's third law, footprint
+  half-angle, apogee/perigee, etc.).
+- **"Why is this pass like this?" overlay** on the Pass Detail screen: plain-
+  language notes connecting the pass geometry to its cause \u2014 peak elevation to
+  how close the ground track comes to your QTH, duration to altitude, and the
+  Doppler swing to range-rate.
+
+## [0.23.2]
+
+### Changed
+- **Rove planner starts empty.** The planned-stops list now opens empty (the
+  entry fields keep sensible defaults) instead of being pre-seeded with example
+  stops.
+- **OSCARLOCATOR Sim rim labels (further).** Reduced the longitude and latitude
+  label fonts again and pushed the rim labels further out, so there's a clear gap
+  between the longitude values and the rim and the values no longer crowd one
+  another.
+
+## [0.23.1]
+
+### Changed
+- **Rove planner: structured date/time stops.** The rove planner now takes each
+  stop as separate **Grid / Date (UTC) / Start / End** fields with an editable
+  stops list (add / remove / clear), instead of a freeform text box. End times
+  earlier than the start are treated as overnight windows. The windows remain
+  hints.
+- **OSCARLOCATOR Sim rim labels.** Reduced the rim label font and nudged the
+  labels further out so the wider longitude values (e.g. "150 W") no longer crowd
+  one another or the rim, matching the lighter look of the web simulator.
+
+## [0.23.0]
+
+### Added
+- **Rove route planner.** A new **Rove** tab on the Planning screen for grid
+  rovers: enter your planned grid stops (one per line, with optional hour-offset
+  time-window hints), and for each stop OrbitDeck lists the selected satellite's
+  covering passes and the **US states**, **DXCC entities**, and grid count
+  workable through each pass. The time windows are hints, not hard filters \u2014
+  passes near them are shown. Exports to CSV and a printable **rove sheet PDF**
+  (which carries the OrbitDeck credit).
+- **Bundled US state boundary dataset.** A denser per-state coverage point set
+  (a ~0.5\u00b0 interior fill, ~6,700 points across 51 states/DC vs. the previous
+  ~100 city points) is now bundled and used for footprint coverage detection, so
+  the Workable screen and rove planner report state coverage accurately across
+  each state's extent rather than just near a couple of cities.
+
+### Fixed
+- **OSCARLOCATOR Sim rim.** Fixed a double-rim artifact (matplotlib's own polar
+  frame was drawing a second circle around the custom rim) by hiding the default
+  polar spine, and moved the longitude/azimuth labels outward so they sit clearly
+  outside the rim instead of overlapping it. The instrument now shows a single
+  clean rim with its degree ticks and a separated ring of labels.
+
+## [0.22.0]
+
+### Added
+- **Keyboard shortcuts & command palette.** Press Ctrl+K for a command palette
+  that jumps to any screen or satellite by typing; Ctrl+F (or `/`) to find a
+  satellite; `[` / `]` to step to the previous / next satellite; `1`-`9` to jump
+  to a sidebar screen; Ctrl++ / Ctrl+- / Ctrl+0 for text size; and F1 (or `?`)
+  for the shortcut list. Shortcuts are ignored while typing in a text field.
+- **Home dashboard.** The Home screen opens on a new Dashboard tab: what's
+  overhead right now, the next passes across all favorites (soonest first, with
+  live countdowns), and a space-weather glance. The Map and Next Passes tabs
+  remain.
+- **Desktop notifications.** Favorite-pass alarms now also raise a native OS
+  toast (macOS / Linux / Windows) for "pass starting soon" and AOS, so OrbitDeck
+  is useful in the background. Controlled by a preference (on by default).
+- **First-run onboarding.** A brief welcome dialog on first launch points you to
+  set your location, fetch live elements, and learn the shortcuts; it offers to
+  run Update GP immediately so you're not left on sample data.
+- **Adjustable text size.** A UI scale (Ctrl++/-) that persists across sessions,
+  helpful on high-DPI displays and projectors.
+- **Reference-orbit PDF export.** A new Exports tab generates a printable
+  "reference orbits" table for the next 30 or 60 days for the selected satellite
+  or all favorites: for each UTC day, the first equator crossing (ascending for
+  northern stations, descending for southern), giving the UTC time and
+  sub-longitude to set on a physical OSCARLOCATOR.
+
+### Changed
+- **OSCARLOCATOR Sim rim.** The simulator's map now has an outer rim with
+  per-degree tick marks (longer every 30 deg) and a ring of longitude labels
+  (polar) or azimuth labels and cardinal letters (QTH-centred), plus latitude and
+  range-ring labels -- matching the OSCARLOCATOR web simulator so the instrument
+  reads like a protractor.
+
+### Fixed
+- **PDF credit placement.** The OrbitDeck + author credit now appears centred
+  along the bottom of **every** printed sheet (base maps, range-circle and
+  path-arc overlays, all reports, the Doppler playbook, and the reference-orbit
+  sheet) -- the only exception being the clean reduced-text transparencies, which
+  stay free of text outside the instrument. The credit was moved inward to ~0.5 in
+  from the page edge so it no longer falls in the unprintable margin that clipped
+  it on some desktop printers.
+
 ## [0.21.1]
 
 ### Changed

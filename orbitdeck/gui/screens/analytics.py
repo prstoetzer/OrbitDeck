@@ -40,7 +40,8 @@ class GlobeScreen(Screen):
         ttk.Label(bar, text="View:", style="TLabel").pack(side="left")
         self._view = tk.StringVar(value="sat")
         for lab, val in (("Follow satellite", "sat"), ("Over station", "qth"),
-                         ("North pole", "north"), ("South pole", "south")):
+                         ("North pole", "north"), ("South pole", "south"),
+                         ("Free (drag)", "free")):
             ttk.Radiobutton(bar, text=lab, value=val, variable=self._view,
                             command=self._render).pack(side="left", padx=2)
         self._show_favs = tk.BooleanVar(value=True)
@@ -76,6 +77,13 @@ class GlobeScreen(Screen):
 
         self.panel = MplPanel(self.frame, figsize=(6.4, 6.0))
         self.panel.pack(fill="both", expand=True, padx=16, pady=10)
+        # free-drag viewpoint state: centre lat/lon the user can spin to
+        self._drag_lat = 20.0
+        self._drag_lon = 0.0
+        self._drag_active = None        # (x, y, lat, lon) at button-press
+        self.panel.canvas.mpl_connect("button_press_event", self._on_press)
+        self.panel.canvas.mpl_connect("motion_notify_event", self._on_drag)
+        self.panel.canvas.mpl_connect("button_release_event", self._on_release)
         self.info = tk.StringVar(value="")
         ttk.Label(self.frame, textvariable=self.info,
                   style="Muted.TLabel").pack(anchor="w", padx=16, pady=(0, 8))
@@ -98,6 +106,32 @@ class GlobeScreen(Screen):
 
     def _on_scrub(self, _=None):
         self._render()
+
+    # ---- mouse drag to spin the globe (free view) -------------------------
+    def _on_press(self, event):
+        if event.inaxes is None or event.xdata is None:
+            return
+        # switch to free view on first drag so the spin is visible/persistent
+        if self._view.get() != "free":
+            self._view.set("free")
+        self._drag_active = (event.xdata, event.ydata,
+                             self._drag_lat, self._drag_lon)
+
+    def _on_drag(self, event):
+        if self._drag_active is None or event.xdata is None:
+            return
+        x0, y0, lat0, lon0 = self._drag_active
+        # the globe spans about [-1, 1]; map screen travel to degrees so a full
+        # width drag spins ~180 deg. Dragging right spins the globe east (the
+        # viewpoint longitude decreases), dragging up tilts toward the N pole.
+        dlon = -(event.xdata - x0) * 150.0
+        dlat = (event.ydata - y0) * 150.0
+        self._drag_lat = max(-90.0, min(90.0, lat0 + dlat))
+        self._drag_lon = ((lon0 + dlon + 180.0) % 360.0) - 180.0
+        self._render()
+
+    def _on_release(self, _event):
+        self._drag_active = None
 
     def _toggle_play(self):
         self._playing = not self._playing
@@ -161,8 +195,10 @@ class GlobeScreen(Screen):
             clat, clon = self.store.obs.lat, self.store.obs.lon
         elif view == "north":
             clat, clon = 90.0, 0.0
-        else:
+        elif view == "south":
             clat, clon = -90.0, 0.0
+        else:                          # free: dragged viewpoint
+            clat, clon = self._drag_lat, self._drag_lon
         self._draw_globe(ax, clat, clon, t, pred, sub_lat, sub_lon, alt)
         self.panel.draw()
         # info line

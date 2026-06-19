@@ -20,7 +20,7 @@ import tkinter as tk
 from tkinter import ttk
 
 from . import (Screen, MplPanel, COL_PANEL, COL_MUTED, COL_ACCENT,
-               COL_ACCENT2, COL_WARN, COL_GRID, FONT_MONO, fmt_utc,
+               COL_ACCENT2, COL_WARN, COL_GRID, COL_TEXT, FONT_MONO, fmt_utc,
                now_unix)
 from ...data.worldmap_data import COASTLINES
 
@@ -44,19 +44,31 @@ class OscarSimScreen(Screen):
         self._show_range = tk.BooleanVar(value=True)
         self._show_foot = tk.BooleanVar(value=True)
 
+        # --- educational "lab satellite" state ---
+        # a synthetic, user-edited satellite the sim can render and print instead
+        # of the catalog selection. Ephemeral until the user clicks Save.
+        from .. import lab as _lab
+        self._lab_elements = _lab.default_elements()
+        self._lab_sat = None           # built lazily when lab mode is entered
+        self._lab_pred = None          # dedicated predictor for the lab sat
+        self._lab_compare = None       # frozen "ghost B" elements, or None
+        self._lab_dialog = None        # the open editor Toplevel, or None
+
         body = ttk.Frame(self.frame, style="TFrame")
         body.pack(fill="both", expand=True, padx=12, pady=4)
 
         # --- left: controls
         ctrl = ttk.Frame(body, style="Panel.TFrame")
         ctrl.pack(side="left", fill="y", padx=(0, 8))
-        ttk.Label(ctrl, text="Drive the overlay", style="TLabel",
+        ttk.Label(ctrl, text="Drive the overlay", style="Panel.TLabel",
                   font=("DejaVu Sans", 11, "bold")).pack(anchor="w", padx=10,
                                                          pady=(10, 4))
         for txt, val in (("Live (current position)", "live"),
                          ("Manual EQX + minutes", "manual"),
-                         ("Next pass from QTH", "nextpass")):
+                         ("Next pass from QTH", "nextpass"),
+                         ("Lab satellite", "lab")):
             ttk.Radiobutton(ctrl, text=txt, value=val, variable=self._mode,
+                            style="Panel.TRadiobutton",
                             command=self._on_mode).pack(anchor="w", padx=14)
 
         ttk.Separator(ctrl, orient="horizontal").pack(fill="x", pady=8, padx=8)
@@ -68,6 +80,7 @@ class OscarSimScreen(Screen):
                          ("QTH-centred", "qth")):
             ttk.Radiobutton(ctrl, text=txt, value=val,
                             variable=self._proj_mode,
+                            style="Panel.TRadiobutton",
                             command=self._render).pack(anchor="w", padx=14)
 
         ttk.Separator(ctrl, orient="horizontal").pack(fill="x", pady=8, padx=8)
@@ -97,14 +110,34 @@ class OscarSimScreen(Screen):
 
         ttk.Separator(ctrl, orient="horizontal").pack(fill="x", pady=8, padx=8)
         ttk.Checkbutton(ctrl, text="Show QTH range circle",
-                        variable=self._show_range,
+                        variable=self._show_range, style="Panel.TCheckbutton",
                         command=self._render).pack(anchor="w", padx=14)
         ttk.Checkbutton(ctrl, text="Show satellite footprint",
-                        variable=self._show_foot,
+                        variable=self._show_foot, style="Panel.TCheckbutton",
                         command=self._render).pack(anchor="w", padx=14)
         ttk.Button(ctrl, text="Make printable OSCARLOCATOR\u2026",
                    command=self.make_oscarlocator_pdf).pack(anchor="w",
                                                             padx=12, pady=10)
+        # lab-mode editor launcher (only meaningful in lab mode; always visible
+        # so users can discover it)
+        self._lab_btn = ttk.Button(ctrl, text="Edit lab satellite\u2026",
+                                   command=self._open_lab_editor)
+        self._lab_btn.pack(anchor="w", padx=12, pady=(0, 4))
+        # lab-mode extras: a multi-orbit ground-track trace and a challenge
+        # launcher. Packed into their own frame so they can be shown only in lab
+        # mode and never clutter the normal control column.
+        self._lab_extras = ttk.Frame(ctrl, style="Panel.TFrame")
+        self._trace_orbits = tk.IntVar(value=0)
+        trow = ttk.Frame(self._lab_extras, style="Panel.TFrame")
+        trow.pack(fill="x", padx=2, pady=2)
+        ttk.Label(trow, text="Trace orbits", style="Muted.TLabel").pack(
+            side="left")
+        ttk.Spinbox(trow, from_=0, to=6, width=3,
+                    textvariable=self._trace_orbits,
+                    command=self._render).pack(side="left", padx=6)
+        ttk.Button(self._lab_extras, text="Challenges\u2026",
+                   command=self._open_challenge).pack(anchor="w", padx=2,
+                                                      pady=(2, 2))
 
         self._readout = tk.StringVar(value="")
         ttk.Label(ctrl, textvariable=self._readout, style="Muted.TLabel",
@@ -114,7 +147,7 @@ class OscarSimScreen(Screen):
         # Ascending nodes for northern stations, descending for southern.
         ttk.Separator(ctrl, orient="horizontal").pack(fill="x", pady=6, padx=8)
         self._eqx_head = tk.StringVar(value="Next equator crossings")
-        ttk.Label(ctrl, textvariable=self._eqx_head, style="TLabel",
+        ttk.Label(ctrl, textvariable=self._eqx_head, style="Panel.TLabel",
                   font=("DejaVu Sans", 10, "bold")).pack(anchor="w", padx=10)
         self._eqx_list = ttk.Frame(ctrl, style="Panel.TFrame")
         self._eqx_list.pack(fill="x", padx=10, pady=(2, 10))
@@ -139,6 +172,13 @@ class OscarSimScreen(Screen):
                 w.pack(fill="x", padx=10, pady=2)
             else:
                 w.pack_forget()
+        # entering lab mode: ensure the lab satellite exists and open the editor
+        if mode == "lab":
+            self._ensure_lab_sat()
+            self._lab_extras.pack(fill="x", padx=12, pady=(0, 6))
+            self._open_lab_editor()
+        else:
+            self._lab_extras.pack_forget()
         # the 'minutes after EQX' slider should span exactly one orbit
         s = self.sat()
         if s is not None:
@@ -150,6 +190,112 @@ class OscarSimScreen(Screen):
         if mode == "nextpass":
             self._seed_next_pass()
         self._render()
+
+    # ---- educational lab satellite -----------------------------------------
+    def _lab_active(self):
+        return getattr(self, "_mode", None) is not None \
+            and self._mode.get() == "lab"
+
+    def sat(self):
+        """Override: in lab mode the simulator renders and prints the synthetic
+        lab satellite instead of the catalog selection, so every existing method
+        (render, EQX list, readouts, PDF export) uses it automatically."""
+        if self._lab_active() and getattr(self, "_lab_sat", None) is not None:
+            return self._lab_sat
+        return self.store.selected_sat()
+
+    def pred(self):
+        """Override: in lab mode use the dedicated lab predictor."""
+        if self._lab_active() and getattr(self, "_lab_pred", None) is not None:
+            return self._lab_pred
+        return self.store.pred
+
+    def _ensure_lab_sat(self):
+        from .. import lab as _lab
+        from ...engine import Predictor
+        self._lab_sat = _lab.make_lab_sat(self._lab_elements)
+        if self._lab_pred is None:
+            self._lab_pred = Predictor()
+        self._lab_pred.set_site(self.store.obs)
+        self._lab_pred.set_sat(self._lab_sat)
+
+    def _open_lab_editor(self):
+        # switch into lab mode if not already (so the button works as an entry
+        # point), then show the editor pop-up
+        if self._mode.get() != "lab":
+            self._mode.set("lab")
+            self._ensure_lab_sat()
+        if self._lab_dialog is not None:
+            try:
+                self._lab_dialog.focus()
+                return
+            except Exception:
+                self._lab_dialog = None
+        from ..labdialog import LabDialog
+        self._lab_dialog = LabDialog(
+            self.frame, self._lab_elements,
+            on_change=self._on_lab_change,
+            on_save=self._on_lab_save,
+            compare=self._lab_compare,
+            on_compare=self._on_lab_compare)
+        # when the editor window closes, drop the reference
+        try:
+            self._lab_dialog.win.protocol(
+                "WM_DELETE_WINDOW", self._on_lab_dialog_close)
+        except Exception:
+            pass
+        self._render()
+
+    def _on_lab_dialog_close(self):
+        try:
+            self._lab_dialog.win.destroy()
+        except Exception:
+            pass
+        self._lab_dialog = None
+
+    def _on_lab_change(self, elements):
+        self._lab_elements = elements
+        self._ensure_lab_sat()
+        # keep the minutes slider spanning one orbit of the new orbit
+        per = self._lab_sat.period_min if self._lab_sat.period_min else 95.0
+        try:
+            self._min_scale.configure(to=round(per))
+        except Exception:
+            pass
+        self._render()
+        self._refresh_eqx_list()
+
+    def _on_lab_compare(self, compare_elements):
+        self._lab_compare = compare_elements
+        self._render()
+
+    def _on_lab_save(self, elements):
+        """Persist the lab satellite into the catalog as a manual satellite."""
+        from tkinter import messagebox
+        from .. import lab as _lab
+        # give it a unique synthetic NORAD so repeated saves don't collide
+        existing = {s.norad for s in self.store.db.sats}
+        norad = _lab.LAB_NORAD_BASE
+        while norad in existing:
+            norad += 1
+        sat = _lab.make_lab_sat(elements, norad=norad)
+        try:
+            if hasattr(self.store, "add_manual_sat"):
+                self.store.add_manual_sat(sat)
+            else:
+                self.store.db.sats.append(sat)
+                if hasattr(self.store, "_save_manual_sats"):
+                    self.store._save_manual_sats()
+            self.app.set_status("Saved lab satellite '%s' to the catalog."
+                                % sat.name)
+            messagebox.showinfo(
+                "Lab satellite saved",
+                "'%s' was saved as a manual satellite (NORAD %d). You'll find "
+                "it in the Satellites catalog and it persists across element "
+                "refreshes." % (sat.name, norad))
+        except Exception as e:
+            messagebox.showerror("Save failed", str(e))
+
 
     def _seed_next_pass(self):
         """Seed the overlay to the next pass that is actually VISIBLE from the
@@ -301,9 +447,17 @@ class OscarSimScreen(Screen):
         else:
             ax.set_theta_zero_location("N")
             ax.set_theta_direction(-1)
-        ax.set_rlim(0, rmax)
+        ax.set_rlim(0, rmax * 1.25)
         ax.set_rticks([])
         ax.set_xticks([])
+        # The custom _draw_rim draws the instrument's rim circle at exactly rmax.
+        # Hide matplotlib's own polar frame spine (which sits at the rlim edge)
+        # so we don't get a second, larger rim circle around the labels.
+        try:
+            ax.spines["polar"].set_visible(False)
+        except Exception:
+            pass
+        ax.set_facecolor(COL_PANEL)
 
     # ---- rendering ---------------------------------------------------------
     def _render(self):
@@ -324,6 +478,7 @@ class OscarSimScreen(Screen):
         self._setup_axes(ax, mode, rmax)
 
         self._draw_graticule(ax, mode, rmax)
+        self._draw_rim(ax, mode, rmax)
         self._draw_coastlines(ax, mode, rmax)
         self._draw_qth(ax, mode, rmax)
 
@@ -333,7 +488,16 @@ class OscarSimScreen(Screen):
         # followed accurately across either sheet regardless of where the
         # station is.
         t, eqx_lon, minute = self._current_state(s, mode)
-        live = (self._mode.get() == "live")
+        live = (self._mode.get() in ("live", "lab"))
+
+        # in lab compare mode, draw the frozen "ghost B" orbit underneath first
+        if self._lab_active() and self._lab_compare is not None:
+            self._draw_compare_ghost(ax, mode, rmax)
+
+        # lab multi-orbit ground-track trace: draw several successive orbits as
+        # progressively fainter tracks so the westward drift per orbit is visible
+        if self._lab_active() and self._trace_orbits.get() > 0:
+            self._draw_orbit_trace(ax, mode, rmax, s)
 
         # draw the rotated path arc + the satellite marker + footprint
         self._draw_track(ax, mode, rmax, s, eqx_lon)
@@ -341,6 +505,75 @@ class OscarSimScreen(Screen):
 
         self.map.draw()
         self._update_readout(s, t, eqx_lon, minute)
+
+    def _draw_compare_ghost(self, ax, mode, rmax):
+        """Draw the frozen comparison orbit (ghost B) as a faint dashed track +
+        footprint so the user can contrast it with the orbit they're editing."""
+        from .. import lab as _lab
+        from ...engine import Predictor
+        try:
+            gsat = _lab.make_lab_sat(self._lab_compare)
+            gpred = Predictor()
+            gpred.set_site(self.store.obs)
+            gpred.set_sat(gsat)
+        except Exception:
+            return
+        t = now_unix()
+        # ghost track: sample one full orbit from the subpoint forward
+        period = gsat.period_min * 60.0 if gsat.period_min else 5400.0
+        pts = []
+        for k in range(0, 101):
+            tt = t + (k / 100.0) * period
+            lat, lon, _ = gpred.subpoint_at(tt)
+            pts.append((lon, lat))
+        self._poly(ax, mode, pts, COL_MUTED, 1.2, rmax, dashed=True)
+        # ghost footprint at its current sub-point
+        glat, glon, galt = gpred.subpoint_at(t)
+        self._draw_footprint(ax, mode, rmax, glat, glon,
+                             _lab.footprint_radius_deg(galt),
+                             color=COL_MUTED, dashed=True)
+
+    def _draw_orbit_trace(self, ax, mode, rmax, s):
+        """Draw the previous N successive orbits as progressively fainter ground
+        tracks, so the per-orbit westward drift (Earth rotation) is visible."""
+        n = self._trace_orbits.get()
+        pred = self.pred()
+        period = s.period_min * 60.0 if s.period_min else 5400.0
+        t0 = now_unix()
+        for k in range(1, n + 1):
+            # orbit k back in time
+            t_start = t0 - k * period
+            pts = []
+            for j in range(0, 101):
+                tt = t_start + (j / 100.0) * period
+                lat, lon, _ = pred.subpoint_at(tt)
+                pts.append((lon, lat))
+            # fade with age
+            alpha = max(0.12, 0.6 - 0.12 * k)
+            self._poly_alpha(ax, mode, pts, COL_ACCENT2, 1.0, rmax, alpha)
+
+    def _poly_alpha(self, ax, mode, lonlat_pts, color, lw, rmax, alpha):
+        th, rr, prev = [], [], None
+        for lon, lat in lonlat_pts:
+            rho, theta = self._project(mode, lat, lon)
+            if rho > rmax:
+                if len(th) > 1:
+                    ax.plot(th, rr, color=color, linewidth=lw, alpha=alpha)
+                th, rr, prev = [], [], None
+                continue
+            if prev is not None and abs(theta - prev) > math.pi:
+                if len(th) > 1:
+                    ax.plot(th, rr, color=color, linewidth=lw, alpha=alpha)
+                th, rr = [], []
+            th.append(theta)
+            rr.append(rho)
+            prev = theta
+        if len(th) > 1:
+            ax.plot(th, rr, color=color, linewidth=lw, alpha=alpha)
+
+    def _open_challenge(self):
+        from ..labdialog import ChallengeDialog
+        ChallengeDialog(self.frame, self, self._lab_elements)
 
     def _current_state(self, s, view_mode):
         """Return (display_time, eqx_lon, minute) for the active mode.
@@ -360,7 +593,7 @@ class OscarSimScreen(Screen):
         """
         pred = self.pred()
         mode = self._mode.get()
-        if mode == "live":
+        if mode in ("live", "lab"):
             t = now_unix()
             south = (view_mode == "polar-south")
             # The search window must comfortably exceed ONE orbital period, or a
@@ -406,6 +639,65 @@ class OscarSimScreen(Screen):
         # manual
         minute = self._minute.get()
         return now_unix(), self._eqx_lon.get(), minute
+
+    def _draw_rim(self, ax, mode, rmax):
+        """Outer rim circle with degree tick marks (every 5 deg, longer every
+        30 deg) and a ring of longitude labels (polar) or azimuth labels (QTH)
+        around the edge -- matching the OSCARLOCATOR web simulator so the rim
+        reads like a protractor and the longitude scale is visible at a glance.
+        """
+        # rim circle
+        th_full = [math.radians(a) for a in range(0, 361, 2)]
+        ax.plot(th_full, [rmax] * len(th_full), color=COL_MUTED,
+                linewidth=1.4, zorder=3)
+        # tick marks every 5 deg, longer + heavier every 30 deg
+        for a in range(0, 360, 5):
+            major = (a % 30 == 0)
+            ln = (rmax * 0.034) if major else (rmax * 0.017)
+            ar = math.radians(a)
+            ax.plot([ar, ar], [rmax - ln, rmax], color=COL_MUTED,
+                    linewidth=1.0 if major else 0.6, zorder=3,
+                    solid_capstyle="butt")
+        # labels around the rim, pushed well OUTSIDE the rim circle so there is
+        # a clear gap between the longitude values and the rim (rim is at rmax;
+        # rlim extends to ~1.25*rmax). The font is kept small (matching the web
+        # simulator) so the wider longitude labels like "150 W" don't crowd one
+        # another at the diagonals.
+        lab_r = rmax * 1.17
+        if mode in ("polar", "polar-south"):
+            south = (mode == "polar-south")
+            for lon in range(0, 360, 30):
+                disp = lon if lon <= 180 else lon - 360
+                hemi = "E" if 0 < disp < 180 else ("W" if disp < 0 else "")
+                txt = "%d\u00b0%s" % (abs(disp), hemi)
+                ax.text(math.radians(lon), lab_r, txt, color=COL_MUTED,
+                        fontsize=5.5, ha="center", va="center", zorder=3)
+            # latitude ring labels along the ~60 deg meridian, kept small and
+            # inside the rings so they don't clutter the disc
+            for lat_abs in range(15, 90, 15):
+                ring = 90 - lat_abs
+                disp_lat = -lat_abs if south else lat_abs
+                ax.text(math.radians(60), ring, "%d\u00b0" % disp_lat,
+                        color=COL_MUTED, fontsize=5.5, ha="center",
+                        va="center", alpha=0.85, zorder=3)
+        else:
+            # QTH: cardinal letters + intercardinal azimuth numbers
+            for az, name in ((0, "N"), (90, "E"), (180, "S"), (270, "W")):
+                ax.text(math.radians(az), lab_r, name, color=COL_TEXT,
+                        fontsize=9, fontweight="bold", ha="center",
+                        va="center", zorder=3)
+            for az in range(30, 360, 30):
+                if az % 90 == 0:
+                    continue
+                ax.text(math.radians(az), lab_r, "%d\u00b0" % az,
+                        color=COL_MUTED, fontsize=5.5, ha="center",
+                        va="center", zorder=3)
+            # range-ring km labels along the 45 deg radial
+            for rho in range(30, int(rmax) + 1, 30):
+                km = round(rho * 111.195 / 100.0) * 100
+                ax.text(math.radians(45), rho, "%d km" % km, color=COL_MUTED,
+                        fontsize=5.5, ha="left", va="bottom", alpha=0.85,
+                        zorder=3)
 
     def _draw_graticule(self, ax, mode, rmax):
         if mode in ("polar", "polar-south"):
@@ -470,25 +762,26 @@ class OscarSimScreen(Screen):
         except Exception:
             return []
 
-    def _poly(self, ax, mode, lonlat_pts, color, lw, rmax):
+    def _poly(self, ax, mode, lonlat_pts, color, lw, rmax, dashed=False):
+        ls = (0, (4, 3)) if dashed else "-"
         th, rr = [], []
         prev = None
         for lon, lat in lonlat_pts:
             rho, theta = self._project(mode, lat, lon)
             if rho > rmax:
                 if len(th) > 1:
-                    ax.plot(th, rr, color=color, linewidth=lw)
+                    ax.plot(th, rr, color=color, linewidth=lw, linestyle=ls)
                 th, rr, prev = [], [], None
                 continue
             if prev is not None and abs(theta - prev) > math.pi:
                 if len(th) > 1:
-                    ax.plot(th, rr, color=color, linewidth=lw)
+                    ax.plot(th, rr, color=color, linewidth=lw, linestyle=ls)
                 th, rr = [], []
             th.append(theta)
             rr.append(rho)
             prev = theta
         if len(th) > 1:
-            ax.plot(th, rr, color=color, linewidth=lw)
+            ax.plot(th, rr, color=color, linewidth=lw, linestyle=ls)
 
     def _draw_qth(self, ax, mode, rmax):
         rho, theta = self._project(mode, self.store.obs.lat,
@@ -544,9 +837,21 @@ class OscarSimScreen(Screen):
         # each 10-minute mark.
         if ticks:
             period = ticks[-1][2]
-            for target in range(0, int(period) + 1, 10):
+            # Choose a label interval and font size that scale with the orbital
+            # period, so a long high-orbit pass doesn't crowd dozens of numbers
+            # on top of each other. Aim for roughly 8-12 labels along the arc.
+            step = 10
+            for cand in (5, 10, 15, 20, 30, 45, 60, 90, 120, 180, 240):
+                if period / cand <= 12:
+                    step = cand
+                    break
+            else:
+                step = max(10, int(round(period / 12.0 / 10.0)) * 10)
+            n_labels = max(1, int(period) // step + 1)
+            tick_font = 7 if n_labels <= 10 else 6 if n_labels <= 16 else 5
+            for target in range(0, int(period) + 1, step):
                 best = min(ticks, key=lambda tk: abs(tk[2] - target))
-                if abs(best[2] - target) > 2.5:
+                if abs(best[2] - target) > step * 0.25:
                     continue
                 theta, rho, _m = best
                 ax.plot([theta], [rho], marker="o", markersize=5,
@@ -555,8 +860,8 @@ class OscarSimScreen(Screen):
                 ax.annotate(
                     "%d" % target, xy=(theta, rho),
                     xytext=(6, 0), textcoords="offset points",
-                    fontsize=7, color="#cfe6ff", ha="left", va="center",
-                    zorder=6,
+                    fontsize=tick_font, color="#cfe6ff", ha="left",
+                    va="center", zorder=6,
                     bbox=dict(boxstyle="round,pad=0.12", fc=COL_PANEL,
                               ec="none", alpha=0.7))
 
@@ -711,5 +1016,5 @@ class OscarSimScreen(Screen):
     def on_tick(self, now_dt=None):
         # keep the live view moving in real time; manual / next-pass modes are
         # driven by the sliders, so don't redraw under them
-        if self._mode.get() == "live":
+        if self._mode.get() in ("live", "lab"):
             self._render()

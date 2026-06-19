@@ -324,12 +324,20 @@ class TabBar:
         tabs.on_change = lambda i: ...   # optional callback
     """
 
-    def __init__(self, parent, on_change=None):
+    def __init__(self, parent, on_change=None, wrap=False, groups=False):
         import tkinter as tk
         from tkinter import ttk
         self._tk = tk
         self.on_change = on_change
+        self._wrap = wrap
+        self._use_groups = groups
         self.outer = ttk.Frame(parent, style="TFrame")
+        # optional group selector row (category buttons) above the tab strip
+        if groups:
+            self._groupbar = tk.Frame(self.outer, bg=COL_BG)
+            self._groupbar.pack(fill="x", pady=(0, 2))
+            self._groups = []          # list of (name, btn, [tab_indices])
+            self._active_group = 0
         # the tab strip itself is panel-coloured, exactly like Orbital Analysis
         self._bar = tk.Frame(self.outer, bg=COL_PANEL)
         self._bar.pack(fill="x", pady=(0, 6))
@@ -337,12 +345,31 @@ class TabBar:
         self._body.pack(fill="both", expand=True)
         self._tabs = []          # list of (label_widget, underline, page_frame)
         self._active = 0
+        self._tab_group = {}     # tab index -> group index (when grouped)
+        if wrap:
+            # a flow layout: tabs are gridded and reflow to new rows when the bar
+            # is resized, so a long tab set never runs off the edge.
+            self._holders = []
+            self._bar.bind("<Configure>", self._reflow)
+
+    def add_group(self, name):
+        """Register a category; subsequent add() calls belong to it until the
+        next add_group(). Returns the group's index."""
+        tk = self._tk
+        gi = len(self._groups)
+        btn = tk.Label(self._groupbar, text=name, bg=COL_BG, fg=COL_MUTED,
+                       font=("DejaVu Sans", 11, "bold"), padx=14, pady=6,
+                       cursor="hand2")
+        btn.pack(side="left", padx=(0, 4))
+        btn.bind("<Button-1>", lambda _e, i=gi: self.select_group(i))
+        self._groups.append([name, btn, []])
+        self._cur_group = gi
+        return gi
 
     def add(self, name):
         tk = self._tk
         from tkinter import ttk
         holder = tk.Frame(self._bar, bg=COL_PANEL)
-        holder.pack(side="left", padx=1, pady=2)
         lbl = tk.Label(holder, text=name, bg=COL_PANEL, fg=COL_MUTED,
                        font=("DejaVu Sans", 10), padx=10, pady=5,
                        cursor="hand2")
@@ -353,10 +380,82 @@ class TabBar:
         idx = len(self._tabs)
         lbl.bind("<Button-1>", lambda _e, i=idx: self.select(i))
         self._tabs.append((lbl, ind, page))
+        if self._use_groups:
+            gi = getattr(self, "_cur_group", 0)
+            self._tab_group[idx] = gi
+            self._groups[gi][2].append(idx)
+            self._holders = getattr(self, "_holders", [])
+            self._holders.append(holder)
+        elif self._wrap:
+            self._holders.append(holder)
+            self._place_wrapped()
+        else:
+            holder.pack(side="left", padx=1, pady=2)
         if idx == 0:
             page.pack(fill="both", expand=True)
             self._highlight(0)
         return page
+
+    def layout(self):
+        """Call once after all groups/tabs are added to show the first group."""
+        if self._use_groups:
+            self.select_group(0, force=True)
+
+    def select_group(self, gi, force=False):
+        if not self._use_groups:
+            return
+        if gi == self._active_group and not force:
+            return
+        self._active_group = gi
+        # restyle group buttons
+        for i, (_n, btn, _idxs) in enumerate(self._groups):
+            on = (i == gi)
+            btn.configure(fg=COL_ACCENT if on else COL_MUTED, bg=COL_BG)
+        # show only this group's tab holders
+        for h in self._holders:
+            h.grid_forget()
+            h.pack_forget()
+        idxs = self._groups[gi][2]
+        bar_w = self._bar.winfo_width() or 1100
+        x = row = col = 0
+        for ti in idxs:
+            h = self._holders[ti]
+            h.update_idletasks()
+            w = h.winfo_reqwidth() + 2
+            if x + w > bar_w and col > 0:
+                row += 1
+                x = 0
+                col = 0
+            h.grid(row=row, column=col, padx=1, pady=2, sticky="w")
+            x += w
+            col += 1
+        # select the first tab in the group
+        if idxs:
+            self.select(idxs[0])
+
+    def _place_wrapped(self):
+        # estimate each holder's width and break into rows that fit the bar
+        bar_w = self._bar.winfo_width() or 1100
+        x = 0
+        row = 0
+        col = 0
+        for h in self._holders:
+            h.update_idletasks()
+            w = h.winfo_reqwidth() + 2
+            if x + w > bar_w and col > 0:
+                row += 1
+                x = 0
+                col = 0
+            h.grid(row=row, column=col, padx=1, pady=2, sticky="w")
+            x += w
+            col += 1
+
+    def _reflow(self, _evt=None):
+        if self._use_groups:
+            self.select_group(self._active_group, force=True)
+        elif self._wrap:
+            self._place_wrapped()
+
 
     def _highlight(self, active):
         for i, (lbl, ind, _page) in enumerate(self._tabs):
@@ -407,7 +506,11 @@ class MplPanel:
         ax.set_facecolor(COL_PANEL)
         for spine in ax.spines.values():
             spine.set_color(COL_GRID)
-        ax.tick_params(colors=COL_MUTED, labelsize=8)
+        ax.tick_params(which="both", colors=COL_MUTED, labelsize=8)
+        # log-scale minor tick labels default to black; force them muted too
+        for lbl in (ax.get_xticklabels(which="minor")
+                    + ax.get_yticklabels(which="minor")):
+            lbl.set_color(COL_MUTED)
         ax.title.set_color(COL_TEXT)
         try:
             ax.xaxis.label.set_color(COL_MUTED)
@@ -425,6 +528,16 @@ class MplPanel:
 
     def draw(self):
         self.canvas.draw_idle()
+
+    def recolor_ticks(self):
+        """Re-apply muted colour to all (major and minor) tick labels. Call this
+        after changing to a log scale, whose minor labels otherwise render in
+        the default black and disappear on the dark panel."""
+        ax = self.ax
+        ax.tick_params(which="both", colors=COL_MUTED, labelsize=8)
+        for lbl in (ax.get_xticklabels(which="both")
+                    + ax.get_yticklabels(which="both")):
+            lbl.set_color(COL_MUTED)
 
     def pack(self, **kw):
         self.widget.pack(**kw)
@@ -566,7 +679,7 @@ def make_screen(key, parent, app):
     from . import (home, track, passes, passdetail, groundtrack,
                    orbit, illum, sunmoon, mutual, tenday, satellites, location,
                    grids, spacewx, oscarsim, analytics, radio, planning,
-                   exportscreen, sites, celestial)
+                   exportscreen, sites, celestial, learn)
     mapping = {
         "home": home.HomeScreen,
         "track": track.TrackScreen,
@@ -590,6 +703,7 @@ def make_screen(key, parent, app):
         "exports": exportscreen.ExportScreen,
         "sites": sites.SitesScreen,
         "celestial": celestial.CelestialScreen,
+        "learn": learn.LearnScreen,
     }
     cls = mapping[key]
     return cls(parent, app)

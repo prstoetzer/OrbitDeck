@@ -72,9 +72,17 @@ def workable_states(in_footprint):
     """Return sorted list of state codes with at least one point in footprint.
 
     `in_footprint(lat, lon) -> bool` decides membership for a single point.
+
+    Uses the denser bundled boundary dataset (a ~0.5-deg interior fill per
+    state) when available so coverage is detected accurately across each
+    state's extent, falling back to the sparse representative city points.
     """
+    try:
+        from .us_state_boundaries import US_STATE_BOUNDARIES as _PTS
+    except Exception:
+        _PTS = US_STATES
     out = []
-    for code, pts in US_STATES.items():
+    for code, pts in _PTS.items():
         if any(in_footprint(lat, lon) for (lat, lon) in pts):
             out.append(code)
     return sorted(out)

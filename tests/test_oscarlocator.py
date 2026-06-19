@@ -942,8 +942,9 @@ def test_oscarsim_next_pass_seeds_visible_pass_node():
         assert abs(((canon_lon - rlo + 540) % 360) - 180) < 3.0
 
 def test_oscarlocator_base_map_has_branding():
-    """Base-map sheets carry the unobtrusive OrbitDeck + author credit, but the
-    transparency overlays stay clean (no branding)."""
+    """Every printed sheet carries the OrbitDeck + author credit EXCEPT the clean
+    (reduced-text) transparency overlays, which stay free of any text outside the
+    circular instrument so they don't clutter the stacked map."""
     import os
     import tempfile
     import subprocess
@@ -954,16 +955,31 @@ def test_oscarlocator_base_map_has_branding():
     st.obs = Observer(lat=39.9, lon=-75.0, alt_m=20, valid=True)
     s = st.db.sats[0]
     d = tempfile.mkdtemp()
-    p = os.path.join(d, "b.pdf")
+
+    # Full (non-reduced) 3-sheet set: base map + range-circle + arc. All three
+    # carry full instructions and therefore all carry the credit.
+    p = os.path.join(d, "full.pdf")
     generate_oscarlocator_pdf(p, st, s, projection="qth",
                               footprint_on_qth=False)
-    base = subprocess.run(["pdftotext", "-f", "1", "-l", "1", p, "-"],
+    for pg in (1, 2, 3):
+        txt = subprocess.run(["pdftotext", "-f", str(pg), "-l", str(pg), p,
+                              "-"], capture_output=True, text=True).stdout
+        assert "OrbitDeck" in txt and "N8HM" in txt, \
+            "page %d of the full set should carry the credit" % pg
+
+    # Reduced set: the base map (page 1) is printed on card and IS branded, but
+    # the clean transparency overlays (pages 2 and 3) must stay credit-free.
+    pr = os.path.join(d, "reduced.pdf")
+    generate_oscarlocator_pdf(pr, st, s, projection="polar",
+                              footprint_on_qth=False, reduced_text=True)
+    base = subprocess.run(["pdftotext", "-f", "1", "-l", "1", pr, "-"],
                           capture_output=True, text=True).stdout
     assert "OrbitDeck" in base and "N8HM" in base
-    # the footprint transparency (page 2) must not carry the branding
-    trans = subprocess.run(["pdftotext", "-f", "2", "-l", "2", p, "-"],
-                           capture_output=True, text=True).stdout
-    assert "OrbitDeck" not in trans
+    for pg in (2, 3):
+        trans = subprocess.run(["pdftotext", "-f", str(pg), "-l", str(pg), pr,
+                                "-"], capture_output=True, text=True).stdout
+        assert "OrbitDeck" not in trans, \
+            "clean transparency page %d must not carry branding" % pg
 
 def test_oscarlocator_reduced_arc_renders_all_inclinations():
     """The reduced-text path-arc renders for a range of inclinations and for

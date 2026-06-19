@@ -32,12 +32,14 @@ class MutualScreen(Screen):
         ttk.Radiobutton(bar, text="All favorites", value="favorites",
                         variable=self.scope, command=self._reload).pack(
             side="left", padx=(0, 4))
-        ttk.Button(bar, text="Compute", command=self._reload).pack(side="left",
-                                                                    padx=10)
-        ttk.Button(bar, text="Print mutual\u2026",
-                   command=self._print_report).pack(side="left")
-        ttk.Button(bar, text="Export CSV\u2026",
-                   command=self._export_csv).pack(side="left", padx=4)
+        # second row: actions, so a narrow window never clips the buttons
+        bar2 = ttk.Frame(self.frame, style="TFrame")
+        bar2.pack(fill="x", padx=16, pady=(0, 4))
+        ttk.Button(bar2, text="Compute", command=self._reload).pack(side="left")
+        ttk.Button(bar2, text="Print mutual\u2026",
+                   command=self._print_report).pack(side="left", padx=6)
+        ttk.Button(bar2, text="Export CSV\u2026",
+                   command=self._export_csv).pack(side="left")
         cols = ("sat", "start", "end", "dur", "myel", "dxel")
         heads = ("Satellite", "Start (UTC)", "End", "Duration", "My max el",
                  "DX max el")

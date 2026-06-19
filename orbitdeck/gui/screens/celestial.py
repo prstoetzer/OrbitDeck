@@ -97,6 +97,16 @@ class CelestialScreen(Screen):
         cs = CE.radec_to_azel(CE.COLD_SKY_RADEC[0], CE.COLD_SKY_RADEC[1],
                               lat, lon, t)
         entries.append(("Cold sky (ref)", cs[0], cs[1], "reference"))
+        # the currently selected satellite, if it has a usable orbit
+        s = self.sat()
+        if s is not None:
+            try:
+                pred = self.pred()
+                if pred is not None and pred.set_sat(s):
+                    az, el = pred.azel_at(t)
+                    entries.append((s.name, az, el, "satellite"))
+            except Exception:
+                pass
         return entries
 
     def _render_bodies(self):
@@ -121,12 +131,16 @@ class CelestialScreen(Screen):
                           labels=["N", "NE", "E", "SE", "S", "SW", "W", "NW"],
                           color=COL_MUTED, fontsize=8)
         colors = {"star": COL_WARN, "moon": "#cfd8e3", "planet": COL_ACCENT2,
-                  "radio source": COL_ACCENT, "reference": COL_MUTED}
+                  "radio source": COL_ACCENT, "reference": COL_MUTED,
+                  "satellite": "#ff5c8a"}
         for name, az, el, kind in entries:
             if el < 0:
                 continue
-            ax.plot([az * DEG], [90 - el], marker="o",
-                    color=colors.get(kind, COL_TEXT), markersize=8, zorder=6)
+            marker = "*" if kind == "satellite" else "o"
+            msize = 13 if kind == "satellite" else 8
+            ax.plot([az * DEG], [90 - el], marker=marker,
+                    color=colors.get(kind, COL_TEXT), markersize=msize,
+                    zorder=6)
             ax.annotate(name, (az * DEG, 90 - el), color=COL_TEXT, fontsize=7,
                         xytext=(4, 3), textcoords="offset points", zorder=7)
         self.bpanel.draw()

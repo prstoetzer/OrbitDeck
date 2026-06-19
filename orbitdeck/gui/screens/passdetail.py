@@ -39,12 +39,31 @@ class PassDetailScreen(Screen):
             self.kv.section("Pass detail")
             self.kv.note("Select a pass from Next Passes (double-click a row).")
             self.kv.end()
+            self._show_empty_plots()
+
+    def _show_empty_plots(self):
+        """Show a single tidy placeholder; hide the profile plot until a pass is
+        chosen so no empty cartesian frame is shown."""
+        self.prof.widget.pack_forget()
+        self.polar.clear(polar=True)
+        pax = self.polar.ax
+        pax.set_theta_zero_location("E")
+        pax.set_rticks([])
+        pax.set_rlim(0, 1)
+        pax.tick_params(colors=COL_MUTED, labelsize=7)
+        pax.set_title("Select a pass to see its sky track",
+                      color=COL_MUTED, fontsize=9)
+        self.polar.draw()
 
     def _render(self):
         p = self._pass
         s = self.sat()
         if not p or not s:
             return
+        # ensure the profile plot is visible (it is hidden in the empty state)
+        if not self.prof.widget.winfo_manager():
+            self.prof.widget.pack(side="left", fill="both", expand=True,
+                                  padx=6, pady=6)
         r_tca = self.pred().look(p.tca).range_km
         k = self.kv
         k.begin()
@@ -61,6 +80,16 @@ class PassDetailScreen(Screen):
         k.row("Time", fmt_utc(p.los, "%H:%M:%S"))
         k.row("Azimuth", "%.0f\u00b0 %s" % (p.az_los, compass(p.az_los)))
         k.row("Date", fmt_utc(p.aos, "%Y-%m-%d"), COL_MUTED)
+        # educational "why is this pass like this" explainer
+        try:
+            from ..lab import pass_explain
+            why = pass_explain(self.pred(), p)
+        except Exception:
+            why = []
+        if why:
+            k.section("Why this pass?")
+            for line in why:
+                k.note(line)
         k.end()
 
         n = 80

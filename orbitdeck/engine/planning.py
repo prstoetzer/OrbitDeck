@@ -93,6 +93,57 @@ def best_passes_for_target(pred, obs, tgt_lat, tgt_lon, frm, hours=72.0,
     return out[:max_results]
 
 
+def rove_stop_passes(pred, stop_lat, stop_lon, frm, to, min_el=5.0,
+                     step_s=60.0, max_passes=20):
+    """For a single rove stop (lat/lon) and a time-window HINT [frm, to], return
+    the satellite's passes whose footprint covers the stop, each annotated with
+    the workable Maidenhead grids, US states, and DXCC entities reachable while
+    the stop is inside the footprint (the mutual coverage during the pass).
+
+    The window is a hint, not a hard filter: passes straddling the edges are
+    still included (we search a padded range and keep any pass that covers the
+    stop). Each result is a dict:
+        {aos, los, max_el, grids:set, states:set, dxcc:set}
+    """
+    from .analysis import make_footprint_test, workable_grids
+    try:
+        from ..data.us_states import workable_states
+    except Exception:
+        workable_states = None
+    try:
+        from ..data.dxcc import workable_dxcc
+    except Exception:
+        workable_dxcc = None
+
+    pad = 3600.0
+    passes = pred.predict_passes(frm - pad, min_el, max_passes, to + pad)
+    out = []
+    for p in passes:
+        steps = max(8, int((p.los - p.aos) / step_s))
+        grids, states, dxcc = set(), set(), set()
+        covered = False
+        for i in range(steps + 1):
+            tt = p.aos + (p.los - p.aos) * i / steps
+            sub_lat, sub_lon, alt = pred.subpoint_at(tt)
+            inside = make_footprint_test(sub_lat, sub_lon, alt)
+            if not inside(stop_lat, stop_lon):
+                continue
+            covered = True
+            grids.update(workable_grids(sub_lat, sub_lon, alt))
+            if workable_states is not None:
+                states.update(workable_states(inside))
+            if workable_dxcc is not None:
+                dxcc.update("%s %s" % (pfx, nm)
+                            for pfx, nm in workable_dxcc(inside))
+        if not covered:
+            continue
+        out.append({
+            "aos": p.aos, "los": p.los, "max_el": p.max_el,
+            "grids": grids, "states": states, "dxcc": dxcc,
+        })
+    return out
+
+
 def sky_coverage_grid(pred, obs, passes, az_bins=36, el_bins=9, step_s=20.0):
     """Aggregate passes into an azimuth x elevation occupancy grid.
 

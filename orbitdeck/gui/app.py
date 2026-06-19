@@ -51,6 +51,7 @@ NAV_ITEMS = [
     ("Radio", "radio"),
     ("Planning", "planning"),
     ("OSCARLOCATOR Sim", "oscarsim"),
+    ("Learn", "learn"),
     ("Exports", "exports"),
     # sky & space environment
     ("Sun / Moon", "sunmoon"),
@@ -81,8 +82,10 @@ class OrbitDeckApp:
 
         self._init_style()
         self._build_layout()
+        self._bind_shortcuts()
         self.show("home")
         self._tick()
+        self.root.after(400, self._first_run_check)
 
     def _set_window_icon(self, root):
         """Set the taskbar / title-bar icon from the bundled asset, if present."""
@@ -121,6 +124,9 @@ class OrbitDeckApp:
         # so empty/short status labels don't show a stray panel-coloured sliver
         st.configure("MutedBg.TLabel", background=COL_BG, foreground=COL_MUTED)
         st.configure("H.TLabel", background=COL_BG, foreground=COL_TEXT, font=FONT_H)
+        # bold section header that sits on a panel-coloured frame
+        st.configure("PanelH.TLabel", background=COL_PANEL, foreground=COL_TEXT,
+                     font=FONT_H)
         st.configure("Mono.TLabel", background=COL_PANEL, foreground=COL_TEXT,
                      font=FONT_MONO)
         st.configure("TButton", background=COL_PANEL, foreground=COL_TEXT,
@@ -179,6 +185,23 @@ class OrbitDeckApp:
                      indicatorcolor=COL_PANEL, focuscolor=COL_ACCENT)
         st.map("TCheckbutton",
                background=[("active", COL_BG)],
+               foreground=[("active", COL_TEXT), ("selected", COL_TEXT)],
+               indicatorcolor=[("selected", COL_ACCENT),
+                               ("pressed", COL_ACCENT)])
+        # panel-coloured variants for radio/check buttons placed on a panel frame
+        st.configure("Panel.TRadiobutton", background=COL_PANEL,
+                     foreground=COL_TEXT, indicatorcolor=COL_BG,
+                     focuscolor=COL_ACCENT)
+        st.map("Panel.TRadiobutton",
+               background=[("active", COL_PANEL)],
+               foreground=[("active", COL_TEXT), ("selected", COL_TEXT)],
+               indicatorcolor=[("selected", COL_ACCENT),
+                               ("pressed", COL_ACCENT)])
+        st.configure("Panel.TCheckbutton", background=COL_PANEL,
+                     foreground=COL_TEXT, indicatorcolor=COL_BG,
+                     focuscolor=COL_ACCENT)
+        st.map("Panel.TCheckbutton",
+               background=[("active", COL_PANEL)],
                foreground=[("active", COL_TEXT), ("selected", COL_TEXT)],
                indicatorcolor=[("selected", COL_ACCENT),
                                ("pressed", COL_ACCENT)])
@@ -315,6 +338,250 @@ class OrbitDeckApp:
         if hasattr(scr, "refresh_sat_header"):
             scr.refresh_sat_header()
         scr.on_show()
+
+    # ---- keyboard shortcuts & command palette ----
+    def _bind_shortcuts(self):
+        """Global key bindings for fast navigation. Bindings are skipped while a
+        text-entry widget has focus so typing isn't hijacked."""
+        r = self.root
+        r.bind_all("<Control-k>", lambda e: self._command_palette())
+        r.bind_all("<Control-K>", lambda e: self._command_palette())
+        r.bind_all("<Control-f>", lambda e: self._quick_select())
+        r.bind_all("<slash>", self._maybe(lambda e: self._quick_select()))
+        # next / previous satellite
+        r.bind_all("<bracketright>", self._maybe(lambda e: self._cycle_sat(1)))
+        r.bind_all("<bracketleft>", self._maybe(lambda e: self._cycle_sat(-1)))
+        r.bind_all("<Control-period>", lambda e: self._cycle_sat(1))
+        r.bind_all("<Control-comma>", lambda e: self._cycle_sat(-1))
+        # font size
+        r.bind_all("<Control-plus>", lambda e: self._bump_font(1))
+        r.bind_all("<Control-equal>", lambda e: self._bump_font(1))
+        r.bind_all("<Control-minus>", lambda e: self._bump_font(-1))
+        r.bind_all("<Control-0>", lambda e: self._set_font_scale(1.0))
+        # jump to screen by number (1-9) when not typing
+        for i in range(1, 10):
+            r.bind_all(str(i), self._maybe(
+                lambda e, n=i: self._show_nth(n - 1)))
+        r.bind_all("<F1>", lambda e: self._show_help())
+        r.bind_all("<question>", self._maybe(lambda e: self._show_help()))
+
+    @staticmethod
+    def _is_text_focus(root):
+        try:
+            w = root.focus_get()
+        except Exception:
+            return False
+        return isinstance(w, (tk.Entry, tk.Text)) or \
+            (w is not None and w.winfo_class() in ("TEntry", "TCombobox",
+                                                   "Entry", "Text"))
+
+    def _maybe(self, fn):
+        """Wrap a key handler so it's ignored while a text field has focus."""
+        def handler(e):
+            if self._is_text_focus(self.root):
+                return
+            return fn(e)
+        return handler
+
+    def _show_nth(self, idx):
+        if 0 <= idx < len(NAV_ITEMS):
+            self.show(NAV_ITEMS[idx][1])
+
+    def _cycle_sat(self, step):
+        """Select the next/previous satellite (favorites first, then by name)."""
+        sats = self.store.db.sats
+        if not sats:
+            return
+        order = sorted(sats, key=lambda s: (s.norad not in self.store.favorites,
+                                            s.name.lower()))
+        cur = self.store.selected_norad
+        idx = next((i for i, s in enumerate(order) if s.norad == cur), -1)
+        nxt = order[(idx + step) % len(order)]
+        self.store.select(nxt.norad)
+        self.sat_var.set(nxt.name)
+        self._refresh_current()
+        self.set_status("Satellite: %s" % nxt.name)
+
+    def _command_palette(self):
+        """Ctrl+K palette: type to jump to any screen or satellite."""
+        win = tk.Toplevel(self.root)
+        win.title("Go to\u2026")
+        win.configure(bg=COL_BG)
+        win.geometry("460x420")
+        win.transient(self.root)
+        try:
+            win.grab_set()
+        except Exception:
+            pass
+        ent = ttk.Entry(win)
+        ent.pack(fill="x", padx=10, pady=10)
+        ent.focus_set()
+        lb = tk.Listbox(win, bg=COL_PANEL, fg=COL_TEXT, bd=0,
+                        selectbackground=COL_ACCENT, selectforeground="#fff",
+                        highlightthickness=0, activestyle="none",
+                        font=("DejaVu Sans", 11))
+        lb.pack(fill="both", expand=True, padx=10, pady=(0, 10))
+
+        # build the command list: screens + satellites
+        items = [("screen", label, key) for label, key in NAV_ITEMS]
+        for s in self.store.db.sats:
+            items.append(("sat", "\U0001f6f0 %s" % s.name, s.norad))
+        shown = []
+
+        def repop(*_):
+            lb.delete(0, "end")
+            shown.clear()
+            q = ent.get().strip().lower()
+            for kind, label, ref in items:
+                if q and q not in label.lower():
+                    continue
+                lb.insert("end", label)
+                shown.append((kind, ref))
+                if len(shown) >= 200:
+                    break
+            if shown:
+                lb.selection_set(0)
+
+        def activate(_=None):
+            sel = lb.curselection()
+            if not sel:
+                return
+            kind, ref = shown[sel[0]]
+            win.destroy()
+            if kind == "screen":
+                self.show(ref)
+            else:
+                self.store.select(ref)
+                s = self.store.selected_sat()
+                if s:
+                    self.sat_var.set(s.name)
+                self._refresh_current()
+
+        def move(d):
+            sel = lb.curselection()
+            i = (sel[0] if sel else 0) + d
+            i = max(0, min(lb.size() - 1, i))
+            lb.selection_clear(0, "end")
+            lb.selection_set(i)
+            lb.see(i)
+
+        ent.bind("<KeyRelease>", repop)
+        ent.bind("<Down>", lambda e: (move(1), "break"))
+        ent.bind("<Up>", lambda e: (move(-1), "break"))
+        ent.bind("<Return>", activate)
+        ent.bind("<Escape>", lambda e: win.destroy())
+        lb.bind("<Double-Button-1>", activate)
+        lb.bind("<Return>", activate)
+        repop()
+
+    # ---- UI font scaling ----
+    def _bump_font(self, direction):
+        cur = getattr(self, "_font_scale", 1.0)
+        self._set_font_scale(cur + 0.1 * direction)
+
+    def _set_font_scale(self, scale):
+        scale = max(0.8, min(1.8, scale))
+        self._font_scale = scale
+        try:
+            import tkinter.font as tkfont
+            for name in ("TkDefaultFont", "TkTextFont", "TkMenuFont",
+                         "TkHeadingFont", "TkFixedFont"):
+                try:
+                    f = tkfont.nametofont(name)
+                    base = getattr(self, "_font_base_%s" % name, None)
+                    if base is None:
+                        base = abs(f.cget("size")) or 10
+                        setattr(self, "_font_base_%s" % name, base)
+                    f.configure(size=max(7, int(round(base * scale))))
+                except Exception:
+                    pass
+        except Exception:
+            pass
+        try:
+            self.root.tk.call("tk", "scaling", 1.333 * scale)
+        except Exception:
+            pass
+        self.store.save_config(ui_scale=scale)
+        self.set_status("Text size: %d%%" % round(scale * 100))
+
+    # ---- first-run onboarding & live-data prompt ----
+    def _first_run_check(self):
+        cfg = self.store.config
+        # restore saved UI scale
+        saved = cfg.get("ui_scale")
+        if saved and abs(float(saved) - 1.0) > 0.01:
+            self._set_font_scale(float(saved))
+        if cfg.get("onboarded"):
+            return
+        try:
+            self._show_welcome()
+        except Exception:
+            pass
+
+    def _show_welcome(self):
+        win = tk.Toplevel(self.root)
+        win.title("Welcome to OrbitDeck")
+        win.configure(bg=COL_BG)
+        win.geometry("560x420")
+        win.transient(self.root)
+        try:
+            win.grab_set()
+        except Exception:
+            pass
+        from .. import __version__
+        tk.Label(win, text="Welcome to OrbitDeck", bg=COL_BG, fg=COL_TEXT,
+                 font=("DejaVu Sans", 16, "bold")).pack(anchor="w",
+                                                        padx=20, pady=(18, 2))
+        tk.Label(win, text="v%s \u2014 satellite tracking & orbital analysis"
+                 % __version__, bg=COL_BG, fg=COL_MUTED,
+                 font=("DejaVu Sans", 10)).pack(anchor="w", padx=20)
+        steps = (
+            "Three quick steps to get going:\n\n"
+            "1.  Set your location \u2014 open Settings and enter your "
+            "latitude/longitude or Maidenhead grid. Accurate pass times need "
+            "your QTH.\n\n"
+            "2.  Get live elements \u2014 click \u201cUpdate GP\u201d in the top "
+            "bar to pull the current AMSAT catalog. Until you do, a sample "
+            "catalog is loaded and pass times are illustrative only.\n\n"
+            "3.  Explore \u2014 the Home screen counts down your favorite "
+            "satellites' next passes. Press Ctrl+K any time to jump to a screen "
+            "or satellite, or F1 for the full shortcut list.")
+        msg = tk.Message(win, text=steps, bg=COL_BG, fg=COL_TEXT,
+                         font=("DejaVu Sans", 11), width=510,
+                         justify="left")
+        msg.pack(anchor="w", padx=20, pady=14)
+
+        btns = tk.Frame(win, bg=COL_BG)
+        btns.pack(side="bottom", fill="x", padx=20, pady=16)
+
+        def finish(fetch):
+            self.store.save_config(onboarded=True)
+            win.destroy()
+            if fetch:
+                self._update_online()
+
+        ttk.Button(btns, text="Update GP now",
+                   command=lambda: finish(True)).pack(side="right", padx=4)
+        ttk.Button(btns, text="Later",
+                   command=lambda: finish(False)).pack(side="right")
+        tk.Button(btns, text="Open Settings", bg=COL_PANEL, fg=COL_TEXT,
+                  relief="flat", bd=0, padx=10, pady=4,
+                  command=lambda: (self.store.save_config(onboarded=True),
+                                   win.destroy(),
+                                   self.show("location"))).pack(side="left")
+
+    def _show_help(self):
+        from tkinter import messagebox
+        messagebox.showinfo(
+            "Keyboard shortcuts",
+            "Ctrl+K\tCommand palette (jump to screen or satellite)\n"
+            "Ctrl+F  or  /\tFind/select a satellite\n"
+            "[  /  ]\tPrevious / next satellite\n"
+            "1\u20139\tJump to the Nth screen in the sidebar\n"
+            "Ctrl++  /  Ctrl+-\tText size larger / smaller\n"
+            "Ctrl+0\tReset text size\n"
+            "F1  or  ?\tThis help\n\n"
+            "(Shortcuts are ignored while you're typing in a text field.)")
 
     # ---- live clock + active-screen refresh ----
     def _tick(self):

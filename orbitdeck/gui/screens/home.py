@@ -32,9 +32,9 @@ class HomeScreen(Screen):
         self.header("Home \u2014 favorite satellites")
         bar = tk.Frame(self.frame, bg=COL_PANEL)
         bar.pack(fill="x", padx=16, pady=(0, 6))
-        self.tab = tk.StringVar(value="map")
+        self.tab = tk.StringVar(value="dash")
         self._tabs = []
-        for label, val in (("Map", "map"), ("Next Passes", "passes")):
+        for label, val in (("Dashboard", "dash"), ("Map", "map")):
             holder = tk.Frame(bar, bg=COL_PANEL)
             holder.pack(side="left", padx=1, pady=2)
             btn = tk.Label(holder, text=label, bg=COL_PANEL, fg=COL_MUTED,
@@ -46,6 +46,63 @@ class HomeScreen(Screen):
             btn.bind("<Button-1>", lambda _e, v=val: self._select_tab(v))
             self._tabs.append((val, btn, ind))
         self._highlight()
+
+        # ---- dashboard tab ----
+        self.dash_wrap = ttk.Frame(self.frame, style="TFrame")
+        _dtop = ttk.Frame(self.dash_wrap, style="TFrame")
+        _dtop.pack(fill="x", padx=16, pady=(10, 4))
+        # "overhead now" panel
+        now_panel = tk.Frame(_dtop, bg=COL_PANEL)
+        now_panel.pack(fill="x", pady=(0, 8))
+        tk.Label(now_panel, text="OVERHEAD NOW", bg=COL_PANEL, fg=COL_MUTED,
+                 font=("DejaVu Sans", 9, "bold")).pack(anchor="w",
+                                                       padx=12, pady=(8, 2))
+        self.dash_now = tk.StringVar(value="\u2014")
+        tk.Label(now_panel, textvariable=self.dash_now, bg=COL_PANEL,
+                 fg=COL_ACCENT2, font=("DejaVu Sans Mono", 12),
+                 justify="left", anchor="w").pack(anchor="w", padx=12,
+                                                  pady=(0, 10))
+        # next workable passes
+        tk.Label(self.dash_wrap, text="NEXT PASSES (favorites)", bg=COL_PANEL,
+                 fg=COL_MUTED, font=("DejaVu Sans", 9, "bold")).pack(
+            anchor="w", padx=16)
+        ncols = ("sat", "in", "aos", "maxel", "dur")
+        nheads = ("Satellite", "In", "AOS (UTC)", "Max El", "Duration")
+        nwid = {"sat": 150, "in": 110, "aos": 150, "maxel": 80, "dur": 90}
+        _nwrap = ttk.Frame(self.dash_wrap, style="TFrame")
+        _nwrap.pack(fill="both", expand=True, padx=16, pady=(2, 8))
+        self.dash_tree = ttk.Treeview(_nwrap, columns=ncols, show="headings",
+                                      height=10)
+        for c, h in zip(ncols, nheads):
+            self.dash_tree.heading(c, text=h)
+            self.dash_tree.column(c, width=nwid[c],
+                                  anchor="w" if c == "sat" else "center")
+        self.dash_tree.tag_configure("now", foreground=COL_ACCENT2)
+        _nvsb = ttk.Scrollbar(_nwrap, orient="vertical",
+                              command=self.dash_tree.yview)
+        self.dash_tree.configure(
+            yscrollcommand=autohide_scrollbar(_nvsb, "right",
+                                              before=self.dash_tree))
+        _nvsb.pack(side="right", fill="y")
+        self.dash_tree.pack(side="left", fill="both", expand=True)
+        self.dash_tree.bind("<Double-Button-1>", self._on_dash_pick)
+        # print the full 7-day schedule for every favorite (was a separate tab)
+        ttk.Button(self.dash_wrap,
+                   text="Print 7-day schedule (all favorites)\u2026",
+                   command=self._print_favorites_report).pack(
+            anchor="w", padx=16, pady=(2, 8))
+        # space weather glance
+        wx_panel = tk.Frame(self.dash_wrap, bg=COL_PANEL)
+        wx_panel.pack(fill="x", padx=16, pady=(0, 12))
+        tk.Label(wx_panel, text="SPACE WEATHER", bg=COL_PANEL, fg=COL_MUTED,
+                 font=("DejaVu Sans", 9, "bold")).pack(anchor="w",
+                                                       padx=12, pady=(8, 2))
+        self.dash_wx = tk.StringVar(value="Not loaded \u2014 see Space Wx "
+                                    "screen.")
+        tk.Label(wx_panel, textvariable=self.dash_wx, bg=COL_PANEL,
+                 fg=COL_TEXT, font=("DejaVu Sans Mono", 11),
+                 anchor="w").pack(anchor="w", padx=12, pady=(0, 10))
+        self._dash_row_norad = []
 
         # ---- map tab ----
         self.map_wrap = ttk.Frame(self.frame, style="TFrame")
@@ -101,10 +158,6 @@ class HomeScreen(Screen):
         self.pass_info = tk.StringVar(value="")
         ttk.Label(self.pass_wrap, textvariable=self.pass_info,
                   style="Muted.TLabel").pack(anchor="w", padx=16, pady=(0, 8))
-        ttk.Button(self.pass_wrap, text="Print 7-day schedule (all favorites)\u2026",
-                   command=self._print_favorites_report).pack(anchor="w",
-                                                              padx=16,
-                                                              pady=(0, 8))
 
         # per-favorite predictors and cached next-pass list
         self._preds = {}            # norad -> Predictor
@@ -112,7 +165,7 @@ class HomeScreen(Screen):
         self._pass_calc_at = 0
         self._counter = 0
         self._build_favlist()
-        self._select_tab("map")
+        self._select_tab("dash")
 
     # ---- tab management ----
     def _highlight(self):
@@ -124,14 +177,16 @@ class HomeScreen(Screen):
             ind.configure(bg=COL_ACCENT if on else COL_PANEL)
 
     def _select_tab(self, val):
+        if val == "passes":          # tab removed; dashboard covers it now
+            val = "dash"
         self.tab.set(val)
         self._highlight()
+        self.dash_wrap.pack_forget()
         self.map_wrap.pack_forget()
-        self.pass_wrap.pack_forget()
         if val == "map":
             self.map_wrap.pack(fill="both", expand=True)
         else:
-            self.pass_wrap.pack(fill="both", expand=True)
+            self.dash_wrap.pack(fill="both", expand=True)
         self._refresh(now_unix())
 
     # ---- favorites bookkeeping ----
@@ -197,14 +252,124 @@ class HomeScreen(Screen):
     def on_tick(self, now_dt):
         self._counter += 1
         t = now_dt.timestamp()
-        if self.tab.get() == "map":
+        if self.tab.get() == "dash":
+            self._update_dash_countdowns(t)
+            if self._counter % 5 == 0:
+                self._rebuild_dash(t)
+        elif self.tab.get() == "map":
             if self._counter % 2 == 0:        # map every 2 s
                 self._draw_map(t)
         else:
             self._update_countdowns(t)        # countdown every second
 
+    # ================= DASHBOARD =================
+    def _rebuild_dash(self, t):
+        favs = self._favsats()
+        # overhead now: favorites currently above the horizon
+        overhead = []
+        nextpasses = []
+        for s in favs:
+            p = self._pred_for(s)
+            try:
+                lk = p.look(t)
+                el, az = lk.el, lk.az
+            except Exception:
+                el = az = None
+            if el is not None and el > 0:
+                overhead.append((s, el, az))
+            try:
+                ps = p.predict_passes(t, getattr(self.store, "min_el", 5.0), 1)
+            except Exception:
+                ps = []
+            if ps:
+                nextpasses.append((s, ps[0]))
+        if overhead:
+            overhead.sort(key=lambda r: -r[1])
+            self.dash_now.set("\n".join(
+                "%-14s el %2.0f\u00b0  az %3.0f\u00b0" % (s.name, el, az or 0)
+                for s, el, az in overhead))
+        else:
+            self.dash_now.set("Nothing overhead right now.")
+        # next passes table, soonest first
+        nextpasses.sort(key=lambda r: r[1].aos)
+        self.dash_tree.delete(*self.dash_tree.get_children())
+        self._dash_row_norad = []
+        for s, ps in nextpasses[:20]:
+            self._dash_row_norad.append(s.norad)
+            inn = ps.aos - t
+            now_tag = inn <= 0 and (ps.los - t) > 0
+            self.dash_tree.insert(
+                "", "end",
+                values=(s.name,
+                        "NOW" if now_tag else fmt_hms(max(0, inn)),
+                        fmt_utc(ps.aos), "%.0f\u00b0" % ps.max_el,
+                        "%.0f min" % ((ps.los - ps.aos) / 60.0)),
+                tags=("now",) if now_tag else ())
+        # space weather glance from cache, if present
+        self._update_dash_wx()
+
+    def _update_dash_wx(self):
+        try:
+            import json
+            import os
+            from ..store import SPACEWX_CACHE
+            if os.path.exists(SPACEWX_CACHE):
+                with open(SPACEWX_CACHE) as f:
+                    d = json.load(f)
+                kp = d.get("kp")
+                sfi = d.get("sfi") or d.get("f107")
+                parts = []
+                if sfi is not None:
+                    parts.append("SFI %s" % round(float(sfi)))
+                if kp is not None:
+                    parts.append("Kp %.1f" % float(kp))
+                if parts:
+                    self.dash_wx.set("   ".join(parts)
+                                     + "    (see Space Wx for detail)")
+                    return
+        except Exception:
+            pass
+        self.dash_wx.set("Not loaded \u2014 open the Space Wx screen to fetch.")
+
+    def _update_dash_countdowns(self, t):
+        # refresh only the "In" column live without a full rebuild
+        for iid, norad in zip(self.dash_tree.get_children(),
+                              self._dash_row_norad):
+            s = self.store.db.get(norad)
+            if not s:
+                continue
+            p = self._pred_for(s)
+            ps = self._nextpass.get(norad)
+            try:
+                pp = p.predict_passes(t, getattr(self.store, "min_el", 5.0), 1)
+                ps = pp[0] if pp else None
+            except Exception:
+                ps = None
+            if not ps:
+                continue
+            inn = ps.aos - t
+            now_tag = inn <= 0 and (ps.los - t) > 0
+            vals = list(self.dash_tree.item(iid, "values"))
+            vals[1] = "NOW" if now_tag else fmt_hms(max(0, inn))
+            self.dash_tree.item(iid, values=vals,
+                                tags=("now",) if now_tag else ())
+
+    def _on_dash_pick(self, _evt=None):
+        sel = self.dash_tree.selection()
+        if not sel:
+            return
+        idx = self.dash_tree.index(sel[0])
+        if 0 <= idx < len(self._dash_row_norad):
+            norad = self._dash_row_norad[idx]
+            self.store.select(norad)
+            self.store.save_config()
+            sat = self.store.db.get(norad)
+            self.app.set_status("Selected %s" % (sat.name if sat else norad))
+
     def _refresh(self, t):
-        if self.tab.get() == "map":
+        if self.tab.get() == "dash":
+            self._rebuild_dash(t)
+        elif self.tab.get() == "map":
             self._draw_map(t)
         else:
             self._rebuild_passes(t)

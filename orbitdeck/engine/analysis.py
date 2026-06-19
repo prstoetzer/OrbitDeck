@@ -231,6 +231,19 @@ def _latlon_to_grid4(lat, lon):
             chr(Z0 + int((lon % 20) / 2)) + chr(Z0 + int((lat % 10))))
 
 
+def latlon_to_grid6(lat, lon):
+    """Full 6-character Maidenhead locator (e.g. 'FN20xr') for a latitude and
+    longitude, the format amateur operators exchange via satellite."""
+    lat = max(-90.0, min(89.99999, lat))
+    lon = max(-180.0, min(179.99999, lon))
+    g4 = _latlon_to_grid4(lat, lon)
+    lon2 = (lon + 180.0) % 2.0          # remaining within the 2-degree field
+    lat2 = (lat + 90.0) % 1.0           # remaining within the 1-degree field
+    sub_lon = chr(ord('a') + int(lon2 / (2.0 / 24.0)))
+    sub_lat = chr(ord('a') + int(lat2 / (1.0 / 24.0)))
+    return g4 + sub_lon + sub_lat
+
+
 def _angular_sep_deg(lat1, lon1, lat2, lon2):
     p1 = lat1 * DEG
     p2 = lat2 * DEG
@@ -265,6 +278,72 @@ def elevation_for_central_angle_deg(gamma_deg, alt_km):
     if r <= RE_KM:
         return 0.0
     return math.atan2(math.cos(g) - RE_KM / r, math.sin(g)) / DEG
+
+
+def orbital_speed_kms(r_km, a_km):
+    """Vis-viva orbital speed (km/s) at radius r on an orbit of semi-major axis
+    a: v = sqrt(mu * (2/r - 1/a)). Fast at perigee, slow at apogee."""
+    if r_km <= 0 or a_km <= 0:
+        return 0.0
+    val = MU * (2.0 / r_km - 1.0 / a_km)
+    return math.sqrt(val) if val > 0 else 0.0
+
+
+def slant_range_km(el_deg, alt_km):
+    """Straight-line distance (km) from a ground station to a satellite of mean
+    altitude ``alt_km`` appearing at elevation ``el_deg``. Overhead (90 deg) it
+    is just the altitude; near the horizon it is much farther. Uses
+    r^2 = RE^2 + d^2 + 2*RE*d*sin(el) and solves the positive root for d."""
+    r = RE_KM + alt_km
+    e = el_deg * DEG
+    b = 2.0 * RE_KM * math.sin(e)
+    c = RE_KM * RE_KM - r * r
+    disc = b * b - 4.0 * c
+    if disc < 0:
+        return 0.0
+    return (-b + math.sqrt(disc)) / 2.0
+
+
+SIDEREAL_DAY_S = 86164.0905
+
+
+def groundtrack_shift_deg(mean_motion_revday):
+    """Net westward longitude shift of the ground track between successive
+    equator crossings. The Earth rotates under the orbit by 360 deg per sidereal
+    day, so one period advances the sub-point west by (period/day)*360, taken
+    modulo a full turn so a geostationary orbit (period = sidereal day) correctly
+    reads ~0 net drift."""
+    if mean_motion_revday <= 0:
+        return 0.0
+    period_s = 86400.0 / mean_motion_revday
+    shift = (360.0 * period_s / SIDEREAL_DAY_S) % 360.0
+    # report the net displacement of the sub-point: > 180 means it has effectively
+    # shifted the short way the other direction
+    if shift > 180.0:
+        shift -= 360.0
+    return shift
+
+
+def horizon_distance_km(alt_km):
+    """Distance along the surface to the horizon as seen from altitude alt_km
+    (the footprint radius, in km) -- how far a satellite can 'see'."""
+    return footprint_radius_deg(alt_km) * DEG * RE_KM
+
+
+def sats_for_continuous_coverage(alt_km, min_el_deg=0.0):
+    """A rough estimate of how many satellites in one circular orbit plane are
+    needed so at least one is always above ``min_el_deg`` for a point on the
+    ground track. Uses the half-angle of the coverage circle: if each satellite
+    covers a central half-angle gamma, then n = ceil(180 / gamma) satellites in
+    the plane keep the sub-point continuously covered.
+
+    This is a teaching approximation (single plane, point on the track), not a
+    full Walker-constellation design.
+    """
+    gamma = central_angle_for_elevation_deg(min_el_deg, alt_km)
+    if gamma is None or gamma <= 0:
+        return 0
+    return int(math.ceil(180.0 / gamma))
 
 
 def central_angle_for_elevation_deg(el_deg, alt_km):

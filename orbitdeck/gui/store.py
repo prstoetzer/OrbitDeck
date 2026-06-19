@@ -57,9 +57,15 @@ class Store:
         self.min_el = 5.0                   # default pass-prediction minimum
         self.tp_index_by_norad = {}         # norad -> selected transponder idx
         self.gp_source = {"kind": "amsat"}  # amsat | celestrak | custom
+        self.prefs = {}                     # free-form UI/app preferences
         self.pred = Predictor()
         self._load_config()
         self._load_catalog()
+
+    @property
+    def config(self):
+        """Read-only view of persisted UI/app preferences."""
+        return self.prefs if isinstance(self.prefs, dict) else {}
 
     # ---- catalog loading ----
     def _load_catalog(self):
@@ -489,10 +495,21 @@ class Store:
             src = c.get("gp_source")
             if isinstance(src, dict) and src.get("kind"):
                 self.gp_source = src
+            # arbitrary UI/app preferences (onboarding flag, ui_scale,
+            # notifications, etc.) kept in a free-form dict
+            p = c.get("prefs")
+            if isinstance(p, dict):
+                self.prefs = p
         except Exception:
             pass
 
-    def save_config(self):
+    def save_config(self, **prefs):
+        """Persist config. Any keyword arguments are merged into a free-form
+        ``prefs`` dict (UI scale, onboarding flag, notification settings, ...)
+        and saved alongside the structured config."""
+        if not hasattr(self, "prefs") or not isinstance(self.prefs, dict):
+            self.prefs = {}
+        self.prefs.update(prefs)
         os.makedirs(CONFIG_DIR, exist_ok=True)
         c = {
             "observer": {"lat": self.obs.lat, "lon": self.obs.lon,
@@ -503,6 +520,7 @@ class Store:
             "selected_norad": self.selected_norad,
             "min_el": self.min_el,
             "gp_source": self.gp_source,
+            "prefs": self.prefs,
         }
         try:
             with open(CONFIG_PATH, "w") as f:

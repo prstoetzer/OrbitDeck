@@ -31,6 +31,20 @@ C_RULE = "#0b3d91"
 C_ROWALT = "#eef2fa"
 
 
+def _brand_fig(fig):
+    """Centred OrbitDeck + author credit along the bottom of a report page,
+    inside the printer-safe margin (a corner-anchored credit was being clipped
+    by desktop printers' unprintable edge)."""
+    try:
+        from .. import __version__ as _ver
+    except Exception:
+        _ver = ""
+    tag = "OrbitDeck%s \u2022 Paul Stoetzer, N8HM" % (
+        " v%s" % _ver if _ver else "")
+    fig.text(0.5, 0.045, tag, ha="center", va="bottom", fontsize=6.5,
+             color="#9a9a9a")
+
+
 def _utc(unix, fmt="%Y-%m-%d %H:%M:%S"):
     return _dt.datetime.fromtimestamp(unix, _dt.timezone.utc).strftime(fmt)
 
@@ -74,8 +88,15 @@ class _Page:
         self.y = 0.0
         self._new_page()
 
+    def _brand(self):
+        """Centred OrbitDeck + author credit along the bottom of the page,
+        inside the printer-safe margin."""
+        if self.fig is not None:
+            _brand_fig(self.fig)
+
     def _new_page(self):
         if self.fig is not None:
+            self._brand()
             self.pdf.savefig(self.fig)
             plt.close(self.fig)
         self.fig = plt.figure(figsize=(PAGE_W_IN, PAGE_H_IN))
@@ -172,6 +193,7 @@ class _Page:
 
     def finish(self):
         if self.fig is not None:
+            self._brand()
             self.pdf.savefig(self.fig)
             plt.close(self.fig)
             self.fig = None
@@ -546,6 +568,7 @@ def _illumination_pages(pdf, pred, sat, when_unix, days=60):
              "band each orbit is the eclipse \u2014 its height shows how long "
              "the satellite is in shadow. Useful for power budgeting.",
              fontsize=9.5, color=C_MUTED, va="top", wrap=True)
+    _brand_fig(fig)
     pdf.savefig(fig)
     plt.close(fig)
 
@@ -768,6 +791,7 @@ def _progression_chart_pages(pdf, store, sat, when_unix, days, passes, by_day,
             ax.legend(handles=handles, loc="upper right", fontsize=7,
                       title="max el", title_fontsize=7, ncol=3,
                       framealpha=0.9)
+        _brand_fig(fig)
         pdf.savefig(fig)
         plt.close(fig)
 
@@ -845,6 +869,7 @@ def _pass_polar_grid(pdf, pred, sat, passes, title, subtitle, cols=3, rows=4):
                                   projection="polar")
                 _draw_sky_polar(ax, pred, p)
                 idx += 1
+        _brand_fig(fig)
         pdf.savefig(fig)
         plt.close(fig)
 
@@ -953,6 +978,7 @@ def _mutual_polar_pages(pdf, store, sat, dx, wins, max_windows=12):
                      "DX %.2f,%.2f" % (dx.lat, dx.lon),
                      ha="center", va="top", fontsize=7.5, color=C_MUTED)
             idx += 1
+        _brand_fig(fig)
         pdf.savefig(fig)
         plt.close(fig)
 
@@ -987,6 +1013,7 @@ def generate_polar_passes_report(path, store, sat, when_unix=None, days=3):
             fig.text(0.07, 0.90, "No passes above %g\u00b0 in the next %d days."
                      % (store.min_el, days), fontsize=11, color=C_MUTED,
                      va="top")
+            _brand_fig(fig)
             pdf.savefig(fig)
             plt.close(fig)
         else:

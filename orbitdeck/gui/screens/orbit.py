@@ -1,8 +1,8 @@
-"""orbit.py - orbital analysis with 9 pages, matching CardSat's drawOrbit.
+"""orbit.py - orbital analysis across multiple pages.
 
 Pages: Info, Live, Next Pass, Ground Track, Doppler, Nodal (J2), Sun/Beta,
-Pass Outlook, Orbit Position. Data pages use a formatted key/value card; the
-Ground Track and Doppler pages use an embedded plot.
+Pass Outlook, Position, EQX Map, EQX List. Data pages use a formatted key/value
+card; the graph pages use an embedded plot, and the EQX List page uses a table.
 """
 
 import tkinter as tk
@@ -14,8 +14,8 @@ from ...engine import analysis as A
 from ..mapdraw import draw_basemap
 
 PAGES = ["Info", "Live", "Next Pass", "Ground Track", "Doppler", "Nodal",
-         "Sun/Beta", "Pass Outlook", "Orbit Position", "Equ. Crossings",
-         "Crossings List"]
+         "Sun/Beta", "Pass Outlook", "Position", "EQX Map",
+         "EQX List"]
 C_KM = 299792.458
 
 

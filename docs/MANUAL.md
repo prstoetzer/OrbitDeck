@@ -2,8 +2,7 @@
 
 OrbitDeck is a cross-platform desktop application for **satellite tracking and
 orbital analysis**, aimed at amateur radio operators working the FM, linear, and
-digital birds. It is a desktop port of the analysis tools from the CardSat
-hardware tracker, with a roomy windowed interface and embedded plots.
+digital birds, with a roomy windowed interface and embedded plots.
 
 Radio (CAT) and rotator control are intentionally **out of scope** — OrbitDeck
 tells you where a satellite is, when it will be in range, how to point, and what
@@ -35,13 +34,14 @@ sources.
    - [13. Mutual Windows](#313-mutual-windows)
    - [14. Workable](#314-workable)
    - [15. OSCARLOCATOR Sim](#315-oscarlocator-sim)
-   - [16. Exports](#316-exports)
-   - [17. Sun / Moon](#317-sun--moon)
-   - [18. Celestial](#318-celestial)
-   - [19. Space Wx](#319-space-wx)
-   - [20. Satellites](#320-satellites)
-   - [21. Sites](#321-sites)
-   - [22. Settings](#322-settings)
+   - [16. Learn](#316-learn)
+   - [17. Exports](#317-exports)
+   - [18. Sun / Moon](#318-sun--moon)
+   - [19. Celestial](#319-celestial)
+   - [20. Space Wx](#320-space-wx)
+   - [21. Satellites](#321-satellites)
+   - [22. Sites](#322-sites)
+   - [23. Settings](#323-settings)
 4. [The OSCARLOCATOR system](#4-the-oscarlocator-system)
 5. [Reports (printable PDFs)](#5-reports-printable-pdfs)
 6. [Data sources & staying accurate](#6-data-sources--staying-accurate)
@@ -123,13 +123,24 @@ Times are shown in **UTC** throughout, the convention for satellite operating.
 
 The default screen. Two tabs:
 
+- **Dashboard** — the at-a-glance view: **Overhead now** (any favorites currently
+  above your horizon, with az/el), **Next passes** across all favorites (soonest
+  first, with a live "In" countdown, max elevation and duration; double-click a
+  row to select that satellite), a one-click **"Print 7-day schedule (all
+  favorites)"** PDF button, and a **Space weather** glance (SFI / Kp from the
+  last fetch).
 - **Map** — a world map showing **every favorited satellite** with its current
   footprint, the day/night terminator, and your station. Click a satellite in
   the side list to focus it and draw its ground track.
-- **Passes** — the **next pass of every favorite**, each with a live countdown,
-  as a schedule. A button prints a **7-day schedule for all favorites** as a PDF.
 
-Home is the at-a-glance "what can I work soon" view.
+Home is the at-a-glance "what can I work soon" view. (For each favorite's next
+pass with quality scores and track directions, see the **Next Passes** screen.)
+
+> **Keyboard shortcuts** (work anywhere except while typing in a field):
+> `Ctrl`+`K` opens a command palette to jump to any screen or satellite; `Ctrl`+`F`
+> or `/` finds a satellite; `[` and `]` step to the previous / next satellite;
+> `1`–`9` jump to a sidebar screen; `Ctrl`+`+` / `Ctrl`+`-` / `Ctrl`+`0` change the
+> text size; `F1` or `?` shows the full list.
 
 ### 3.2 Track
 
@@ -159,7 +170,10 @@ footprint and a name label — over the day/night terminator and your station. T
 footprint), and the chosen **View** follows it.
 
 - **View** (radio buttons): **follow the satellite** (it stays centred),
-  **over your station**, or look straight down the **north** or **south** pole.
+  **over your station**, look straight down the **north** or **south** pole, or
+  **Free (drag)** — click and drag anywhere on the globe to spin it to any
+  viewpoint and hold it there. (Starting a drag from any other view switches to
+  Free automatically.)
 - **All favorites** (checkbox): show every favorite live, or untick to show only
   the selected satellite.
 - **Time scrubber** — a slider spanning **±180 minutes** flies the whole scene
@@ -193,8 +207,11 @@ by the radio buttons:
 
 A table of upcoming passes for the selected satellite over the next 7 days. A
 **minimum-elevation** control filters out passes too low to be useful (presets
-plus whatever you set in Settings). **Double-click** a pass to open it in Pass
-Detail. A button prints a **3-day grid of polar sky tracks** as a PDF.
+plus whatever you set in Settings). Each pass carries a **quality score** (0–100,
+combining peak elevation and duration), with the best upcoming pass flagged with
+a ★, so you can quickly see which passes are worth working. **Double-click** a
+pass to open it in Pass Detail. A button prints a **3-day grid of polar sky
+tracks** as a PDF.
 
 ### 3.6 Pass Detail
 
@@ -299,6 +316,19 @@ Goal-directed planning and element-status, in four tabs:
   of sight means the chord between them does not pass through the Earth. Export
   the windows to **CSV**. This is two-satellite **mutual visibility** — useful
   for inter-satellite link and crosslink planning.
+- **Rove** — a route planner for **grid rovers**. Add each grid you plan to
+  activate with the **date and approximate UTC time window** you'll be there,
+  using the separate **Grid / Date / Start / End** fields and the **Add stop**
+  button; the stops collect in an editable list (remove or clear as needed). The
+  windows are **hints**, not hard filters: OrbitDeck shows the passes that
+  **cover each stop** near its window, for the **selected satellite** or — with
+  the **Satellites: Selected / All favorites** choice — for **every favorite at
+  once**. For each pass it lists the **satellite**, the **US states**, **DXCC
+  entities**, and the **grid count** workable while the stop is inside the
+  footprint — so you can see what each stop lets you activate or work. Select a
+  row to see the full state/DXCC list for that pass. Export the plan to **CSV**
+  or a printable **rove sheet PDF**. (State coverage uses a bundled boundary
+  dataset so it's accurate across each state's extent.)
 - **Element trust** — the selected satellite's element-set **epoch age**, a
   coarse **trust level**, and an **along-track drift estimate**, with guidance on
   when to refresh. Quantifies the stale-data warning.
@@ -371,7 +401,11 @@ chosen category and time mode.
 An **interactive on-screen OSCARLOCATOR** — play with the classic transparency
 tool without printing anything. The display is a polar (or QTH-centered)
 azimuthal-equidistant base map with a **rotatable orbit path-arc overlay**, the
-satellite's position marker, and the footprint.
+satellite's position marker, and the footprint. The map carries a
+**protractor-style rim** with per-degree tick marks (longer every 30°) and a ring
+of **longitude labels** (polar view) or **azimuth labels and cardinal letters**
+(QTH-centered view), with latitude- and range-ring labels inside, so you can read
+positions straight off the instrument.
 
 **Drive modes** (radio buttons):
 
@@ -404,9 +438,181 @@ orbital altitude** — i.e. the **maximum ground distance** at which the satelli
 is ever visible. When the path arc touches or crosses that circle, the satellite
 is above your horizon (within the natural tolerances of an overlay system).
 
-### 3.16 Exports
+#### Lab satellite (educational)
 
-Data export and sharing, in four tabs:
+Choose **"Lab satellite (educational)"** under *Drive the overlay* to switch the
+simulator from the catalog satellite to a hypothetical one you design yourself.
+A pop-up **element editor** opens (reopen it any time with **"Edit lab
+satellite…"**). For each orbital element there is a **slider and a linked numeric
+entry box**, so you can drag for feel or type an exact value:
+
+- **Mean altitude** — the primary size control; the orbital **period** updates
+  live as you change it (Kepler's third law).
+- **Eccentricity** — how elongated the ellipse is; the apogee/perigee read-out
+  spreads apart as you raise it.
+- **Inclination** — the orbit-plane tilt; sets the maximum latitude reached.
+- **RAAN**, **argument of perigee**, **mean anomaly** — the orientation and
+  starting-position angles.
+
+As you edit, the map's path arc, footprint, and range circle update immediately,
+and a **derived read-out** shows the period, mean motion, apogee/perigee
+altitudes, footprint radius, and a plain-language **orbit type** ("Low Earth
+orbit", "Molniya-like", "Geostationary", …). A one-line **explainer** describes
+the effect of whatever you just changed.
+
+Other tools in the editor:
+
+- **Preset orbits** — load a recognisable archetype (ISS-like LEO,
+  sun-synchronous, polar, Molniya, GPS-like MEO, geostationary) in one click,
+  then perturb it.
+- **Compare** — tick the box to freeze the current orbit as a faint dashed
+  "ghost" on the map, then keep editing to see a single element's effect side by
+  side.
+- **Guided tour** — a short stepped walkthrough that drives the lab through
+  altitude → footprint → inclination → latitudes → sun-synchronous → Molniya →
+  reading a pass.
+- **Glossary** — a scrollable reference of each element and derived quantity with
+  its governing formula.
+
+The lab satellite is **named** in the editor (the name appears on its printed
+sheets) and is **ephemeral**: it exists only in the simulator until you press
+**"Save as manual satellite"**, which stores it in the catalog (as a manual
+satellite with a synthetic NORAD ≥ 99000) so it persists across element
+refreshes. You can print your fictional satellite with **"Make printable
+OSCARLOCATOR…"** exactly like any catalog bird.
+
+The editor also reports the **J2 nodal/perigee precession** rates, a live
+**sun-synchronous** verdict, the **ground-track repeat** cycle, and an estimated
+**orbital lifetime** (so dropping the perigee toward 200 km visibly shortens it).
+A **"Trace orbits"** control draws several successive orbits as fading tracks to
+show the per-orbit westward drift, and **"Challenges…"** poses design goals
+(cover a continent, repeat the track daily, build a sun-synchronous or
+geostationary orbit, recreate a Molniya) and checks live whether your orbit meets
+them.
+
+### 3.16 Learn
+
+The **Learn** screen gathers OrbitDeck's standalone teaching tools, so they stay
+out of the operating screens. Each reuses the same models as the rest of the
+program, so the numbers match. The tools are organised into five groups, chosen
+from a category row above the tab strip: **Orbits** (how an orbit works),
+**Geometry** (its shape and reach), **Passes** (observing from the ground),
+**Radio** (working satellites), and **Reference**.
+
+A **"Use a lab orbit"** toggle at the top lets the orbit-based tools (Coverage,
+Sunlight, Element age, and the Doppler pass search) run against a satellite you
+design instead of the catalog selection — open **"Edit lab orbit…"** to adjust
+its elements and watch the coverage and pass geometry change.
+
+**Orbits** group:
+
+- **Kepler** — an equal-areas two-body demonstration with an eccentricity slider:
+  the two shaded wedges cover equal time and have equal area despite different
+  shapes.
+- **Anomalies** — an interactive ellipse showing the three "anomalies" that
+  locate a satellite along its orbit; the mean anomaly ticks evenly with time
+  while the true anomaly is the real angle from perigee, and the two diverge on
+  an eccentric orbit because the satellite speeds through perigee and lingers at
+  apogee.
+- **Speed** — orbital speed from the vis-viva law: a curve of circular-orbit
+  speed versus altitude (a LEO bird races at ~7.7 km/s, a geostationary one
+  ambles at ~3 km/s), with markers for the selected orbit's perigee and apogee
+  speeds as you raise the eccentricity.
+- **Transfers** — an interactive Hohmann-transfer calculator: the two engine
+  burns needed to move between two circular altitudes, plus the extra cost of a
+  plane (inclination) change, showing why changing an orbit's tilt is so
+  expensive and why satellites launch into their target inclination.
+- **Element age** — the selected satellite's element-set age and the estimated
+  along-track error growth, with a "refresh your elements" nudge.
+- **Decay** — estimated orbital lifetime versus altitude with a solar-activity
+  control, showing why low satellites reenter in weeks to months while higher
+  ones last for centuries, and why the ISS must reboost periodically.
+
+**Geometry** group:
+
+- **Slant range** — slant range versus elevation for the selected orbit's
+  altitude: directly overhead the satellite is only its altitude away, but near
+  the horizon it is several times farther, which is why low passes are weaker.
+- **Horizon** — how far a satellite can "see" versus altitude (its footprint /
+  radio-horizon distance); higher orbits reach farther, which is why they cover
+  more at once and can relay to each other over the limb.
+- **Track drift** — the westward shift of the ground track per orbit caused by
+  Earth's rotation, why several workable passes cluster together followed by a
+  gap, and when a whole number of orbits per day makes the track repeat.
+- **Precession** — how the Earth's equatorial bulge slowly rotates an orbit's
+  plane (nodal precession), plotted versus inclination, with the
+  **sun-synchronous** rate marked and the sun-sync inclination found for the
+  chosen altitude — the orbit that crosses the equator at the same local time
+  every day, used by imaging and weather satellites.
+- **Constellation** — an estimate of how many evenly-spaced satellites in one
+  orbital plane are needed for continuous coverage of a point, versus altitude:
+  many for a low orbit, only three at geostationary altitude — why LEO internet
+  constellations need thousands of satellites and navigation systems need dozens.
+
+**Passes** group:
+
+- **Coverage** — accumulates the selected satellite's footprint over 24 hours
+  into a heat map (brighter = revisited more often), with a percent-of-Earth
+  read-out, showing why a polar orbit favours the poles while a low-inclination
+  one only covers a band.
+- **Sunlight** — the full-sun threshold **beta\*** versus altitude, with reference
+  orbits marked; above this beta angle the satellite never enters eclipse.
+- **Eclipse** — a lit-versus-shadow timeline over the next several orbits,
+  showing when and for how long the satellite runs on battery in the Earth's
+  shadow each orbit, and how that depends on the beta angle.
+- **Pointing** — a sky-track polar plot of the next pass in azimuth (compass
+  bearing) and elevation, with AOS and LOS marked. It explains why low passes are
+  hard (longer slant range, terrain and building obstruction, more atmosphere)
+  and high passes are easy.
+- **Grid squares** — the Maidenhead locator system that operators exchange via
+  satellite: enter any location (or use "my location") to see its grid on a
+  field/square map, with the field, square, and subsquare broken out.
+
+**Radio** group:
+
+- **Transponder** — an interactive diagram of the selected satellite's actual
+  transponder. The uplink and downlink passbands are drawn to scale; drag the
+  slider to move your transmit frequency and a connector shows where your signal
+  lands on the downlink. On an **inverting** linear transponder (e.g. RS-44),
+  tuning your uplink up moves the downlink down — shown directly. FM birds appear
+  as a single channel.
+- **Doppler** — plots the frequency shift across the next pass. For a linear bird
+  it shows **both** the uplink and downlink legs; the higher band swings more, and
+  the tip explains keeping the downlink centred by retuning the uplink (the
+  opposite direction on an inverting transponder).
+- **Link budget** — an interactive free-space sandbox: set range, frequency, TX
+  power, antenna gains and mode, and read the received power, path loss, and a
+  **per-mode workable verdict** (FM needs a stronger signal than narrow SSB/CW),
+  plus a chart of free-space loss across the amateur satellite bands.
+- **Duplex practice** — a hands-on widget that simulates a pass on a linear bird.
+  Scrub the time slider and adjust your uplink offset to keep your own signal on
+  the fixed target downlink; the display shows where your signal actually lands,
+  an optional ideal-tuning hint, and (on an inverting transponder) reminds you to
+  tune the opposite way. This builds the single hardest real operating skill —
+  following your own downlink through Doppler.
+- **Antenna** — an interactive antenna gain pattern with a gain slider, showing
+  the gain-versus-beamwidth trade-off: a high-gain beam is narrow and must be
+  aimed and tracked, while a low-gain omni hears the whole sky weakly.
+
+**Reference** group:
+
+- **Reference** — a scrollable reference covering operating **modes** (which band
+  is up/down), why satellites use **circular polarization**, the main satellite
+  **subsystems**, **beacons & telemetry**, **operating practice & etiquette**, the
+  amateur-satellite **bands & licensing**, **modulation modes**, **noise &
+  sensitivity** (why the downlink is the weak link), **time & reference frames**
+  (UTC and the element epoch), the **coordinate frames** the whole program
+  computes in (ECI / ECEF / topocentric), a short **history of amateur
+  satellites** (OSCAR-1 to CubeSats), and the bigger picture of
+  **constellations**.
+- **Handouts** — saves a four-page classroom handout: page one covers the
+  orbital elements, orbit families, and key formulas; page two covers transponder
+  types, modes, Doppler, and the link; page three covers operating practice,
+  bands & licensing, and antennas; page four covers orbital speed, slant range, the radio horizon, ground-track drift, and constellations.
+
+### 3.17 Exports
+
+Data export and sharing, in five tabs:
 
 - **Pass schedule** — the next 1/3/7 days of passes for the selected satellite,
   exportable to **CSV**, **Excel (.xlsx)**, **iCal (.ics)**, or **JSON**. The
@@ -432,25 +638,34 @@ Data export and sharing, in four tabs:
   is a stepped listing that shows your station *and* a chosen **secondary site**
   (picked from the sites you set up on the Sites screen) side by side from a
   single ephemeris. Each sub-listing exports to **CSV**.
+- **Reference orbits** — a printable PDF table of *reference orbits* for the next
+  **30 or 60 days**, for the **selected satellite** or **all favorites** (one per
+  page). For each UTC day it lists the **first equator crossing** — ascending for
+  northern-hemisphere stations, descending for southern — giving the **UTC time**
+  and **sub-longitude**. Those are the two numbers you set on a physical
+  OSCARLOCATOR to line up the path-arc overlay for that day's first pass, then
+  step forward orbit by orbit. (Geosynchronous/high satellites, which hold a fixed
+  sub-point, are reported as having no equator-crossing reference orbits.)
 
-### 3.17 Sun / Moon
+### 3.18 Sun / Moon
 
 Solar and lunar **azimuth/elevation** for your site, plus the **Moon phase and
 illumination** percentage. Handy for visual passes and for knowing sky
 conditions.
 
-### 3.18 Celestial
+### 3.19 Celestial
 
 Tracking and analysis for objects beyond satellites, in two tabs:
 
 - **Bodies** — the live **azimuth/elevation** of the **Sun**, **Moon**, the
   **planets** (Mercury, Venus, Mars, Jupiter, Saturn) and a set of bright
   **cosmic radio sources** (Cassiopeia A, Cygnus A, Taurus A / Crab, Virgo A,
-  Sagittarius A\* at the galactic centre, Orion A, Centaurus A, Fornax A), plus a
-  **cold-sky** reference direction. Everything that is above the horizon is
-  plotted on a polar sky map (zenith centre, horizon rim) and listed in a table.
-  Useful for antenna calibration, sun/moon-noise measurements, and radio
-  astronomy. The table exports to **CSV**.
+  Sagittarius A\* at the galactic centre, Orion A, Centaurus A, Fornax A), a
+  **cold-sky** reference direction, and the **currently selected satellite**
+  (drawn as a star). Everything that is above the horizon is plotted on a polar
+  sky map (zenith centre, horizon rim) and listed in a table. Useful for antenna
+  calibration, sun/moon-noise measurements, and radio astronomy. The table
+  exports to **CSV**.
 - **EME** — an **Earth-Moon-Earth (moon-bounce)** analysis panel. Pick a band
   (6 m / 2 m / 70 cm / 23 cm / 3 cm) and it shows the **Moon's az/el and
   distance**, the **total path loss** for that band (around 252 dB on 2 m, rising
@@ -463,14 +678,14 @@ Tracking and analysis for objects beyond satellites, in two tabs:
 Positions are low-precision (good to a fraction of a degree) — enough for
 pointing and planning, not ephemeris-grade work.
 
-### 3.19 Space Wx
+### 3.20 Space Wx
 
 Space-weather indices for HF/propagation context: the **solar 10.7 cm flux**,
 planetary **Kp**, and the **A index**, sourced from NOAA SWPC, each with a
 plain-language level and an operating outlook. Cached to disk so it still
 displays offline.
 
-### 3.20 Satellites
+### 3.21 Satellites
 
 The **catalog** screen and the place you choose what everything else acts on, in
 three tabs.
@@ -502,7 +717,7 @@ horizon, sorted by elevation, with a minimum-elevation floor (0/5/10/20°). It
 shows each satellite's az/el, range, sub-point, altitude and sunlit flag;
 double-click to start tracking one, or **Export CSV**.
 
-### 3.21 Sites
+### 3.22 Sites
 
 Manage the observer **locations** OrbitDeck works from, in two tabs:
 
@@ -518,7 +733,7 @@ Manage the observer **locations** OrbitDeck works from, in two tabs:
   max elevation, and each site's best pass. The primary site is listed first.
   Export to **CSV** or a printable **PDF report**.
 
-### 3.22 Settings
+### 3.23 Settings
 
 The Settings screen has two tabs: **Observer & preferences** and **About**.
 

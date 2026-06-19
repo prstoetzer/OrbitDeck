@@ -44,14 +44,17 @@ class PlanningScreen(Screen):
     def build(self):
         self.sat_header("Planning & Status")
         tabs = TabBar(self.frame)
+        self._tabs = tabs
         tabs.pack(fill="both", expand=True, padx=12, pady=8)
         self._t_work = tabs.add("Work a target")
         self._t_vis = tabs.add("Visible passes")
         self._t_s2s = tabs.add("Sat \u2194 Sat")
+        self._t_rove = tabs.add("Rove")
         self._t_trust = tabs.add("Element trust")
         self._build_work(self._t_work)
         self._build_vis(self._t_vis)
         self._build_s2s(self._t_s2s)
+        self._build_rove(self._t_rove)
         self._build_trust(self._t_trust)
 
     # ---- work a target ----
@@ -379,6 +382,315 @@ class PlanningScreen(Screen):
             self.trust_kv.note("Stale \u2014 predictions may be unreliable. "
                                "Click Update GP (online) to refresh elements.")
         self.trust_kv.end()
+
+    # ---- rove planner ----
+    def _build_rove(self, parent):
+        intro = ttk.Label(
+            parent,
+            text=("Rove route planner. Add the grids you plan to activate with "
+                  "the date and approximate UTC time window you'll be there. "
+                  "The windows are hints \u2014 the selected satellite's passes "
+                  "that cover each stop near its window are shown, each with the "
+                  "US states, DXCC entities, and grid count workable through "
+                  "that pass."),
+            style="MutedBg.TLabel", wraplength=720, justify="left")
+        intro.pack(anchor="w", padx=10, pady=(8, 4))
+
+        # ---- entry row: Grid / Date / Start / End / Add ----
+        entry = ttk.Frame(parent, style="TFrame")
+        entry.pack(fill="x", padx=10, pady=(2, 2))
+        from datetime import datetime, timezone
+        today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+        self._rv_grid = tk.StringVar(value="FN31")
+        self._rv_date = tk.StringVar(value=today)
+        self._rv_start = tk.StringVar(value="13:00")
+        self._rv_end = tk.StringVar(value="17:00")
+
+        def _field(parent_, label, var, width):
+            col = ttk.Frame(parent_, style="TFrame")
+            col.pack(side="left", padx=(0, 8))
+            ttk.Label(col, text=label, style="Muted.TLabel").pack(anchor="w")
+            ttk.Entry(col, textvariable=var, width=width).pack(anchor="w")
+
+        _field(entry, "Grid", self._rv_grid, 8)
+        _field(entry, "Date (UTC)", self._rv_date, 12)
+        _field(entry, "Start", self._rv_start, 7)
+        _field(entry, "End", self._rv_end, 7)
+        addcol = ttk.Frame(entry, style="TFrame")
+        addcol.pack(side="left", padx=(2, 0))
+        ttk.Label(addcol, text=" ", style="Muted.TLabel").pack(anchor="w")
+        ttk.Button(addcol, text="Add stop",
+                   command=self._rove_add_stop).pack(anchor="w")
+
+        # ---- the planned-stops list ----
+        mid = ttk.Frame(parent, style="TFrame")
+        mid.pack(fill="x", padx=10, pady=(4, 2))
+        scols = ("grid", "date", "start", "end")
+        sheads = ("Grid", "Date (UTC)", "Start", "End")
+        stopwrap, self.stops_tree = make_scrolled_tree(
+            mid, scols, show="headings", height=4)
+        for c, h in zip(scols, sheads):
+            self.stops_tree.heading(c, text=h)
+            self.stops_tree.column(c, width=110,
+                                   anchor="w" if c == "grid" else "center")
+        stopwrap.pack(side="left", fill="x", expand=True)
+        sbtns = ttk.Frame(mid, style="TFrame")
+        sbtns.pack(side="left", fill="y", padx=6)
+        ttk.Button(sbtns, text="Remove",
+                   command=self._rove_remove_stop).pack(anchor="w", pady=1)
+        ttk.Button(sbtns, text="Clear all",
+                   command=self._rove_clear_stops).pack(anchor="w", pady=1)
+        # backing list of stop dicts (starts empty)
+        self._stops = []
+        self._refresh_stops_tree()
+
+        btns = ttk.Frame(parent, style="TFrame")
+        btns.pack(fill="x", padx=10, pady=4)
+        ttk.Button(btns, text="Plan route",
+                   command=self._render_rove).pack(side="left")
+        ttk.Button(btns, text="Export CSV\u2026",
+                   command=self._export_rove).pack(side="left", padx=4)
+        ttk.Button(btns, text="PDF\u2026",
+                   command=self._export_rove_pdf).pack(side="left")
+        ttk.Label(btns, text="   Satellites:", style="MutedBg.TLabel").pack(
+            side="left")
+        self._rove_scope = tk.StringVar(value="selected")
+        ttk.Radiobutton(btns, text="Selected", value="selected",
+                        variable=self._rove_scope).pack(side="left")
+        ttk.Radiobutton(btns, text="All favorites", value="favorites",
+                        variable=self._rove_scope).pack(side="left")
+
+        cols = ("stop", "sat", "aos", "los", "maxel", "states", "dxcc", "grids")
+        heads = ("Stop", "Satellite", "AOS (UTC)", "LOS (UTC)", "Max El",
+                 "States", "DXCC", "Grids")
+        treewrap, self.rove_tree = make_scrolled_tree(
+            parent, cols, show="headings", height=9)
+        widths = {"stop": 70, "sat": 90, "aos": 120, "los": 120, "maxel": 55,
+                  "states": 60, "dxcc": 55, "grids": 55}
+        for c, h in zip(cols, heads):
+            self.rove_tree.heading(c, text=h)
+            self.rove_tree.column(c, width=widths[c],
+                                  anchor="w" if c in ("stop", "sat") else
+                                  "center")
+        treewrap.pack(fill="both", expand=True, padx=8, pady=6)
+        self.rove_tree.bind("<<TreeviewSelect>>", self._on_rove_pick)
+        self.rove_detail = tk.StringVar(value="")
+        ttk.Label(parent, textvariable=self.rove_detail,
+                  style="MutedBg.TLabel", wraplength=720,
+                  justify="left").pack(anchor="w", padx=10, pady=(0, 4))
+        self.rove_info = tk.StringVar(value="")
+        ttk.Label(parent, textvariable=self.rove_info,
+                  style="MutedBg.TLabel", wraplength=720,
+                  justify="left").pack(anchor="w", padx=10, pady=(0, 6))
+
+    def _refresh_stops_tree(self):
+        self.stops_tree.delete(*self.stops_tree.get_children())
+        for st in self._stops:
+            self.stops_tree.insert("", "end", values=(
+                st["grid"], st["date"], st["start"], st["end"]))
+
+    def _rove_add_stop(self):
+        from tkinter import messagebox
+        grid = self._rv_grid.get().strip().upper()
+        if not grid_to_latlon(grid):
+            messagebox.showinfo("Rove", "Enter a valid Maidenhead grid "
+                                "(e.g. FN31 or FN31pr).")
+            return
+        # validate date/time
+        win = self._stop_window(self._rv_date.get().strip(),
+                                self._rv_start.get().strip(),
+                                self._rv_end.get().strip())
+        if win is None:
+            messagebox.showinfo("Rove", "Enter the date as YYYY-MM-DD and "
+                                "times as HH:MM (UTC).")
+            return
+        self._stops.append({"grid": grid, "date": self._rv_date.get().strip(),
+                            "start": self._rv_start.get().strip(),
+                            "end": self._rv_end.get().strip()})
+        self._refresh_stops_tree()
+
+    def _rove_remove_stop(self):
+        sel = self.stops_tree.selection()
+        if not sel:
+            return
+        idx = self.stops_tree.index(sel[0])
+        if 0 <= idx < len(self._stops):
+            del self._stops[idx]
+            self._refresh_stops_tree()
+
+    def _rove_clear_stops(self):
+        self._stops = []
+        self._refresh_stops_tree()
+
+    @staticmethod
+    def _stop_window(date_str, start_str, end_str):
+        """Parse a stop's date + start/end (UTC) into (frm_unix, to_unix), or
+        None if invalid. If end <= start the window is treated as spanning to
+        the next day (an overnight stop)."""
+        from datetime import datetime, timezone, timedelta
+        try:
+            d = datetime.strptime(date_str, "%Y-%m-%d").replace(
+                tzinfo=timezone.utc)
+            sh, sm = (int(x) for x in start_str.split(":"))
+            eh, em = (int(x) for x in end_str.split(":"))
+            frm = d + timedelta(hours=sh, minutes=sm)
+            to = d + timedelta(hours=eh, minutes=em)
+            if to <= frm:
+                to = to + timedelta(days=1)
+            return frm.timestamp(), to.timestamp()
+        except Exception:
+            return None
+
+    def _resolve_stops(self):
+        """Build [(grid, lat, lon, frm, to), ...] from the planned-stops list,
+        skipping any with an invalid grid or window."""
+        out = []
+        for st in self._stops:
+            ll = grid_to_latlon(st["grid"])
+            win = self._stop_window(st["date"], st["start"], st["end"])
+            if not ll or win is None:
+                continue
+            out.append((st["grid"], ll[0], ll[1], win[0], win[1]))
+        return out
+
+    def _render_rove(self):
+        for i in self.rove_tree.get_children():
+            self.rove_tree.delete(i)
+        self.rove_detail.set("")
+        stops = self._resolve_stops()
+        if not stops:
+            self.rove_info.set("Add at least one stop (valid grid, date "
+                               "YYYY-MM-DD, and HH:MM times).")
+            return
+        # which satellites to plan for
+        if self._rove_scope.get() == "favorites":
+            sats = [s for s in self.store.db.sats
+                    if s.norad in self.store.favorites]
+            if not sats:
+                self.rove_info.set("No favorites yet \u2014 mark some "
+                                   "satellites as favorites, or use Selected.")
+                return
+        else:
+            s = self.sat()
+            if not s:
+                self.rove_info.set("Select a satellite first.")
+                return
+            sats = [s]
+        min_el = getattr(self.store, "min_el", 5)
+        self._rove_rows = []
+        total_pass = 0
+        for grid, lat, lon, frm, to in stops:
+            any_for_stop = False
+            for s in sats:
+                pred = self.pred() if s is self.sat() else self._pred_for_sat(s)
+                if pred is None:
+                    continue
+                results = PL.rove_stop_passes(pred, lat, lon, frm, to,
+                                              min_el=min_el)
+                for r in results:
+                    any_for_stop = True
+                    total_pass += 1
+                    self.rove_tree.insert("", "end", values=(
+                        grid, s.name, fmt_utc(r["aos"]), fmt_utc(r["los"]),
+                        "%.0f\u00b0" % r["max_el"], len(r["states"]),
+                        len(r["dxcc"]), len(r["grids"])))
+                    self._rove_rows.append((grid, s.name, r))
+            if not any_for_stop:
+                self.rove_tree.insert("", "end", values=(
+                    grid, "", "\u2014 no covering passes in window \u2014", "",
+                    "", "", "", ""))
+                self._rove_rows.append((grid, "", None))
+        scope = ("all favorites (%d sats)" % len(sats)
+                 if self._rove_scope.get() == "favorites"
+                 else sats[0].name)
+        self.rove_info.set(
+            "%d stops, %d covering passes for %s. Select a row to see the "
+            "workable states / DXCC / grids for that pass. Time windows are "
+            "hints." % (len(stops), total_pass, scope))
+
+    def _pred_for_sat(self, s):
+        """A Predictor bound to the current site and a given satellite."""
+        from ...engine.predict import Predictor
+        pred = Predictor()
+        pred.set_site(self.store.obs)
+        if not pred.set_sat(s):
+            return None
+        return pred
+
+    def _on_rove_pick(self, _evt=None):
+        sel = self.rove_tree.selection()
+        if not sel:
+            return
+        idx = self.rove_tree.index(sel[0])
+        if not (0 <= idx < len(self._rove_rows)):
+            return
+        grid, sat_name, r = self._rove_rows[idx]
+        if r is None:
+            self.rove_detail.set("")
+            return
+        states = ", ".join(sorted(r["states"])) or "\u2014"
+        dxcc = ", ".join(sorted(r["dxcc"])) or "\u2014"
+        ngrids = len(r["grids"])
+        self.rove_detail.set(
+            "%s via %s, pass %s\u2013%s UTC:\n  States: %s\n  DXCC: %s\n  "
+            "Grids: %d in footprint"
+            % (grid, sat_name or "\u2014", fmt_utc(r["aos"]), fmt_utc(r["los"]),
+               states, dxcc, ngrids))
+
+    def _rove_export_rows(self):
+        headers = ["Stop", "Satellite", "AOS (UTC)", "LOS (UTC)", "Max El",
+                   "States", "DXCC", "Grids"]
+        rows = []
+        for grid, sat_name, r in getattr(self, "_rove_rows", []):
+            if r is None:
+                rows.append([grid, "", "no covering passes", "", "", "", "",
+                             ""])
+                continue
+            rows.append([
+                grid, sat_name, fmt_utc(r["aos"]), fmt_utc(r["los"]),
+                "%.0f" % r["max_el"],
+                " ".join(sorted(r["states"])),
+                " ".join(sorted(d.split()[0] for d in r["dxcc"])),
+                "%d" % len(r["grids"])])
+        return headers, rows
+
+    def _export_rove(self):
+        if not getattr(self, "_rove_rows", None):
+            return
+        s = self.sat()
+        headers, rows = self._rove_export_rows()
+        self.save_text_dialog(
+            EX.rows_to_csv(headers, rows),
+            "rove_%s.csv" % (s.name.replace("/", "-") if s else "plan"),
+            title="Export rove plan (CSV)", ext=".csv",
+            filetypes=[("CSV", "*.csv")])
+
+    def _export_rove_pdf(self):
+        from tkinter import filedialog, messagebox
+        if not getattr(self, "_rove_rows", None):
+            messagebox.showinfo("Rove plan",
+                                "Plan a route first (Plan route).")
+            return
+        s = self.sat()
+        favmode = getattr(self, "_rove_scope", None) and \
+            self._rove_scope.get() == "favorites"
+        title_name = "" if favmode else (s.name if s else "")
+        path = filedialog.asksaveasfilename(
+            title="Export rove sheet (PDF)", defaultextension=".pdf",
+            initialfile="rove_%s.pdf" % ("favorites" if favmode else
+                                         (s.name.replace("/", "-")
+                                          if s else "plan")),
+            filetypes=[("PDF", "*.pdf")])
+        if not path:
+            return
+        try:
+            from ..rovesheet import generate_rove_sheet_pdf
+            generate_rove_sheet_pdf(path, title_name,
+                                    self.store, self._rove_rows)
+        except Exception as e:
+            messagebox.showerror("Rove plan", "Could not generate PDF:\n%s" % e)
+            return
+        self.app.set_status("Saved rove sheet: %s" % path)
 
     def on_show(self):
         self._render_trust()

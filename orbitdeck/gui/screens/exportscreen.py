@@ -22,11 +22,13 @@ class ExportScreen(Screen):
         self._t_cmp = tabs.add("Compare favorites")
         self._t_card = tabs.add("Pass card")
         self._t_list = tabs.add("Listings")
+        self._t_ref = tabs.add("Reference orbits")
         tabs.on_change = self._on_tab
         self._build_pass(self._t_pass)
         self._build_cmp(self._t_cmp)
         self._build_card(self._t_card)
         self._build_listings(self._t_list)
+        self._build_refsheet(self._t_ref)
 
     def _on_tab(self, idx):
         if idx == 3:
@@ -323,6 +325,75 @@ class ExportScreen(Screen):
             messagebox.showerror("Pass card", str(e))
             return
         self.app.set_status("Saved pass card: %s" % path)
+
+    # ---- reference-orbit PDF (60-day first-EQX-per-UTC-day table) ----
+    def _build_refsheet(self, parent):
+        intro = ttk.Label(
+            parent,
+            text=("Printable reference orbits: for each UTC day, the first "
+                  "equator crossing \u2014 ascending for northern stations, "
+                  "descending for southern \u2014 giving the UTC time and "
+                  "sub-longitude to set on a physical OSCARLOCATOR. Pick one or "
+                  "more satellites and a span, then export a PDF."),
+            style="MutedBg.TLabel", wraplength=620, justify="left")
+        intro.pack(anchor="w", padx=12, pady=(10, 6))
+
+        bar = ttk.Frame(parent, style="TFrame")
+        bar.pack(fill="x", padx=8, pady=4)
+        ttk.Label(bar, text="Span (days):", style="TLabel").pack(side="left")
+        self._ref_days = tk.IntVar(value=60)
+        for v in (30, 60):
+            ttk.Radiobutton(bar, text=str(v), value=v,
+                            variable=self._ref_days).pack(side="left")
+        ttk.Button(bar, text="Export PDF\u2026",
+                   command=self._exp_refsheet).pack(side="right", padx=2)
+
+        which = ttk.Frame(parent, style="TFrame")
+        which.pack(fill="x", padx=12, pady=(4, 2))
+        self._ref_scope = tk.StringVar(value="selected")
+        ttk.Radiobutton(which, text="Selected satellite only",
+                        value="selected",
+                        variable=self._ref_scope).pack(anchor="w")
+        ttk.Radiobutton(which, text="All favorite satellites",
+                        value="favorites",
+                        variable=self._ref_scope).pack(anchor="w")
+        self._ref_info = tk.StringVar(value="")
+        ttk.Label(parent, textvariable=self._ref_info,
+                  style="MutedBg.TLabel").pack(anchor="w", padx=12, pady=6)
+
+    def _exp_refsheet(self):
+        from tkinter import filedialog, messagebox
+        from ..refsheet import generate_reference_orbits_pdf
+        if self._ref_scope.get() == "favorites":
+            sats = [s for s in self.store.db.sats
+                    if s.norad in self.store.favorites]
+            if not sats:
+                messagebox.showinfo("Reference orbits",
+                                    "No favorite satellites are set. Star some "
+                                    "on the Home or Satellites screen first.")
+                return
+            default = "reference_orbits_favorites.pdf"
+        else:
+            s = self.sat()
+            if not s:
+                return
+            sats = [s]
+            default = "reference_orbits_%s.pdf" % _safe(s.name)
+        path = filedialog.asksaveasfilename(
+            title="Export reference orbits (PDF)", defaultextension=".pdf",
+            initialfile=default, filetypes=[("PDF", "*.pdf")])
+        if not path:
+            return
+        try:
+            generate_reference_orbits_pdf(path, self.store, sats,
+                                          days=self._ref_days.get())
+        except Exception as e:
+            messagebox.showerror("Reference orbits",
+                                 "Could not generate PDF:\n%s" % e)
+            return
+        self._ref_info.set("Saved %d satellite(s) \u2192 %s"
+                           % (len(sats), path))
+        self.app.set_status("Saved reference-orbit PDF: %s" % path)
 
     # ---- listings (one-observer stepped, AOS/LOS quick, two-observer) ----
     def _build_listings(self, parent):

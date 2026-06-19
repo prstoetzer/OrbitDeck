@@ -157,24 +157,30 @@ def _draw_title(fig, title, subtitle):
                  fontsize=FS_SUBTITLE, color="#222222", linespacing=1.3)
 
 
-def _draw_footer(fig, note, y=0.05):
-    """Draw a centred footer note wrapped to the page margins."""
+def _draw_footer(fig, note, y=0.072):
+    """Draw a centred footer note wrapped to the page margins. The baseline sits
+    a little above the very bottom so the OrbitDeck/author credit can occupy the
+    bottom band without colliding (both stay inside the printer's safe area)."""
     wrapped = _wrap_to_width(note, FS_NOTE)
     fig.text(0.5, y, wrapped, ha="center", va="bottom", fontsize=FS_NOTE,
              color="#333333", linespacing=1.3)
 
 
 def _draw_branding(fig):
-    """Unobtrusive OrbitDeck branding + author credit in the bottom-right corner
-    of a base-map sheet. Kept small and grey so it never competes with the map
-    or the printed instructions."""
+    """Unobtrusive OrbitDeck branding + author credit centred along the bottom of
+    a sheet. Kept small and grey so it never competes with the map or the printed
+    instructions. Placed ~0.5 inch up from the page edge so it stays inside the
+    unprintable margin that most desktop printers impose (which was clipping a
+    corner-anchored credit)."""
     try:
         from .. import __version__ as _ver
     except Exception:
         _ver = ""
     tag = "OrbitDeck%s \u2022 Paul Stoetzer, N8HM" % (
         " v%s" % _ver if _ver else "")
-    fig.text(0.985, 0.012, tag, ha="right", va="bottom", fontsize=6.0,
+    # y as a fraction of page height: ~0.5 in on an 11 in page. Centred so it is
+    # symmetric within the printable area regardless of left/right margins.
+    fig.text(0.5, 0.045, tag, ha="center", va="bottom", fontsize=6.5,
              color="#9a9a9a")
 
 
@@ -757,6 +763,7 @@ def _footprint_page(pdf, sat_name, alt_km, proj, rmax, reduced_text=False):
                  "this generic circle is sized to fit it well at most "
                  "latitudes.)")
     _draw_footer(fig, note)
+    _draw_branding(fig)
     pdf.savefig(fig)
     plt.close(fig)
 
@@ -915,13 +922,27 @@ def _arc_page(pdf, pred, sat, proj, rmax, reduced_text=False):
     minor_len = 1.7          # tick half-length (deg of radius) for minor marks
     major_len = 3.4          # longer marks every 10 minutes
     npts = len(ticks)
+    # Scale the labelled-tick interval and font with the orbital period so a long
+    # high-orbit pass doesn't crowd dozens of numbers along the arc. Minor ticks
+    # stay at 1 minute; labels appear every ``label_step`` minutes.
+    per = sat.period_min if sat.period_min else 95.0
+    label_step = 10
+    for cand in (10, 15, 20, 30, 45, 60, 90, 120, 180, 240, 300):
+        if per / cand <= 14:
+            label_step = cand
+            break
+    else:
+        label_step = max(10, int(round(per / 14.0 / 10.0)) * 10)
+    n_labels = max(1, int(per) // label_step + 1)
+    label_fs = (FS_TICKLABEL + 1 if n_labels <= 12
+                else FS_TICKLABEL if n_labels <= 18 else FS_TICKLABEL - 1.5)
     for i, (thb, ca, minute) in enumerate(ticks):
         mm = int(round(minute))
         if mm == last_min:
             continue
         if abs(minute - mm) > (sat.period_min / (len(track) - 1)) / 2 + 1e-6:
             continue
-        major = (mm % 10 == 0)
+        major = (mm % label_step == 0)
         # local track direction from neighbouring track points
         j0 = max(i - 1, 0)
         j1 = min(i + 1, npts - 1)
@@ -946,7 +967,7 @@ def _arc_page(pdf, pred, sat, proj, rmax, reduced_text=False):
             lx = cx + px * (hl + 3.2)
             ly = cy + py * (hl + 3.2)
             lt, lr = _rt(lx, ly)
-            ax.text(lt, lr, "%d" % mm, fontsize=FS_TICKLABEL + 1,
+            ax.text(lt, lr, "%d" % mm, fontsize=label_fs,
                     color="#001f7a", ha="center", va="center",
                     fontweight="bold", zorder=6)
         last_min = mm
@@ -1092,7 +1113,8 @@ def _arc_page(pdf, pred, sat, proj, rmax, reduced_text=False):
                 "minutes after the EQX, with longer labelled marks every 10 "
                 "minutes." % (
                     abs(shift), "westward" if shift < 0 else "eastward"))
-    _draw_footer(fig, note, y=0.04)
+    _draw_footer(fig, note)
+    _draw_branding(fig)
     pdf.savefig(fig)
     plt.close(fig)
 

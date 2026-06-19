@@ -128,6 +128,18 @@ class AlarmManager:
             self.app.set_status("\U0001f6f0 " + message)
         except Exception:
             pass
+        # native desktop toast for the actionable events (pass starting soon /
+        # AOS), so OrbitDeck is useful as a background companion. Gated on a
+        # preference (default on) so users can silence OS toasts independently
+        # of the audible cue.
+        if key in ("soon", "aos"):
+            try:
+                prefs = getattr(self.app.store, "config", {})
+                if prefs.get("desktop_notifications", True):
+                    from .notify import send
+                    send("OrbitDeck \u2014 pass alert", message)
+            except Exception:
+                pass
         self._play(_PATTERNS.get(key, (0,)))
 
     def _play(self, delays_ms):

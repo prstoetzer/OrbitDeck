@@ -26,10 +26,11 @@ class PassesScreen(Screen):
         ttk.Button(bar, text="Print sky tracks (3 days)\u2026",
                    command=self._print_polar).pack(side="right")
 
-        cols = ("day", "aos", "maxel", "dur", "los", "dir")
-        heads = ("Day", "AOS (UTC)", "Max El", "Duration", "LOS", "Track")
+        cols = ("day", "aos", "maxel", "dur", "los", "dir", "qual")
+        heads = ("Day", "AOS (UTC)", "Max El", "Duration", "LOS", "Track",
+                 "Quality")
         widths = {"day": 90, "aos": 90, "maxel": 90, "dur": 90, "los": 80,
-                  "dir": 130}
+                  "dir": 130, "qual": 90}
         treewrap, self.tree = make_scrolled_tree(
             self.frame, cols, show="headings", height=18)
         for c, h in zip(cols, heads):
@@ -78,6 +79,11 @@ class PassesScreen(Screen):
         passes = self.pred().predict_passes(t, self.store.min_el, 30,
                                             t + 7 * 86400)
         prev_day = None
+        from ...engine import linkbudget as _LB
+        # score every pass so the best ones can be flagged
+        scored = [_LB.pass_quality_score(p.max_el, p.los - p.aos)
+                  for p in passes]
+        best_score = max(scored) if scored else 0.0
         for i, p in enumerate(passes):
             day = fmt_utc(p.aos, "%a %m-%d")
             day_cell = "" if day == prev_day else day   # group by day
@@ -89,6 +95,9 @@ class PassesScreen(Screen):
                 tags.append("hi")
             if i % 2:
                 tags.append("odd")
+            q = scored[i]
+            qcell = ("\u2605 %.0f" % q if q == best_score and q > 0
+                     else "%.0f" % q)
             self.tree.insert("", "end", values=(
                 day_cell,
                 fmt_utc(p.aos, "%H:%M:%S"),
@@ -96,9 +105,11 @@ class PassesScreen(Screen):
                 fmt_hms(p.los - p.aos),
                 fmt_utc(p.los, "%H:%M:%S"),
                 "%s \u2192 %s" % (compass(p.az_aos), compass(p.az_los)),
+                qcell,
             ), tags=tuple(tags))
         self.info.set("%s \u2014 %d passes / 7 days (min %.0f\u00b0).  "
                       "Green \u2265 20\u00b0, blue \u2265 40\u00b0.  "
+                      "Quality 0\u2013100 (elevation + duration); \u2605 = best.  "
                       "Double-click for detail." %
                       (s.name, len(passes), self.store.min_el))
         self._passes = passes

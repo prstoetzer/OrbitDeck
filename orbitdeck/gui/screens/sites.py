@@ -112,6 +112,10 @@ class SitesScreen(Screen):
         self._new_loc.set("")
         self._new_alt.set("0")
         self._refresh_manage()
+        try:
+            self._render_compare()
+        except Exception:
+            pass
         self.app.set_status("Added site: %s" % name)
 
     def _remove_site(self):
@@ -121,6 +125,12 @@ class SitesScreen(Screen):
         idx = self.tree.index(sel[0])
         self.store.remove_site(idx)
         self._refresh_manage()
+        # the comparison view lists every site, so it must be rebuilt too or it
+        # keeps showing the removed observer
+        try:
+            self._render_compare()
+        except Exception:
+            pass
 
     def _refresh_manage(self):
         o = self.store.obs

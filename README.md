@@ -2,12 +2,11 @@
 
 **Cross-platform desktop satellite tracking & orbital analysis for amateur radio operators.**
 
-OrbitDeck is a desktop port of the tracking and orbital-analysis tools from the
-[CardSat](https://github.com/) M5Stack Cardputer satellite tracker. It keeps the
-analysis brain of that project and gives it a roomy desktop UI with embedded
-plots — **tracking and analysis only**. Radio (CAT) and rotator control are
-intentionally out of scope; excellent dedicated tools already cover that, and
-the original device handles it on the hardware side.
+OrbitDeck is a desktop application for **satellite tracking and orbital
+analysis** — a roomy UI with embedded plots, built for amateur-radio operators
+who work the birds. It is **tracking and analysis only**: radio (CAT) and
+rotator control are intentionally out of scope, since excellent dedicated tools
+already cover that.
 
 It uses the reference [`sgp4`](https://pypi.org/project/sgp4/) propagator and
 [`cartopy`](https://pypi.org/project/Cartopy/) (both **required dependencies**,
@@ -80,32 +79,47 @@ left-hand navigation menu**.
 
 | # | Screen | What it shows |
 |---|---|---|
-| 1 | **Home** *(default)* | World map of all **favorited** satellites with their footprints, the day/night terminator and your station; click one to focus it with its ground track. A second tab lists the **next pass of every favorite with a live countdown**, and prints a 7-day schedule for all favorites. |
+| 1 | **Home** *(default)* | Opens on a **Dashboard** tab: what's overhead right now, the **next passes across all favorites** (soonest first, with live countdowns), a one-click **"Print 7-day schedule (all favorites)"**, and a space-weather glance. A **Map** tab shows all favorited satellites with their footprints, the day/night terminator and your station (click one to focus it with its ground track). |
 | 2 | **Track** | Live azimuth/elevation, slant range, range-rate, sub-point, altitude, transponder selector (FM/linear/beacon/data, passband, baud) and Doppler-corrected RX/TX using the passband **center** for linear transponders, sunlit/eclipse, next AOS/LOS, and a live sky polar plot. You can **add a manual transponder** and **export a printable OSCARLOCATOR PDF** for the selected satellite. |
-| 3 | **3D Globe** | A rotatable orthographic "view from space" globe showing **all your favorite satellites live** (each with its coverage footprint and a label), with the selected one emphasized and carrying its ground track, plus the day/night terminator and your station. A **time scrubber** (±180 min, with play and a speed control) flies the whole scene forward or back; at "now" the favorites advance in real time. Views follow the satellite, center on your station, or look down a pole. |
+| 3 | **3D Globe** | A rotatable orthographic "view from space" globe showing **all your favorite satellites live** (each with its coverage footprint and a label), with the selected one emphasized and carrying its ground track, plus the day/night terminator and your station. **Click and drag to spin the globe to any viewpoint** (a "Free (drag)" view), or snap to follow the satellite, center on your station, or look down a pole. A **time scrubber** (±180 min, with play and a speed control) flies the whole scene forward or back; at "now" the favorites advance in real time. |
 | 4 | **Sky Radar** | Defaults to a **live radar of all favorites** — the current sky position (azimuth/elevation) of every favorite above your horizon, updating in real time (center = zenith, rim = horizon). Also offers an **all-passes overlay** (the next N passes of the selected satellite on one polar plot) and a **sky-coverage heatmap** showing where in your sky the satellite spends its time. |
-| 5 | **Next Passes** | Pass table for the next 7 days with selectable minimum elevation; double-click a pass for its detail. Prints a **3-day grid of polar sky tracks**. |
+| 5 | **Next Passes** | Pass table for the next 7 days with selectable minimum elevation and a **quality score** (0\u2013100 from peak elevation and duration, best pass flagged \u2605); double-click a pass for its detail. Prints a **3-day grid of polar sky tracks**. |
 | 6 | **Pass Detail** | Polar sky-track plus an elevation-vs-time profile for a chosen pass. |
 | 7 | **Ground Track** | Forward ground track over the next 1, 3, 5, or 8 upcoming orbits. |
 | 8 | **Orbital Analysis** | Eleven pages (see the manual): Info, Live, Next Pass, Ground Track, Doppler, Nodal, Sun/Beta, Pass Outlook, Orbit Position, Equ. Crossings, and Crossings List. Clean grouped data cards and plots. The Crossings List exports the equator-crossing schedule to CSV. |
 | 9 | **Radio** | Pick an **upcoming pass** to plan against, then get a **link budget** (free-space path loss, propagation delay, estimated received power, with separate **your-station** and **satellite** (TX power + antenna gain) parameters) with a **time-in-pass scrubber** that evaluates the geometry anywhere from AOS to LOS (snap to TCA), plus range-rate and downlink-Doppler readouts. A **Doppler tuning playbook** gives a per-pass table of corrected RX/TX frequencies (with antenna **az/el** at each step) at a chosen interval, with its own **passband-position** slider so a linear bird's table is built around where you're tuned. For a linear transponder worked full duplex you can **hold the uplink OR the downlink fixed** and the other leg is round-trip corrected so you keep hearing yourself. Export the playbook to CSV or a printable PDF sheet. |
-| 10 | **Planning** | Goal-directed planning: **best time to work a target** (grid square, US state, DXCC entity, or lat/lon) by finding windows when you and the target share the footprint; **visible passes** with estimated optical magnitude and a twilight-darkness filter; **satellite-to-satellite** line-of-sight windows; and an **element-set trust** panel (epoch age, trust level, along-track drift estimate). The work-a-target, visible-passes and sat-to-sat results all export to CSV. |
+| 10 | **Planning** | Goal-directed planning: **best time to work a target** (grid square, US state, DXCC entity, or lat/lon) by finding windows when you and the target share the footprint; **visible passes** with estimated optical magnitude and a twilight-darkness filter; **satellite-to-satellite** line-of-sight windows; a **rove route planner** (enter your planned grid stops with optional time-window hints and get, per stop, the covering passes and the US states / DXCC entities / grids workable through each, for the selected satellite **or all your favorites at once** \u2014 exportable to CSV and a printable rove sheet); and an **element-set trust** panel (epoch age, trust level, along-track drift estimate). Results export to CSV. |
 | 11 | **Illumination** | A **raster** tab: scrollable 30-day sunlit-vs-eclipse map (prints a 60-day summary with mean eclipse fraction). An **Eclipse table** tab: orbit-by-orbit umbral eclipse list (enter/exit/duration/interval/sun-angle) and a daily summary (total, longest, percent of day, beta angle) over a selectable 1–14 day span, exportable to CSV and a printable PDF report. |
 | 12 | **Pass Progression** | One satellite's passes across 10+ days as a scrollable stack of 24-hour timelines — each pass placed at its time of day, width = duration, shaded by max elevation. |
 | 13 | **Mutual Windows** | Co-visibility windows between you and a DX station (entered as a grid or lat,lon), for the **selected satellite** or **all your favorites** at once (one chronological table tagged by satellite). **Double-click a window** to see the pass on a polar plot from **each station's perspective side by side**, with the mutually-visible portion highlighted on each. Exportable to CSV and a PDF report. |
 | 14 | **Workable** | What's inside the footprint — **grids**, **US states**, or **DXCC entities** — live (now) or unioned across the next pass, for grid/state/DX chasing. Exports the current list to CSV. |
-| 15 | **OSCARLOCATOR Sim** | An interactive on-screen OSCARLOCATOR: rotate the path-arc overlay over a polar or QTH base map and watch the satellite position and QTH footprint move, without printing transparencies. Drive it live, by hand (EQX-longitude and minutes-after-EQX sliders), or seed it to the next pass; a compact next-equator-crossings list is built in. Exports the matching printable PDF. |
-| 16 | **Exports** | Export the pass schedule to **CSV, Excel, iCal, or JSON** (the iCal events carry a 10-minute reminder alarm); a **multi-satellite comparison** of your favorites (passes in window, best pass, exportable to CSV); a shareable **per-pass card** (a single PNG with the sky track, Doppler curve, key facts and a quality score); and a **Listings** tab with Nova-style tabular ephemerides — a **one-observer** stepped position listing, a compact **AOS/LOS** quick list, and a **two-observer** stepped listing (your station plus a secondary site), each CSV-exportable. |
-| 17 | **Sun / Moon** | Solar and lunar az/el for your site, plus Moon phase and illumination. |
-| 18 | **Celestial** | Live az/el of the **Sun, Moon, planets** (Mercury–Saturn) and **cosmic radio sources** (Cassiopeia A, Cygnus A, Crab, Sgr A\*, etc.) plus a **cold-sky** reference, on a sky polar plot and table — for antenna calibration and radio astronomy. A second tab is an **EME (moon-bounce) panel**: Moon az/el and distance, total path loss by band (6 m–3 cm), self-echo Doppler, sky temperature, and **common-Moon-visibility windows** with a second station. CSV-exportable. |
-| 19 | **Space Wx** | Solar 10.7 cm flux, planetary Kp, and A index from NOAA SWPC, with plain-language levels and an operating outlook. Cached for offline viewing. |
-| 20 | **Satellites** | The catalog across three tabs: **Catalog** (filter, select, favorite ★, fetch transponders, and **add, edit, or delete manually-entered satellites** by GP mean elements that persist across refreshes); **By type** (the whole catalog grouped by SatNOGS transponder kind — linear / FM / digital / beacon-CW / other — sortable and CSV-exportable); and **What's up now** (a live scan of the whole catalog for satellites above your horizon, sorted by elevation, CSV-exportable). |
-| 21 | **Sites** | Manage observer locations: nickname the **primary site** (which drives every other screen) and build a table of **secondary sites** (club, portable, friends' QTHs). A **Compare passes** tab shows the selected satellite's upcoming passes across all sites side by side, exportable to CSV or a PDF report. |
-| 22 | **Settings** | Set your observer site by lat/lon/altitude or Maidenhead grid, choose the **GP element source** (AMSAT, a CelesTrak category, or a custom OMM-JSON URL), and set the **minimum elevation** used across pass tables and reports. |
+| 15 | **OSCARLOCATOR Sim** | An interactive on-screen OSCARLOCATOR: rotate the path-arc overlay over a polar or QTH base map and watch the satellite position and QTH footprint move, without printing transparencies. The map has a **protractor-style rim** with per-degree tick marks and longitude / azimuth labels. Drive it live, by hand (EQX-longitude and minutes-after-EQX sliders), or seed it to the next pass; a compact next-equator-crossings list is built in. A **lab-satellite mode** (educational) lets you invent a hypothetical satellite and edit its orbital elements with sliders + entries in a pop-up \u2014 with live explainers, preset orbits, an A/B comparison ghost, a guided tour, and a glossary \u2014 then name it and print it as an OSCARLOCATOR. Exports the matching printable PDF. |
+| 16 | **Learn** | A home for OrbitDeck's teaching tools, organised into five groups (**Orbits**, **Geometry**, **Passes**, **Radio**, **Reference**) selected from a category row, with a **"use a lab orbit" toggle** so the orbit tools can run against a satellite you design. **Orbits:** a **Kepler** equal-areas demo, an **Anomalies** mean-vs-true visualiser, a **Speed** (vis-viva) plot, a **Transfers** Hohmann delta-v calculator, an **element-age** view, and a **Decay** lifetime-vs-altitude curve. **Geometry:** **Slant range** vs elevation, a **Horizon** reach view, a **Track drift** westward-shift view, a **Precession** sun-synchronous-orbit explainer, and a **Constellation** coverage estimator. **Passes:** a 24-hour **coverage heat map**, the **beta-angle sunlight** threshold, an **Eclipse** lit/shadow timeline, a **Pointing** sky-track, and a **Grid squares** Maidenhead locator tool. **Radio:** an interactive **Transponder** diagram, a two-leg **Doppler** plot, a **link-budget** sandbox, a **full-duplex tuning practice** widget, and an **Antenna** gain pattern. **Reference:** a broad satellite/RF/history reference and a printable four-page **Handouts** classroom set. |
+| 17 | **Exports** | Export the pass schedule to **CSV, Excel, iCal, or JSON** (the iCal events carry a 10-minute reminder alarm); a **multi-satellite comparison** of your favorites; a shareable **per-pass card**; a **Reference orbits** PDF (the first equator crossing of each UTC day for the next 30/60 days — ascending for northern stations, descending for southern — to set up a physical OSCARLOCATOR); and a **Listings** tab with Nova-style tabular ephemerides (one-observer stepped, AOS/LOS quick list, and two-observer stepped), each CSV-exportable. |
+| 18 | **Sun / Moon** | Solar and lunar az/el for your site, plus Moon phase and illumination. |
+| 19 | **Celestial** | Live az/el of the **Sun, Moon, planets** (Mercury–Saturn) and **cosmic radio sources** (Cassiopeia A, Cygnus A, Crab, Sgr A\*, etc.) plus a **cold-sky** reference and the **selected satellite**, on a sky polar plot and table — for antenna calibration and radio astronomy. A second tab is an **EME (moon-bounce) panel**: Moon az/el and distance, total path loss by band (6 m–3 cm), self-echo Doppler, sky temperature, and **common-Moon-visibility windows** with a second station. CSV-exportable. |
+| 20 | **Space Wx** | Solar 10.7 cm flux, planetary Kp, and A index from NOAA SWPC, with plain-language levels and an operating outlook. Cached for offline viewing. |
+| 21 | **Satellites** | The catalog across three tabs: **Catalog** (filter, select, favorite ★, fetch transponders, and **add, edit, or delete manually-entered satellites** by GP mean elements that persist across refreshes); **By type** (the whole catalog grouped by SatNOGS transponder kind — linear / FM / digital / beacon-CW / other — sortable and CSV-exportable); and **What's up now** (a live scan of the whole catalog for satellites above your horizon, sorted by elevation, CSV-exportable). |
+| 22 | **Sites** | Manage observer locations: nickname the **primary site** (which drives every other screen) and build a table of **secondary sites** (club, portable, friends' QTHs). A **Compare passes** tab shows the selected satellite's upcoming passes across all sites side by side, exportable to CSV or a PDF report. |
+| 23 | **Settings** | Set your observer site by lat/lon/altitude or Maidenhead grid, choose the **GP element source** (AMSAT, a CelesTrak category, or a custom OMM-JSON URL), and set the **minimum elevation** used across pass tables and reports. |
 
-A **Pass alarms** toggle in the top bar raises in-app AOS / TCA / LOS
-notifications (with a gentle audible cue) for the selected satellite's next pass,
-so you don't miss a rising bird while working in another screen.
+A **Pass alarms** toggle in the top bar raises AOS / TCA / LOS notifications (a
+gentle audible cue, the in-app status line, and a **native desktop toast** for
+"starting soon" and AOS) for favorite satellites' next passes, so you don't miss
+a rising bird while working in another screen or another app.
+
+### Keyboard shortcuts
+
+| Key | Action |
+|---|---|
+| `Ctrl`+`K` | Command palette — jump to any screen or satellite by typing |
+| `Ctrl`+`F` or `/` | Find / select a satellite |
+| `[` / `]` | Previous / next satellite |
+| `1`–`9` | Jump to the Nth sidebar screen |
+| `Ctrl`+`+` / `Ctrl`+`-` / `Ctrl`+`0` | Text size larger / smaller / reset |
+| `F1` or `?` | Shortcut help |
+
+(Shortcuts are ignored while you're typing in a text field.)
 
 Every satellite-specific screen has a **Report…** button that saves a clean,
 printable PDF for the selected satellite — a comprehensive document with orbital
@@ -131,9 +145,8 @@ Settings, favorites, your site and the cached catalog persist under
 
 ## Accuracy & the SGP4 backend
 
-The orbital core is a faithful port of the device's math, using the **WGS72**
-gravity model to match the GP/TLE mean elements. Conventions carried over
-verbatim:
+The orbital core uses the **WGS72** gravity model to match the GP/TLE mean
+elements. Key conventions:
 
 * range-rate (for Doppler) is taken from the **SGP4 velocity vector**, not by
   differencing slant range;
@@ -247,34 +260,34 @@ approximate, exactly as the app does at runtime).
 
 ## What was intentionally left out
 
-Per the project's scope, none of CardSat's **radio/CAT control** (Icom CI-V,
-Yaesu, Kenwood, IcomNet, `rigctld`) or **rotator control** (`rotctld`) was
-ported. The engine still computes the Doppler-corrected frequencies and look
-angles those subsystems would consume, so a rig/rotator bridge could be added
-later — but it is not part of OrbitDeck.
+By design, OrbitDeck does **not** include **radio/CAT control** (Icom CI-V,
+Yaesu, Kenwood, IcomNet, `rigctld`) or **rotator control** (`rotctld`). The
+engine still computes the Doppler-corrected frequencies and look angles those
+subsystems would consume, so a rig/rotator bridge could be added later — but it
+is not part of OrbitDeck.
 
-## Coverage vs CardSat (tracking & analysis)
+## Coverage (tracking & analysis)
 
-OrbitDeck implements the full tracking and orbital-analysis surface of the
-device:
+OrbitDeck provides a full tracking and orbital-analysis surface:
 
-Satellites catalog; all nine Orbital-Analysis pages (Info, Live, Next Pass,
-Ground Track, Doppler, Nodal/J2, Sun-Beta, Pass Outlook, Orbit Position); Next
-Passes; Pass detail & polar; Mutual windows; multi-day pass progression; 60-day
-illumination; live Track; world map with footprint and terminator; Sun/Moon;
-**Workable grids, US states, and DXCC**; **Space Weather** (F10.7 / Kp / A from
-NOAA SWPC); Location; GP-age warnings; online GP (AMSAT) and transponder
-(SatNOGS) fetch.
+Satellites catalog; all of the Orbital-Analysis pages (Info, Live, Next Pass,
+Ground Track, Doppler, Nodal/J2, Sun-Beta, Pass Outlook, Orbit Position, EQX
+map and list); Next Passes; Pass detail & polar; Mutual windows; multi-day pass
+progression; 60-day illumination; live Track; world map with footprint and
+terminator; an interactive 3D globe; Sun/Moon and Celestial; **Workable grids,
+US states, and DXCC**; rove planning; a broad **Learn** teaching suite;
+**Space Weather** (F10.7 / Kp / A from NOAA SWPC); Settings; GP-age warnings;
+online GP (AMSAT) and transponder (SatNOGS) fetch.
 
-The only CardSat features intentionally excluded are **radio (CAT) and rotator
+The only capabilities intentionally excluded are **radio (CAT) and rotator
 control** — see above.
 
 **Notes on the workable overlays.** Grids are computed geometrically (no bundled
 data). US states use multi-point interior sampling per state, and DXCC uses
 per-entity reference points for a practical set of the commonly worked / spread
-entities (the point half of CardSat's hybrid model). Both are footprint-scale
-accurate and intentionally lightweight; a footprint grazing a border may briefly
-list a neighbour, which is correct at footprint scale (both are workable).
+entities. Both are footprint-scale accurate and intentionally lightweight; a
+footprint grazing a border may briefly list a neighbour, which is correct at
+footprint scale (both are workable).
 
 ---
 
@@ -304,6 +317,5 @@ hobby of satellite operating — alive.
 
 MIT — see [LICENSE](LICENSE).
 
-OrbitDeck is an independent port; satellite tracking math follows the public
-Vallado SGP4 reference. "CardSat" refers to the original device project this was
-ported from.
+OrbitDeck is an independent project; its satellite-tracking math follows the
+public Vallado SGP4 reference.
