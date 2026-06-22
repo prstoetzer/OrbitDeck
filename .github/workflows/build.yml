@@ -3,11 +3,20 @@ name: Build standalone apps
 # Build OrbitDeck into standalone executables for Windows, macOS, and Linux.
 # Runs on tags like v0.5.0 (and can be triggered manually). Artifacts are
 # uploaded per-OS; on a tag, they're also attached to a GitHub Release.
+#
+# Dependencies: every build includes the FULL optional set -- sgp4 (accurate
+# propagation), openpyxl (xlsx export) and cartopy (high-res coastlines). cartopy
+# needs the GEOS/PROJ system libraries, which install cleanly from PyPI wheels on
+# Linux/macOS but not on the Windows runner; there we use conda-forge (which
+# bundles GEOS/PROJ) to get cartopy, then pip for everything else.
 
 on:
   push:
     tags: ["v*"]
   workflow_dispatch:
+
+permissions:
+  contents: write          # required for the "Attach to release" step on tags
 
 jobs:
   build:
@@ -24,19 +33,50 @@ jobs:
           - os: ubuntu-latest
             artifact: OrbitDeck-linux
 
+    defaults:
+      run:
+        shell: bash          # bash on all three OSes (Git Bash on Windows)
+
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set up Python
+      # --- Python: conda on Windows (for cartopy), setup-python elsewhere ---
+      - name: Set up Python (Linux/macOS)
+        if: runner.os != 'Windows'
         uses: actions/setup-python@v5
         with:
           python-version: "3.12"
 
-      - name: Install OrbitDeck and PyInstaller
+      - name: Set up Miniconda (Windows)
+        if: runner.os == 'Windows'
+        uses: conda-incubator/setup-miniconda@v3
+        with:
+          python-version: "3.12"
+          miniforge-version: latest    # conda-forge by default
+          auto-activate-base: false
+          activate-environment: build
+
+      # --- Dependencies (full optional set on every platform) ---
+      - name: Install dependencies (Linux/macOS)
+        if: runner.os != 'Windows'
         run: |
           python -m pip install --upgrade pip
-          pip install -e .
           pip install pyinstaller
+          # cartopy wheels include GEOS/PROJ on Linux/macOS, so pip is fine here.
+          pip install -e ".[full]"
+
+      - name: Install dependencies (Windows)
+        if: runner.os == 'Windows'
+        shell: bash -el {0}     # login shell so the conda env is activated
+        run: |
+          # cartopy (and its GEOS/PROJ libraries) from conda-forge -- the
+          # reliable way to get it on Windows.
+          conda install -n build -y -c conda-forge "cartopy>=0.21"
+          python -m pip install --upgrade pip
+          pip install pyinstaller
+          # The rest (incl. sgp4 + openpyxl) via pip; cartopy is already present
+          # so this won't try to rebuild it.
+          pip install -e ".[accurate,excel]"
 
       - name: Generate macOS .icns
         if: runner.os == 'macOS'
@@ -50,18 +90,35 @@ jobs:
           done
           iconutil -c icns icon.iconset -o icon.icns
 
-      - name: Build with PyInstaller
+      # --- Build ---
+      - name: Build with PyInstaller (Linux/macOS)
+        if: runner.os != 'Windows'
         run: pyinstaller --noconfirm orbitdeck.spec
 
-      - name: Package (zip the bundle)
-        shell: bash
+      - name: Build with PyInstaller (Windows)
+        if: runner.os == 'Windows'
+        shell: bash -el {0}     # use the activated conda env's PyInstaller/python
+        run: pyinstaller --noconfirm orbitdeck.spec
+
+      # --- Package ---
+      # Windows runners' Git Bash has no `zip`, so use PowerShell's
+      # Compress-Archive there; zip on macOS/Linux.
+      - name: Package (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: Compress-Archive -Path dist/OrbitDeck -DestinationPath ${{ matrix.artifact }}.zip
+
+      - name: Package (macOS)
+        if: runner.os == 'macOS'
         run: |
           cd dist
-          if [ "${{ runner.os }}" = "macOS" ]; then
-            zip -r ../${{ matrix.artifact }}.zip OrbitDeck.app
-          else
-            zip -r ../${{ matrix.artifact }}.zip OrbitDeck
-          fi
+          zip -r ../${{ matrix.artifact }}.zip OrbitDeck.app
+
+      - name: Package (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          cd dist
+          zip -r ../${{ matrix.artifact }}.zip OrbitDeck
 
       - name: Upload build artifact
         uses: actions/upload-artifact@v4
