@@ -18,7 +18,7 @@ notes (icons, code signing, installers).
 
 import os
 import sys
-from PyInstaller.utils.hooks import collect_data_files
+from PyInstaller.utils.hooks import collect_data_files, collect_all
 
 block_cipher = None
 
@@ -31,19 +31,55 @@ asset_datas = [
     ("orbitdeck/gui/assets/icon.svg", "orbitdeck/gui/assets"),
 ]
 
-# matplotlib ships data files (fonts, mpl-data) that must travel with the app.
-mpl_datas = collect_data_files("matplotlib")
+# matplotlib ships data files (fonts, mpl-data) AND compiled C extensions
+# (ft2font, _path, ...) whose bundled DLLs -- FreeType on Windows -- must travel
+# with the app. collect_data_files() gathers only the data, which on Windows
+# leaves ft2font unable to find its DLL at runtime ("DLL load failed while
+# importing ft2font"). collect_all() also pulls the binaries and hidden imports,
+# which is what makes the frozen app import matplotlib cleanly on Windows.
+mpl_datas, mpl_binaries, mpl_hiddenimports = collect_all("matplotlib")
+
+
+def _vendored_dll_dir(pkg):
+    """On Windows, wheels built with delvewheel vendor their native DLLs (e.g.
+    FreeType for matplotlib, OpenBLAS for numpy) into a sibling '<pkg>.libs'
+    directory next to the package. PyInstaller's import graph picks up the .pyd
+    extension modules but can miss this sibling DLL dir, which is what causes the
+    'DLL load failed while importing ft2font' crash. Collect those DLLs
+    explicitly as binaries placed in '<pkg>.libs' so the extensions find them.
+    Returns a (src, dest) list (empty off Windows / when the dir is absent)."""
+    out = []
+    try:
+        import importlib
+        mod = importlib.import_module(pkg)
+        base = os.path.dirname(os.path.dirname(os.path.abspath(mod.__file__)))
+        libs = os.path.join(base, pkg + ".libs")
+        if os.path.isdir(libs):
+            for name in os.listdir(libs):
+                if name.lower().endswith(".dll"):
+                    out.append((os.path.join(libs, name), pkg + ".libs"))
+    except Exception:
+        pass
+    return out
+
+
+# Windows vendored-DLL directories for the native-extension packages.
+vendored_binaries = (_vendored_dll_dir("matplotlib")
+                     + _vendored_dll_dir("numpy")
+                     + _vendored_dll_dir("PIL"))
 
 # certifi's CA bundle -- required so HTTPS (AMSAT / SatNOGS / NOAA) verifies in
 # the frozen app. Without this, macOS bundles fail with CERTIFICATE_VERIFY_FAILED.
 certifi_datas = collect_data_files("certifi")
 
 # cartopy ships Natural Earth shapefiles / data used for the OSCARLOCATOR base
-# map coastlines; bundle them (falls back to OrbitDeck's own coastlines if absent).
+# map coastlines, plus compiled extensions that link GEOS/PROJ; collect_all gets
+# the data, the binaries, and the hidden imports together. Falls back to
+# OrbitDeck's own bundled coastlines if cartopy isn't installed.
 try:
-    cartopy_datas = collect_data_files("cartopy")
+    cartopy_datas, cartopy_binaries, cartopy_hiddenimports = collect_all("cartopy")
 except Exception:
-    cartopy_datas = []
+    cartopy_datas, cartopy_binaries, cartopy_hiddenimports = [], [], []
 
 # Per-platform icon for the executable itself.
 if sys.platform == "win32":
@@ -56,7 +92,7 @@ else:
 a = Analysis(
     ["run.py"],
     pathex=[],
-    binaries=[],
+    binaries=mpl_binaries + cartopy_binaries + vendored_binaries,
     datas=asset_datas + mpl_datas + certifi_datas + cartopy_datas,
     hiddenimports=[
         # ssl / certificate handling for HTTPS data fetches:
@@ -70,7 +106,7 @@ a = Analysis(
         "matplotlib.backends.backend_tkagg",
         # matplotlib's PDF backend (OSCARLOCATOR sheet export):
         "matplotlib.backends.backend_pdf",
-    ],
+    ] + mpl_hiddenimports + cartopy_hiddenimports,
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
@@ -96,8 +132,8 @@ exe = EXE(
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
-    upx=True,
-    console=False,            # GUI app: no console window
+    upx=False,                # UPX can corrupt compressed DLLs (numpy,
+    console=False,            # matplotlib/FreeType, PROJ) -> runtime crashes
     disable_windowed_traceback=False,
     target_arch=None,
     codesign_identity=None,
@@ -111,7 +147,7 @@ coll = COLLECT(
     a.zipfiles,
     a.datas,
     strip=False,
-    upx=True,
+    upx=False,
     upx_exclude=[],
     name="OrbitDeck",
 )
@@ -125,6 +161,6 @@ if sys.platform == "darwin":
         bundle_identifier="org.orbitdeck.app",
         info_plist={
             "NSHighResolutionCapable": True,
-            "CFBundleShortVersionString": "0.35.5",
+            "CFBundleShortVersionString": "0.35.6",
         },
     )

@@ -29,4 +29,7 @@
     <category>Education</category>
     <category>HamRadio</category>
   </categories>
+  <releases>
+    <release version="0.35.6" date="2026-06-22"/>
+  </releases>
 </component>

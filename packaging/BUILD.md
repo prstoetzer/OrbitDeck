@@ -7,8 +7,37 @@ installed**.
 
 > **PyInstaller does not cross-compile.** A Windows `.exe` must be built on
 > Windows, a macOS `.app` on macOS, and a Linux binary on Linux. To produce all
-> three, use the GitHub Actions workflow in `.github/workflows/build.yml`, which
-> builds on a runner matrix.
+> targets, use the GitHub Actions workflow in `.github/workflows/build.yml`,
+> which builds on a runner matrix.
+
+### Automated build targets
+
+The `build.yml` workflow produces one artifact per target:
+
+| Target | Runner | Artifact |
+| --- | --- | --- |
+| Windows x86_64 | `windows-latest` | `OrbitDeck-windows` |
+| macOS Apple Silicon | `macos-latest` (arm64) | `OrbitDeck-macos-arm64` |
+| macOS Intel | `macos-13` (x86_64) | `OrbitDeck-macos-intel` |
+| Linux x86_64 | `ubuntu-latest` | `OrbitDeck-linux-x86_64` |
+| Raspberry Pi OS 64-bit | `ubuntu-22.04-arm` (arm64) | `OrbitDeck-raspberrypi-arm64` |
+
+**Raspberry Pi build.** The Pi target builds natively on GitHub's arm64 Linux
+runner. Two things make it work: `ubuntu-22.04-arm` ships glibc 2.35, which is
+*older* than Raspberry Pi OS Bookworm's glibc 2.36, so the binary loads on a
+current 64-bit Pi (a binary built on the newer `ubuntu-24.04-arm` would fail with
+a `GLIBC_2.3x not found` error); and because cartopy has no aarch64 PyPI wheel,
+the job installs GEOS/PROJ via `apt` and builds cartopy from source (falling back
+to OrbitDeck's bundled coastlines if that build fails). The artifact targets
+**64-bit (aarch64) Raspberry Pi OS only** — it will not run on the legacy 32-bit
+(armhf) Pi OS.
+
+> ⚠️ **arm64 runners require a public repository.** GitHub's free `*-arm` hosted
+> runners only work in **public** repos; in a private repo the Raspberry Pi job
+> will fail to start. For a private repo, either make the build workflow run in a
+> public fork, attach a **self-hosted arm64 runner** (e.g. an actual Raspberry Pi
+> registered as a runner) and change `runs-on` to its label, or use a paid arm64
+> **larger runner**.
 
 ## Quick start (current platform)
 
@@ -77,8 +106,17 @@ matplotlib/tkinter app.
 
 ## Common gotchas (already handled in the spec)
 
-- **matplotlib data files** (fonts, `mpl-data`) are collected via
-  `collect_data_files("matplotlib")`.
+- **matplotlib data files** (fonts, `mpl-data`) and **its native extensions** are
+  collected via `collect_all("matplotlib")`, and on Windows the spec also copies
+  matplotlib's vendored DLL directory (`matplotlib.libs`, where delvewheel puts
+  FreeType etc.). Without that DLL directory a Windows build imports but then
+  crashes at launch with **`ImportError: DLL load failed while importing
+  ft2font`** — because `ft2font.pyd` ships but its FreeType DLL is missing from
+  the bundle. The spec does the same for `numpy` and `PIL`. (You may see this as
+  a confusing *double* traceback in older builds: the real `ft2font` error,
+  followed by `'NoneType' object has no attribute 'write'` — that second one is
+  just the windowed app having no `sys.stderr` to print the first to; `run.py`
+  now reports startup failures via a Tk dialog instead.)
 - **tkinter / Tcl-Tk** runtimes are bundled automatically; the hidden imports in
   the spec make the Tk backend resolve.
 - **HTTPS / SSL certificates.** Frozen builds — **especially on macOS** — can
@@ -99,9 +137,13 @@ matplotlib/tkinter app.
 
 ## Reducing size
 
-The spec already excludes Qt, wx, pytest, and IPython. UPX compression is on; if
-UPX isn't installed it's skipped harmlessly. Typical bundle size is ~150–250 MB
-(matplotlib + numpy dominate).
+The spec already excludes Qt, wx, pytest, and IPython. **UPX compression is
+disabled** on purpose: it can corrupt compressed native DLLs (numpy, the
+FreeType library behind matplotlib's `ft2font`, and PROJ behind cartopy),
+producing runtime "DLL load failed" crashes — exactly the kind of failure that
+is hard to diagnose in a frozen GUI app. Typical bundle size is ~150–250 MB
+(matplotlib + numpy dominate); if you want it smaller, prefer trimming
+`excludes` over re-enabling UPX.
 
 ## Code signing & notarization
 
@@ -323,7 +365,7 @@ produces a single `OrbitDeck-Setup.exe`. Install it, then create
 
 ```ini
 #define MyAppName "OrbitDeck"
-#define MyAppVersion "0.35.5"
+#define MyAppVersion "0.35.6"
 #define MyAppPublisher "Paul Stoetzer, N8HM"
 #define MyAppURL "https://github.com/prstoetzer/OrbitDeck"
 #define MyAppExeName "OrbitDeck.exe"
@@ -366,7 +408,7 @@ Compile from the repo root after building the bundle:
 ```powershell
 pyinstaller orbitdeck.spec
 & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" packaging\windows\orbitdeck.iss
-# -> dist\OrbitDeck-0.35.5-Setup.exe
+# -> dist\OrbitDeck-0.35.6-Setup.exe
 ```
 
 Then **sign the installer** with `signtool` exactly as for the `.exe`. Inno
@@ -397,7 +439,7 @@ create-dmg \
   --icon "OrbitDeck.app" 150 190 \
   --app-drop-link 390 190 \
   --hdiutil-quiet \
-  "dist/OrbitDeck-0.35.5.dmg" \
+  "dist/OrbitDeck-0.35.6.dmg" \
   "dist/OrbitDeck.app"
 ```
 
@@ -406,10 +448,10 @@ prompt:
 
 ```bash
 codesign --force --sign "Developer ID Application: Your Name (TEAMID)" \
-  "dist/OrbitDeck-0.35.5.dmg"
-xcrun notarytool submit "dist/OrbitDeck-0.35.5.dmg" \
+  "dist/OrbitDeck-0.35.6.dmg"
+xcrun notarytool submit "dist/OrbitDeck-0.35.6.dmg" \
   --keychain-profile "OrbitDeckNotary" --wait
-xcrun stapler staple "dist/OrbitDeck-0.35.5.dmg"
+xcrun stapler staple "dist/OrbitDeck-0.35.6.dmg"
 ```
 
 > **`.pkg` alternative.** For an installer that places the app and can run
@@ -419,9 +461,9 @@ xcrun stapler staple "dist/OrbitDeck-0.35.5.dmg"
 > pkgbuild --root dist/OrbitDeck.app \
 >   --install-location "/Applications/OrbitDeck.app" \
 >   --identifier io.github.prstoetzer.OrbitDeck \
->   --version 0.35.5 OrbitDeck-component.pkg
+>   --version 0.35.6 OrbitDeck-component.pkg
 > productbuild --sign "Developer ID Installer: Your Name (TEAMID)" \
->   --package OrbitDeck-component.pkg "dist/OrbitDeck-0.35.5.pkg"
+>   --package OrbitDeck-component.pkg "dist/OrbitDeck-0.35.6.pkg"
 > ```
 > Note a `.pkg` is signed with a **Developer ID *Installer*** certificate
 > (distinct from the *Application* certificate used for the app), then notarized

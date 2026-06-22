@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.35.6]
+
+### Fixed
+- **Windows standalone build crashed at launch** with `ImportError: DLL load
+  failed while importing ft2font` (followed by a confusing secondary
+  `'NoneType' object has no attribute 'write'` traceback). The PyInstaller spec
+  bundled matplotlib's *data* files but not its native extensions and their
+  vendored DLLs, so `ft2font.pyd` shipped without the FreeType DLL it needs. The
+  spec now uses `collect_all("matplotlib")` and explicitly copies the
+  delvewheel-vendored DLL directory (`matplotlib.libs`) on Windows, and does the
+  same for `numpy` and `PIL`. The secondary traceback was the windowed app having
+  no `sys.stderr`; `run.py` now reports startup failures through a Tk dialog, so
+  any future bundling issue is legible instead of silent.
+
 ## [0.35.5]
 
 ### Fixed

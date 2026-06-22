@@ -9,7 +9,7 @@
 # Bump pkgver to match orbitdeck/__init__.py for a release build, and update
 # sha256sums (or use 'SKIP' for a local source checkout).
 pkgname=orbitdeck
-pkgver=0.35.5
+pkgver=0.35.6
 pkgrel=1
 pkgdesc="Desktop satellite tracking and orbital analysis for amateur radio"
 arch=('any')
