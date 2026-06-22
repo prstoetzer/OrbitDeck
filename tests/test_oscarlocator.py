@@ -32,6 +32,84 @@ def test_oscarlocator_pdf_generates():
     with open(out, "rb") as f:
         assert f.read(5) == b"%PDF-"
 
+
+def _pdf_page_pts(path):
+    """Return (width_pt, height_pt) of the first page of a PDF by reading the
+    first /MediaBox in the file -- avoids a hard dependency on pdfinfo."""
+    import re
+    data = open(path, "rb").read()
+    m = re.search(rb"/MediaBox\s*\[\s*([\d.]+)\s+([\d.]+)\s+([\d.]+)\s+([\d.]+)",
+                  data)
+    assert m, "no MediaBox found"
+    x0, y0, x1, y1 = (float(m.group(i)) for i in range(1, 5))
+    return (x1 - x0, y1 - y0)
+
+
+def test_pagesize_module_defaults_and_normalize():
+    """The pagesize helper defaults to Letter and resolves A4 / unknowns
+    sensibly from a string or a config-bearing object."""
+    from orbitdeck.gui import pagesize as P
+    assert P.DEFAULT_PAGE == "letter"
+    assert P.normalize(None) == "letter"
+    assert P.normalize("A4") == "a4"
+    assert P.normalize("nonsense") == "letter"
+    assert P.page_dims(None) == (8.5, 11.0)
+    assert P.page_dims("a4") == P.PAGE_SIZES["a4"]
+
+    class FakeStore:
+        config = {"page_size": "a4"}
+    assert P.page_dims(FakeStore()) == P.PAGE_SIZES["a4"]
+    class NoPref:
+        config = {}
+    assert P.page_dims(NoPref()) == (8.5, 11.0)
+
+
+def test_oscarlocator_page_size_letter_vs_a4():
+    """The OSCARLOCATOR honours the global page-size setting: Letter ~612x792 pt,
+    A4 ~595x842 pt. The disc is pinned to a fixed physical size, so switching the
+    page must NOT change the figure's page-relative disc fraction math in a way
+    that resizes the disc -- we assert the page dimensions change as expected."""
+    import os
+    import tempfile
+    from orbitdeck.gui.store import Store
+    from orbitdeck.gui.oscarlocator import generate_oscarlocator_pdf
+    st = Store()
+    s = st.db.sats[0]
+    d = tempfile.mkdtemp()
+
+    st.save_config(page_size="letter")
+    pl = os.path.join(d, "letter.pdf")
+    generate_oscarlocator_pdf(pl, st, s, projection="polar")
+    wl, hl = _pdf_page_pts(pl)
+    assert abs(wl - 612) < 2 and abs(hl - 792) < 2, (wl, hl)
+
+    st.save_config(page_size="a4")
+    pa = os.path.join(d, "a4.pdf")
+    generate_oscarlocator_pdf(pa, st, s, projection="polar")
+    wa, ha = _pdf_page_pts(pa)
+    assert abs(wa - 595) < 2 and abs(ha - 842) < 2, (wa, ha)
+
+    # the module page constants are restored to the default after generation
+    import orbitdeck.gui.oscarlocator as OL
+    assert (OL.PAGE_W_IN, OL.PAGE_H_IN) == (8.5, 11.0)
+
+
+def test_reports_honor_page_size():
+    """A standard report (satellite report) follows the global page size too."""
+    import os
+    import tempfile
+    from orbitdeck.gui.store import Store
+    from orbitdeck.gui.reports import generate_satellite_report
+    st = Store()
+    s = st.db.sats[0]
+    st.select(s.norad)
+    d = tempfile.mkdtemp()
+    st.save_config(page_size="a4")
+    pa = os.path.join(d, "sat_a4.pdf")
+    generate_satellite_report(pa, st, s)
+    wa, ha = _pdf_page_pts(pa)
+    assert abs(wa - 595) < 2 and abs(ha - 842) < 2, (wa, ha)
+
 def test_oscarlocator_node_shift_and_track():
     """The per-pass arc advance and canonical track behave physically: ISS
     advances ~23 deg west/pass, a polar sun-sync ~25 deg, and the canonical
@@ -241,6 +319,53 @@ def test_qth_map_radius_capped():
         OL._base_map_page = orig
     assert 50.0 <= captured.get("rmax", 0) <= 80.0
 
+def test_oscarsim_drag_blit_matches_full_render():
+    """The drag fast-path (_render_drag, which blits only the moving artists over
+    a cached static background) reaches the same arc state as a full render, and
+    falls back to a full render when the static scene changes."""
+    import tkinter as tk
+    from orbitdeck.gui.app import OrbitDeckApp
+
+    try:
+        root = tk.Tk()
+    except Exception:
+        return
+    import os
+    try:
+        os.remove(os.path.expanduser("~/.orbitdeck/config.json"))
+    except OSError:
+        pass
+    app = OrbitDeckApp(root)
+    app.store.save_config(onboarded=True)
+    sat = next(s for s in app.store.db.sats if s.name == "RS-44")
+    app.store.select(sat.norad)
+    app.show("oscarsim")
+    sim = app.current
+    sim._mode.set("manual")
+    sim._on_mode()
+    root.update()
+
+    # a full render caches the static background
+    sim._eqx_lon.set(70.0)
+    sim._render()
+    root.update()
+    assert sim._static_bg is not None
+    key = sim._static_key
+
+    # a drag frame reuses it (key unchanged) and updates the arc longitude
+    sim._eqx_lon.set(120.0)
+    sim._render_drag()
+    assert sim._static_key == key            # background was reused, not rebuilt
+    assert sim._eqx_lon.get() == 120.0
+
+    # changing the projection invalidates the cache -> full render path
+    sim._proj_mode.set("qth")
+    sim._render_drag()
+    assert sim._static_key != key            # rebuilt for the new scene
+
+    root.destroy()
+
+
 def test_oscarsim_screen_geometry():
     """The OSCARLOCATOR simulator's projection helpers produce sane geometry:
     the canonical track starts on the equator at minute 0, the footprint radius
@@ -318,6 +443,7 @@ def test_oscarsim_drag_rotates_arc_and_works_in_lab():
     # pretend the resolved projection is the north polar sheet
     sim._resolve_proj = lambda: "polar"
     sim._render = lambda: None
+    sim._render_drag = lambda: None
 
     class Ev:
         def __init__(self, th, r):

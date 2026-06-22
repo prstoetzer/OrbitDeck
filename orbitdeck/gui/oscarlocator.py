@@ -1355,6 +1355,25 @@ def generate_oscarlocator_pdf(path, store, sat, when_unix=None,
     obs = store.obs
     qth_name = store.my_grid()
 
+    # Resolve the global page size (Letter default, A4 optional). The disc is
+    # pinned to a fixed PLOT_DIAMETER_IN physical size via fractions of the page,
+    # so it stays exactly 6.6 in on either paper and printed transparencies keep
+    # registering; only the page-relative centring and text margins change.
+    from .pagesize import page_dims
+    global PAGE_W_IN, PAGE_H_IN
+    _saved_page = (PAGE_W_IN, PAGE_H_IN)
+    PAGE_W_IN, PAGE_H_IN = page_dims(store)
+    try:
+        return _generate_oscarlocator_pdf_body(
+            path, store, sat, when_unix, projection, footprint_on_qth,
+            reduced_text, obs, qth_name)
+    finally:
+        PAGE_W_IN, PAGE_H_IN = _saved_page
+
+
+def _generate_oscarlocator_pdf_body(path, store, sat, when_unix, projection,
+                                    footprint_on_qth, reduced_text, obs,
+                                    qth_name):
     if projection == "polar-auto":
         projection = "polar-south" if obs.lat < 0 else "polar"
 

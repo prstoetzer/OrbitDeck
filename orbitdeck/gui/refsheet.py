@@ -148,6 +148,9 @@ def generate_reference_orbits_pdf(path, store, sats, days=60,
     ``days`` defaults to 60. The reference orbit per UTC day is the first
     ascending crossing for northern stations, first descending for southern.
     """
+    global PAGE_W_IN, PAGE_H_IN
+    from .pagesize import page_dims
+    PAGE_W_IN, PAGE_H_IN = page_dims(store)
     import time
     if start_unix is None:
         start_unix = time.time()

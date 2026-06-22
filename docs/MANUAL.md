@@ -814,6 +814,11 @@ On **Observer & preferences**, configure:
   **custom OMM-JSON URL**.
 - **Minimum elevation** — the default floor (in degrees) applied to pass tables
   and reports across the app.
+- **Page size** — under **Printing**, the paper size for every printable PDF:
+  **US Letter** (the default) or **A4**. This applies globally to the
+  OSCARLOCATOR, reports, reference sheets, and handouts. The OSCARLOCATOR disc
+  stays the same physical size on either paper, so overlays still register — just
+  remember to keep printing at **100% / actual size** (see below).
 
 The **About** tab shows the program version, the author credit (**Paul Stoetzer,
 N8HM**), a link to the project on GitHub

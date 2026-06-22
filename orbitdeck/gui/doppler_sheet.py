@@ -24,9 +24,12 @@ def _utc(unix, fmt="%Y-%m-%d %H:%M:%S UTC"):
         unix, _dt.timezone.utc).strftime(fmt)
 
 
-def generate_doppler_sheet(path, sat, rows, hold="downlink"):
+def generate_doppler_sheet(path, sat, rows, hold="downlink", page=None):
     if not rows:
         raise ValueError("no playbook rows")
+    global PAGE_W_IN, PAGE_H_IN
+    from .pagesize import page_dims
+    PAGE_W_IN, PAGE_H_IN = page_dims(page)
     t0 = rows[0]["t"]
     mode = rows[0]["mode"]
     with PdfPages(path) as pdf:

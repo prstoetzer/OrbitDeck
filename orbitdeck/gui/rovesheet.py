@@ -41,6 +41,9 @@ def _brand(fig):
 def generate_rove_sheet_pdf(path, sat_name, store, rove_rows):
     """rove_rows is a list of (grid, sat_name, result|None) as produced by the
     Rove tab, where result is a dict {aos, los, max_el, grids, states, dxcc}."""
+    global PAGE_W_IN, PAGE_H_IN
+    from .pagesize import page_dims
+    PAGE_W_IN, PAGE_H_IN = page_dims(store)
     # flatten into printable entries, tolerating the older 2-tuple shape
     entries = []
     for row in rove_rows:

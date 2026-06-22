@@ -1,5 +1,33 @@
 # Changelog
 
+## [0.35.4]
+
+### Added
+- **A4 page size for every printable PDF.** A new global **Page size** setting
+  (Settings → Printing) switches all printable output between **US Letter** (the
+  default) and **A4** — the OSCARLOCATOR base map and overlays, every report,
+  the reference-orbits and rove sheets, the Doppler sheet, and the Orbits 101
+  handout. The setting persists in the config and applies to PDFs generated
+  afterward. The OSCARLOCATOR disc keeps its fixed physical size on either paper,
+  so printed transparencies still register at 100% / actual size. Documented in
+  the manual (Settings) and backed by a shared `orbitdeck.gui.pagesize` helper.
+
+## [0.35.3]
+
+### Performance
+- **The OSCARLOCATOR Simulator drags far more smoothly.** Previously every
+  mouse-move during a hand-drag cleared the plot and rebuilt the entire scene —
+  graticule, protractor rim, coastlines, station, arc, and satellite — then did a
+  full canvas redraw (~52 ms/frame, visibly sluggish). The static layer
+  (graticule, rim, coastlines, QTH) is now rasterised once and cached; each drag
+  frame restores that cached background and repaints only the moving artists (the
+  arc, satellite, footprint, and range circle) via blitting, dropping a drag
+  frame to ~16 ms — roughly **3× faster**. The cache is keyed on the projection,
+  satellite, and site, so it rebuilds automatically when those change, and the
+  mouse-release does a full render for a pixel-perfect final frame. The
+  protractor rim's 72 tick marks are also now drawn as two `LineCollection`s
+  instead of 72 separate plot calls.
+
 ## [0.35.2]
 
 ### Fixed

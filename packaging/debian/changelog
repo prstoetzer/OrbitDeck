@@ -1,3 +1,18 @@
+orbitdeck (0.35.4-1) unstable; urgency=medium
+
+  * Add A4 page-size support for every printable PDF (the OSCARLOCATOR, reports,
+    reference sheets and handouts), selectable as one global setting under
+    Settings > Printing. US Letter remains the default.
+
+ -- Paul Stoetzer, N8HM <noreply@example.com>  Sun, 21 Jun 2026 00:00:00 +0000
+
+orbitdeck (0.35.3-1) unstable; urgency=medium
+
+  * Optimize OSCARLOCATOR simulator performance: blit a cached static background
+    during drags and batch the rim tick marks, ~3x faster drag re-render.
+
+ -- Paul Stoetzer, N8HM <noreply@example.com>  Sat, 20 Jun 2026 00:00:00 +0000
+
 orbitdeck (0.35.2-1) unstable; urgency=medium
 
   * Fix the OrbitDeck taskbar icon on a built Windows exe (set an explicit

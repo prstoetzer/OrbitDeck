@@ -439,7 +439,8 @@ class RadioScreen(Screen):
         if not path:
             return
         try:
-            generate_doppler_sheet(path, s, self._pb_rows, self._hold.get())
+            generate_doppler_sheet(path, s, self._pb_rows, self._hold.get(),
+                                   page=self.store)
         except Exception as e:
             messagebox.showerror("Doppler sheet", "Could not generate:\n%s" % e)
             return

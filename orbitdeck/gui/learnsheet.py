@@ -87,7 +87,10 @@ _FAMILIES = [
 ]
 
 
-def generate_orbits_101_pdf(path):
+def generate_orbits_101_pdf(path, page=None):
+    global PAGE_W_IN, PAGE_H_IN
+    from .pagesize import page_dims
+    PAGE_W_IN, PAGE_H_IN = page_dims(page)
     with PdfPages(path) as pdf:
         fig = plt.figure(figsize=(PAGE_W_IN, PAGE_H_IN))
         fig.text(0.5, 0.955, "Orbits 101", ha="center", fontsize=20,

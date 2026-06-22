@@ -1886,7 +1886,7 @@ class LearnScreen(Screen):
             return
         try:
             from ..learnsheet import generate_orbits_101_pdf
-            generate_orbits_101_pdf(path)
+            generate_orbits_101_pdf(path, page=self.store)
         except Exception as e:
             messagebox.showerror("Orbits 101", "Could not generate PDF:\n%s" % e)
             return

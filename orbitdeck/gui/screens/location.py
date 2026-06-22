@@ -63,6 +63,7 @@ class LocationScreen(Screen):
 
         self._build_gp_source(parent)
         self._build_pass_prefs(parent)
+        self._build_print_prefs(parent)
 
     def _build_about(self, parent):
         wrap = ttk.Frame(parent, style="TFrame")
@@ -123,6 +124,39 @@ class LocationScreen(Screen):
             webbrowser.open(url)
         except Exception:
             pass
+
+    def _build_print_prefs(self, parent=None):
+        parent = parent or self.frame
+        from ..pagesize import normalize, PAGE_LABELS
+        ttk.Label(parent, text="Printing", style="TLabel",
+                  font=("DejaVu Sans", 12, "bold")).pack(
+            anchor="w", padx=16, pady=(10, 2))
+        panel = ttk.Frame(parent, style="Panel.TFrame")
+        panel.pack(fill="x", padx=16, pady=10)
+        r = ttk.Frame(panel, style="Panel.TFrame")
+        r.pack(fill="x", padx=14, pady=6)
+        ttk.Label(r, text="Page size", style="Muted.TLabel", width=16,
+                  anchor="w").pack(side="left")
+        self._page_labels = [PAGE_LABELS["letter"], PAGE_LABELS["a4"]]
+        cur = normalize(self.store.config.get("page_size"))
+        self.page_size_var = tk.StringVar(value=PAGE_LABELS[cur])
+        pc = ttk.Combobox(r, textvariable=self.page_size_var, state="readonly",
+                          values=self._page_labels, width=24)
+        pc.pack(side="left")
+        pc.bind("<<ComboboxSelected>>", lambda _e: self._apply_page_size())
+        ttk.Label(panel, text="Applies to every printable PDF \u2014 the "
+                            "OSCARLOCATOR, reports, reference sheets and "
+                            "handouts.",
+                  style="Muted.TLabel").pack(anchor="w", padx=14, pady=(0, 8))
+        self.page_info = tk.StringVar(value="")
+        ttk.Label(parent, textvariable=self.page_info,
+                  style="MutedBg.TLabel").pack(anchor="w", padx=16, pady=(0, 6))
+
+    def _apply_page_size(self):
+        label = self.page_size_var.get()
+        key = "a4" if label.lower().startswith("a4") else "letter"
+        self.store.save_config(page_size=key)
+        self.page_info.set("Page size set to %s. New PDFs will use it." % label)
 
     def _build_pass_prefs(self, parent=None):
         parent = parent or self.frame

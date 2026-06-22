@@ -2,13 +2,13 @@
 #
 # Build:
 #     # from the repo root, create a release tarball matching Source0, e.g.
-#     #   git archive --format=tar.gz --prefix=OrbitDeck-0.35.2/ \
-#     #       -o ~/rpmbuild/SOURCES/orbitdeck-0.35.2.tar.gz v0.35.2
+#     #   git archive --format=tar.gz --prefix=OrbitDeck-0.35.4/ \
+#     #       -o ~/rpmbuild/SOURCES/orbitdeck-0.35.4.tar.gz v0.35.4
 #     rpmbuild -ba packaging/orbitdeck.spec
 #
 # Keep Version in sync with orbitdeck/__init__.py.
 Name:           orbitdeck
-Version:        0.35.2
+Version:        0.35.4
 Release:        1%{?dist}
 Summary:        Desktop satellite tracking and orbital analysis for amateur radio
 
@@ -67,6 +67,10 @@ install -Dm644 packaging/io.github.prstoetzer.OrbitDeck.metainfo.xml \
 %{_metainfodir}/io.github.prstoetzer.OrbitDeck.metainfo.xml
 
 %changelog
+* Sun Jun 21 2026 Paul Stoetzer, N8HM - 0.35.4-1
+- Add A4 page size for all printable PDFs (global setting; Letter default).
+* Sat Jun 20 2026 Paul Stoetzer, N8HM - 0.35.3-1
+- Optimize OSCARLOCATOR simulator dragging (blit static background; batch rim ticks).
 * Fri Jun 19 2026 Paul Stoetzer, N8HM - 0.35.2-1
 - Fix Windows taskbar icon (AppUserModelID); strip literal unicode escapes in docs.
 * Fri Jun 19 2026 Paul Stoetzer, N8HM - 0.35.1-1

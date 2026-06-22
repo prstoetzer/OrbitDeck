@@ -1,6 +1,6 @@
 pkgbase = orbitdeck
 	pkgdesc = Desktop satellite tracking and orbital analysis for amateur radio
-	pkgver = 0.35.2
+	pkgver = 0.35.4
 	pkgrel = 1
 	url = https://github.com/prstoetzer/OrbitDeck
 	arch = any
@@ -17,7 +17,7 @@ pkgbase = orbitdeck
 	optdepends = python-sgp4: C-accelerated full SGP4/SDP4 propagator
 	optdepends = python-cartopy: full-resolution Natural Earth coastlines
 	optdepends = python-openpyxl: native .xlsx export
-	source = orbitdeck-0.35.2.tar.gz::https://github.com/prstoetzer/OrbitDeck/archive/refs/tags/v0.35.2.tar.gz
+	source = orbitdeck-0.35.4.tar.gz::https://github.com/prstoetzer/OrbitDeck/archive/refs/tags/v0.35.4.tar.gz
 	sha256sums = SKIP
 
 pkgname = orbitdeck

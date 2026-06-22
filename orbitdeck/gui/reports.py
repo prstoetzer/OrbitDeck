@@ -23,6 +23,17 @@ from ..engine import analysis as A
 PAGE_W_IN = 8.5
 PAGE_H_IN = 11.0
 
+
+def _set_page(store):
+    """Set this module's page dimensions from the global page-size setting
+    (Letter default, A4 optional). Called at the top of each generator. The
+    sheets lay content out in figure fractions, so the page reshape carries the
+    layout with it."""
+    global PAGE_W_IN, PAGE_H_IN
+    from .pagesize import page_dims
+    PAGE_W_IN, PAGE_H_IN = page_dims(store)
+
+
 C_TITLE = "#0b3d91"
 C_HEAD = "#0b3d91"
 C_TEXT = "#111111"
@@ -259,6 +270,7 @@ def generate_satellite_report(path, store, sat, when_unix=None,
       'illum'       - 60-day illumination raster
       'progression' - 30-day pass-progression timeline
     """
+    _set_page(store)
     if when_unix is None:
         when_unix = time.time()
     obs = store.obs
@@ -380,6 +392,7 @@ def generate_favorites_passes_report(path, store, when_unix=None, days=7,
     satellites over the next ``days`` days, using the station and minimum
     elevation from ``store``. Every favorite's passes are merged and sorted by
     AOS so the report reads as a chronological timeline."""
+    _set_page(store)
     if when_unix is None:
         when_unix = time.time()
     obs = store.obs
@@ -441,6 +454,7 @@ def generate_favorites_passes_report(path, store, when_unix=None, days=7,
 def generate_site_comparison_report(path, store, sat, entries, days):
     """A per-site comparison of one satellite's upcoming passes across the
     primary site and all secondary sites."""
+    _set_page(store)
     when_unix = time.time()
     obs = store.obs
     header = "Site comparison \u2014 generated %s UTC" % _utc(
@@ -480,6 +494,7 @@ def generate_mutual_passes_report(path, store, sat, dx, when_unix=None,
                                   days=10, min_el=0.0, max_n=60):
     """Mutual (co-visibility) windows between the user's station and a DX station
     ``dx`` (an Observer) for ``sat``."""
+    _set_page(store)
     if when_unix is None:
         when_unix = time.time()
     obs = store.obs
@@ -577,6 +592,7 @@ def generate_illumination_report(path, store, sat, when_unix=None, days=60):
     """A 60-day (default) illumination chart matching the on-screen Illumination
     display: a 2D raster with day on the X axis and minutes-into-orbit (one
     period) on the Y axis, bright = sunlit, dark = eclipse."""
+    _set_page(store)
     if when_unix is None:
         when_unix = time.time()
     pred = Predictor()
@@ -597,6 +613,7 @@ def generate_eclipse_report(path, store, sat, periods=None, summary=None,
     summary (total, longest, percent of day, sun angle). Mirrors the on-screen
     Eclipse table. If ``periods`` / ``summary`` are not supplied they are
     computed here so the report can be generated independently."""
+    _set_page(store)
     if when_unix is None:
         when_unix = time.time()
     obs = store.obs
@@ -696,6 +713,7 @@ def generate_progression_report(path, store, sat, when_unix=None, days=30):
     day, each a 24-hour UTC timeline with passes drawn as bars positioned by
     AOS->LOS and coloured by max elevation (green high, blue mid, dark-blue
     low). Paginated across days; a full pass table follows."""
+    _set_page(store)
     if when_unix is None:
         when_unix = time.time()
     obs = store.obs
@@ -992,6 +1010,7 @@ def generate_polar_passes_report(path, store, sat, when_unix=None, days=3):
     """A grid of sky-track polar plots for every pass of ``sat`` over the next
     ``days`` days (default 3), matching the on-screen Pass Detail sky track:
     N-up, zenith at centre, AOS green circle, LOS orange square."""
+    _set_page(store)
     if when_unix is None:
         when_unix = time.time()
     obs = store.obs

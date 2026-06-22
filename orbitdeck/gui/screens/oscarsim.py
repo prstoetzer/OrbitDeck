@@ -393,7 +393,7 @@ class OscarSimScreen(Screen):
             if m is not None:
                 span = getattr(self, "_min_span", 95.0) or 95.0
                 self._minute.set(min(max(m, 0.0), span))
-                self._render()
+                self._render_drag()
             return
         # rotate the ground-track east-west; on the south sheet the on-screen
         # sense is mirrored, so flip the sign to keep "drag east -> arc east"
@@ -403,7 +403,7 @@ class OscarSimScreen(Screen):
         lon = self._drag_eqx0 + sign * dtheta
         lon = ((lon + 180.0) % 360.0) - 180.0
         self._eqx_lon.set(lon)
-        self._render()
+        self._render_drag()
 
     def _minute_for_pointer(self, event):
         """Minute-after-EQX of the arc point closest to the pointer, found by
@@ -623,10 +623,12 @@ class OscarSimScreen(Screen):
         self.map.clear(polar=True)
         ax = self.map.ax
         ax.set_facecolor(COL_PANEL)
+        self._dyn_artists = []
         if not s:
             ax.set_title("Select a satellite first.", color=COL_MUTED,
                          fontsize=10)
             self.map.draw()
+            self._static_bg = None
             return
         mode = self._resolve_proj()
         if mode in ("polar", "polar-south"):
@@ -635,36 +637,94 @@ class OscarSimScreen(Screen):
             rmax = max(50.0, min(80.0, abs(self.store.obs.lat) + 25.0))
         self._setup_axes(ax, mode, rmax)
 
+        # --- static layer (graticule, rim, coastlines, QTH) ---------------
+        # These don't change while the arc is dragged, so after drawing them we
+        # snapshot the canvas. A subsequent drag restores that snapshot and only
+        # repaints the moving artists (blitting), which is far cheaper than
+        # clearing and rebuilding the whole scene every mouse-move.
         self._draw_graticule(ax, mode, rmax)
         self._draw_rim(ax, mode, rmax)
         self._draw_coastlines(ax, mode, rmax)
         self._draw_qth(ax, mode, rmax)
 
-        # figure out the time / EQX to display. The EQX node reference must
-        # follow the VIEW (north sheet -> ascending node, south sheet ->
-        # descending node), not the QTH hemisphere, so that a pass can be
-        # followed accurately across either sheet regardless of where the
-        # station is.
         t, eqx_lon, minute = self._current_state(s, mode)
-        # a hand-positioned (dragged) arc overrides live-following, so both
-        # catalog and lab satellites can be swept by hand
         live = (self._mode.get() in ("live", "lab")) and not self._manual_arc
 
-        # in lab compare mode, draw the frozen "ghost B" orbit underneath first
         if self._lab_active() and self._lab_compare is not None:
             self._draw_compare_ghost(ax, mode, rmax)
-
-        # lab multi-orbit ground-track trace: draw several successive orbits as
-        # progressively fainter tracks so the westward drift per orbit is visible
         if self._lab_active() and self._trace_orbits.get() > 0:
             self._draw_orbit_trace(ax, mode, rmax, s)
 
-        # draw the rotated path arc + the satellite marker + footprint
-        self._draw_track(ax, mode, rmax, s, eqx_lon)
-        self._draw_satellite(ax, mode, rmax, s, t, eqx_lon, minute, live)
+        # rasterise the static layer, then cache it as the blit background
+        self.map.draw()
+        try:
+            self._static_bg = self.map.canvas.copy_from_bbox(self.map.fig.bbox)
+            self._static_key = self._scene_key(s, mode, rmax)
+        except Exception:
+            self._static_bg = None
 
+        # --- dynamic layer (arc + satellite + footprint) -----------------
+        self._draw_dynamic(ax, mode, rmax, s, t, eqx_lon, minute, live)
         self.map.draw()
         self._update_readout(s, t, eqx_lon, minute)
+
+    def _draw_dynamic(self, ax, mode, rmax, s, t, eqx_lon, minute, live):
+        """Draw only the moving artists (rotated arc, satellite, footprint,
+        range circle) and record them so the next blit frame can remove them."""
+        before = set(map(id, ax.lines)) | set(map(id, ax.collections)) \
+            | set(map(id, ax.texts)) | set(map(id, ax.patches))
+        self._draw_track(ax, mode, rmax, s, eqx_lon)
+        self._draw_satellite(ax, mode, rmax, s, t, eqx_lon, minute, live)
+        self._dyn_artists = [
+            a for a in (list(ax.lines) + list(ax.collections)
+                        + list(ax.texts) + list(ax.patches))
+            if id(a) not in before]
+
+    def _scene_key(self, s, mode, rmax):
+        """Identity of the STATIC scene; when this is unchanged a drag can reuse
+        the cached background instead of redrawing graticule/rim/coastlines."""
+        return (mode, round(rmax, 2), id(s),
+                round(self.store.obs.lat, 4), round(self.store.obs.lon, 4),
+                self._lab_active(),
+                self._lab_compare is not None,
+                self._trace_orbits.get() if self._lab_active() else 0)
+
+    def _render_drag(self):
+        """Fast path used during a hand-drag: if the cached static background is
+        still valid, restore it and repaint only the moving artists via blitting;
+        otherwise fall back to a full render."""
+        s = self.sat()
+        if s is None or getattr(self, "_static_bg", None) is None:
+            return self._render()
+        mode = self._resolve_proj()
+        if mode in ("polar", "polar-south"):
+            rmax = 90.0
+        else:
+            rmax = max(50.0, min(80.0, abs(self.store.obs.lat) + 25.0))
+        if self._scene_key(s, mode, rmax) != getattr(self, "_static_key", None):
+            return self._render()                      # static scene changed
+        ax = self.map.ax
+        canvas = self.map.canvas
+        try:
+            # drop the previous frame's moving artists so they don't accumulate
+            for art in getattr(self, "_dyn_artists", []):
+                try:
+                    art.remove()
+                except Exception:
+                    pass
+            self._dyn_artists = []
+            # restore the static scene, draw the new moving artists, blit
+            canvas.restore_region(self._static_bg)
+            t, eqx_lon, minute = self._current_state(s, mode)
+            live = (self._mode.get() in ("live", "lab")) and not self._manual_arc
+            self._draw_dynamic(ax, mode, rmax, s, t, eqx_lon, minute, live)
+            for art in self._dyn_artists:
+                ax.draw_artist(art)
+            canvas.blit(self.map.fig.bbox)
+            canvas.flush_events()
+            self._update_readout(s, t, eqx_lon, minute)
+        except Exception:
+            self._render()
 
     def _draw_compare_ghost(self, ax, mode, rmax):
         """Draw the frozen comparison orbit (ghost B) as a faint dashed track +
@@ -811,19 +871,31 @@ class OscarSimScreen(Screen):
         30 deg) and a ring of longitude labels (polar) or azimuth labels (QTH)
         around the edge -- matching the OSCARLOCATOR web simulator so the rim
         reads like a protractor and the longitude scale is visible at a glance.
+
+        The rim circle and all 72 tick marks are drawn as two LineCollections
+        (one per line weight) rather than ~73 separate ax.plot() calls, which is
+        much cheaper to build and redraw -- this is the single biggest cost in a
+        drag re-render.
         """
-        # rim circle
+        from matplotlib.collections import LineCollection
+        # rim circle as one polyline
         th_full = [math.radians(a) for a in range(0, 361, 2)]
         ax.plot(th_full, [rmax] * len(th_full), color=COL_MUTED,
                 linewidth=1.4, zorder=3)
-        # tick marks every 5 deg, longer + heavier every 30 deg
+        # tick marks every 5 deg, longer + heavier every 30 deg, batched by weight
+        major_segs, minor_segs = [], []
         for a in range(0, 360, 5):
             major = (a % 30 == 0)
             ln = (rmax * 0.034) if major else (rmax * 0.017)
             ar = math.radians(a)
-            ax.plot([ar, ar], [rmax - ln, rmax], color=COL_MUTED,
-                    linewidth=1.0 if major else 0.6, zorder=3,
-                    solid_capstyle="butt")
+            seg = [(ar, rmax - ln), (ar, rmax)]
+            (major_segs if major else minor_segs).append(seg)
+        ax.add_collection(LineCollection(
+            minor_segs, colors=COL_MUTED, linewidths=0.6, zorder=3,
+            capstyle="butt"))
+        ax.add_collection(LineCollection(
+            major_segs, colors=COL_MUTED, linewidths=1.0, zorder=3,
+            capstyle="butt"))
         # labels around the rim, pushed well OUTSIDE the rim circle so there is
         # a clear gap between the longitude values and the rim (rim is at rmax;
         # rlim extends to ~1.25*rmax). The font is kept small (matching the web
