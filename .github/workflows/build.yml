@@ -4,6 +4,12 @@ name: Build standalone apps
 # Runs on tags like v0.5.0 (and can be triggered manually). Artifacts are
 # uploaded per-OS; on a tag, they're also attached to a GitHub Release.
 #
+# macOS is built TWICE: an Apple Silicon (ARM64) app on the macos-latest runner
+# and an Intel (x86_64) app on the macos-13 runner, since PyInstaller emits a
+# host-architecture binary (target_arch=None) and a clean universal2 build isn't
+# reliable with the cartopy/GEOS/PROJ dependency stack. Users pick the artifact
+# matching their Mac.
+#
 # Dependencies: every build includes the FULL optional set -- sgp4 (accurate
 # propagation), openpyxl (xlsx export) and cartopy (high-res coastlines). cartopy
 # needs the GEOS/PROJ system libraries, which install cleanly from PyPI wheels on
@@ -28,8 +34,10 @@ jobs:
         include:
           - os: windows-latest
             artifact: OrbitDeck-windows
-          - os: macos-latest
-            artifact: OrbitDeck-macos
+          - os: macos-latest        # Apple Silicon (ARM64) runner
+            artifact: OrbitDeck-macos-arm64
+          - os: macos-13            # last Intel (x86_64) runner image
+            artifact: OrbitDeck-macos-intel
           - os: ubuntu-latest
             artifact: OrbitDeck-linux
 
