@@ -47,6 +47,8 @@ class OscarSimScreen(Screen):
         self._drag_eqx0 = None         # EQX longitude at button-press
         self._drag_ang0 = None         # pointer angle (rad) at button-press
         self._drag_kind = None         # "arc" (rotate) or "minute" (slide marker)
+        self._drag_after = None        # pending throttled-render handle
+        self._drag_pending = False     # a drag frame is waiting to be drawn
         # when True the arc is positioned by hand (via dragging) rather than
         # following the live sub-point. This lets BOTH catalog and lab satellites
         # be swept by hand; "Go live" clears it.
@@ -97,10 +99,11 @@ class OscarSimScreen(Screen):
                             command=self._render).pack(anchor="w", padx=14)
 
         ttk.Separator(ctrl, orient="horizontal").pack(fill="x", pady=8, padx=8)
-        # --- "Sweep the arc": the EQX longitude and minutes-after-crossing are
-        # now driven by dragging the map disc directly (like the web simulator),
-        # so these rows show the live values and the seed/live actions instead of
-        # sliders.
+        # --- "Sweep the arc": the equator-crossing longitude and the minutes
+        # after the crossing can be set EITHER by dragging the map disc directly
+        # (like the web simulator) OR with these two sliders. Dragging and the
+        # sliders share the same _eqx_lon / _minute variables, so moving one
+        # updates the other automatically.
         self._eqx_row = ttk.Frame(ctrl, style="Panel.TFrame")
         self._eqx_row.pack(fill="x", padx=10, pady=2)
         ttk.Label(self._eqx_row, text="Sweep the arc", style="PanelH.TLabel",
@@ -109,23 +112,36 @@ class OscarSimScreen(Screen):
         ttk.Label(self._eqx_row, textvariable=self._sweep_hint,
                   style="Muted.TLabel", wraplength=210,
                   justify="left").pack(anchor="w", pady=(0, 4))
+
+        # Equator-crossing longitude slider (-180..180 deg E)
         self._eqx_lbl = tk.StringVar(value="")
         ttk.Label(self._eqx_row, textvariable=self._eqx_lbl,
                   style="Mono.TLabel").pack(anchor="w")
+        self._eqx_scale = ttk.Scale(
+            self._eqx_row, from_=-180.0, to=180.0, variable=self._eqx_lon,
+            command=self._on_eqx_slider)
+        self._eqx_scale.pack(fill="x", pady=(0, 4))
+
+        # Minutes-after-EQX slider (0..one orbital period); the upper bound is
+        # set per-satellite in _sync_sweep_sliders.
         self._min_lbl = tk.StringVar(value="")
         ttk.Label(self._eqx_row, textvariable=self._min_lbl,
                   style="Mono.TLabel").pack(anchor="w")
+        self._min_scale = ttk.Scale(
+            self._eqx_row, from_=0.0, to=95.0, variable=self._minute,
+            command=self._on_min_slider)
+        self._min_scale.pack(fill="x", pady=(0, 2))
+
         btnrow = ttk.Frame(self._eqx_row, style="Panel.TFrame")
         btnrow.pack(fill="x", pady=(6, 2))
         ttk.Button(btnrow, text="Next pass",
                    command=self._seed_next_pass_manual).pack(side="left")
         ttk.Button(btnrow, text="Go live",
                    command=self._go_live).pack(side="left", padx=6)
-        # the minutes-after-EQX span is one orbit; kept as a plain attribute so
-        # the drag handler can clamp to it without a Scale widget
+        # the minutes-after-EQX span is one orbit; the drag handler and the
+        # minute slider both clamp to it
         self._min_span = 95.0
-        # keep a hidden reference so older code paths that call _min_row don't
-        # break; it is no longer packed as a slider
+        # keep a reference so older code paths that call _min_row don't break
         self._min_row = self._eqx_row
 
         ttk.Separator(ctrl, orient="horizontal").pack(fill="x", pady=8, padx=8)
@@ -198,13 +214,14 @@ class OscarSimScreen(Screen):
         # the hint reflects whether dragging is available in this mode
         if mode == "live":
             self._sweep_hint.set(
-                "Live mode follows the satellite in real time. To rotate the "
-                "arc by hand, switch to \u201cManual (drag the map)\u201d or "
-                "\u201cNext pass\u201d.")
+                "Live mode follows the satellite in real time. To set the arc by "
+                "hand, switch to \u201cManual (drag the map)\u201d or "
+                "\u201cNext pass\u201d, then drag the disc or use the sliders.")
         else:
             self._sweep_hint.set(
-                "Drag the map to rotate the ground-track arc by hand. Drag near "
-                "the moving dot to step the minutes after the equator crossing.")
+                "Drag the map to rotate the arc, and drag near the moving dot to "
+                "step the minutes \u2014 or use the two sliders below to set the "
+                "equator-crossing longitude and minutes after the crossing.")
         # entering lab mode: ensure the lab satellite exists and open the editor
         if mode == "lab":
             self._ensure_lab_sat()
@@ -436,9 +453,82 @@ class OscarSimScreen(Screen):
         return best_m
 
     def _on_release(self, _event):
+        # ensure the final position is drawn even if the last motion event was
+        # coalesced away by the throttle
+        if getattr(self, "_drag_pending", False):
+            self._drag_pending = False
+            if getattr(self, "_drag_after", None) is not None:
+                try:
+                    self.frame.after_cancel(self._drag_after)
+                except Exception:
+                    pass
+                self._drag_after = None
+            self._render()
         self._drag_ang0 = None
         self._drag_eqx0 = None
         self._drag_kind = None
+
+    def _render_drag(self):
+        """Throttled render for hand-drags: coalesce rapid motion events into at
+        most one redraw per frame interval so the disc keeps up with the pointer
+        without queueing more full renders than it can draw. A full clean redraw
+        (no blitting) guarantees the old arc is erased -- no ghosting."""
+        self._drag_pending = True
+        if getattr(self, "_drag_after", None) is not None:
+            return                          # a render is already scheduled
+        self._drag_after = self.frame.after(16, self._drag_tick)
+
+    def _on_eqx_slider(self, _val=None):
+        """The EQX-longitude slider hand-positions the arc (manual mode), like a
+        drag. Shares _eqx_lon with the drag handler, so the two stay in sync."""
+        if getattr(self, "_syncing_sliders", False):
+            return
+        if self._mode.get() == "live":
+            self._mode.set("manual")
+            self._on_mode()
+            return
+        if not self._manual_arc:
+            _t, _lon, minute = self._current_state(self.sat(),
+                                                   self._resolve_proj())
+            self._minute.set(minute)
+            self._manual_arc = True
+        self._render_drag()
+
+    def _on_min_slider(self, _val=None):
+        """The minutes-after-EQX slider slides the satellite along the arc."""
+        if getattr(self, "_syncing_sliders", False):
+            return
+        if self._mode.get() == "live":
+            self._mode.set("manual")
+            self._on_mode()
+            return
+        if not self._manual_arc:
+            _t, lon, _minute = self._current_state(self.sat(),
+                                                   self._resolve_proj())
+            self._eqx_lon.set(lon)
+            self._manual_arc = True
+        self._render_drag()
+
+    def _sync_sweep_sliders(self):
+        """Keep the minute slider's upper bound at one orbital period for the
+        current satellite, so the slider spans exactly one pass."""
+        s = self.sat()
+        period = (s.period_min if s and s.period_min else 95.0)
+        self._min_span = period
+        try:
+            self._min_scale.configure(to=round(period, 1))
+        except Exception:
+            pass
+
+    def _drag_tick(self):
+        self._drag_after = None
+        if not getattr(self, "_drag_pending", False):
+            return
+        self._drag_pending = False
+        self._render()
+        # if more motion arrived while rendering, schedule the next frame
+        if getattr(self, "_drag_pending", False):
+            self._drag_after = self.frame.after(16, self._drag_tick)
 
     def _near_minute_dot(self, event):
         """True if the press is near the satellite's current minute marker, so
@@ -623,12 +713,10 @@ class OscarSimScreen(Screen):
         self.map.clear(polar=True)
         ax = self.map.ax
         ax.set_facecolor(COL_PANEL)
-        self._dyn_artists = []
         if not s:
             ax.set_title("Select a satellite first.", color=COL_MUTED,
                          fontsize=10)
             self.map.draw()
-            self._static_bg = None
             return
         mode = self._resolve_proj()
         if mode in ("polar", "polar-south"):
@@ -637,11 +725,6 @@ class OscarSimScreen(Screen):
             rmax = max(50.0, min(80.0, abs(self.store.obs.lat) + 25.0))
         self._setup_axes(ax, mode, rmax)
 
-        # --- static layer (graticule, rim, coastlines, QTH) ---------------
-        # These don't change while the arc is dragged, so after drawing them we
-        # snapshot the canvas. A subsequent drag restores that snapshot and only
-        # repaints the moving artists (blitting), which is far cheaper than
-        # clearing and rebuilding the whole scene every mouse-move.
         self._draw_graticule(ax, mode, rmax)
         self._draw_rim(ax, mode, rmax)
         self._draw_coastlines(ax, mode, rmax)
@@ -655,76 +738,20 @@ class OscarSimScreen(Screen):
         if self._lab_active() and self._trace_orbits.get() > 0:
             self._draw_orbit_trace(ax, mode, rmax, s)
 
-        # rasterise the static layer, then cache it as the blit background
-        self.map.draw()
-        try:
-            self._static_bg = self.map.canvas.copy_from_bbox(self.map.fig.bbox)
-            self._static_key = self._scene_key(s, mode, rmax)
-        except Exception:
-            self._static_bg = None
-
-        # --- dynamic layer (arc + satellite + footprint) -----------------
-        self._draw_dynamic(ax, mode, rmax, s, t, eqx_lon, minute, live)
-        self.map.draw()
-        self._update_readout(s, t, eqx_lon, minute)
-
-    def _draw_dynamic(self, ax, mode, rmax, s, t, eqx_lon, minute, live):
-        """Draw only the moving artists (rotated arc, satellite, footprint,
-        range circle) and record them so the next blit frame can remove them."""
-        before = set(map(id, ax.lines)) | set(map(id, ax.collections)) \
-            | set(map(id, ax.texts)) | set(map(id, ax.patches))
         self._draw_track(ax, mode, rmax, s, eqx_lon)
         self._draw_satellite(ax, mode, rmax, s, t, eqx_lon, minute, live)
-        self._dyn_artists = [
-            a for a in (list(ax.lines) + list(ax.collections)
-                        + list(ax.texts) + list(ax.patches))
-            if id(a) not in before]
 
-    def _scene_key(self, s, mode, rmax):
-        """Identity of the STATIC scene; when this is unchanged a drag can reuse
-        the cached background instead of redrawing graticule/rim/coastlines."""
-        return (mode, round(rmax, 2), id(s),
-                round(self.store.obs.lat, 4), round(self.store.obs.lon, 4),
-                self._lab_active(),
-                self._lab_compare is not None,
-                self._trace_orbits.get() if self._lab_active() else 0)
+        # keep the minute slider's range matched to this satellite's period
+        self._sync_sweep_sliders()
 
-    def _render_drag(self):
-        """Fast path used during a hand-drag: if the cached static background is
-        still valid, restore it and repaint only the moving artists via blitting;
-        otherwise fall back to a full render."""
-        s = self.sat()
-        if s is None or getattr(self, "_static_bg", None) is None:
-            return self._render()
-        mode = self._resolve_proj()
-        if mode in ("polar", "polar-south"):
-            rmax = 90.0
-        else:
-            rmax = max(50.0, min(80.0, abs(self.store.obs.lat) + 25.0))
-        if self._scene_key(s, mode, rmax) != getattr(self, "_static_key", None):
-            return self._render()                      # static scene changed
-        ax = self.map.ax
-        canvas = self.map.canvas
-        try:
-            # drop the previous frame's moving artists so they don't accumulate
-            for art in getattr(self, "_dyn_artists", []):
-                try:
-                    art.remove()
-                except Exception:
-                    pass
-            self._dyn_artists = []
-            # restore the static scene, draw the new moving artists, blit
-            canvas.restore_region(self._static_bg)
-            t, eqx_lon, minute = self._current_state(s, mode)
-            live = (self._mode.get() in ("live", "lab")) and not self._manual_arc
-            self._draw_dynamic(ax, mode, rmax, s, t, eqx_lon, minute, live)
-            for art in self._dyn_artists:
-                ax.draw_artist(art)
-            canvas.blit(self.map.fig.bbox)
-            canvas.flush_events()
-            self._update_readout(s, t, eqx_lon, minute)
-        except Exception:
-            self._render()
+        # A single canvas draw per frame. (An earlier blitting fast-path that
+        # cached the static layer and repainted only the arc was removed: on the
+        # real TkAgg backend restore_region/blit left the previous arc visible
+        # -- the "moved arc stays on the map" ghosting -- and stuttered. Clearing
+        # and redrawing the whole scene each frame is always correct, and the
+        # drag is kept smooth by coalescing motion events in _on_drag instead.)
+        self.map.draw()
+        self._update_readout(s, t, eqx_lon, minute)
 
     def _draw_compare_ghost(self, ax, mode, rmax):
         """Draw the frozen comparison orbit (ghost B) as a faint dashed track +

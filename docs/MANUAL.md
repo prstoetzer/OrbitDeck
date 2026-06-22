@@ -453,8 +453,11 @@ positions straight off the instrument.
   the moving satellite dot** to step the **minutes after the crossing**; the
   marker slides along the drawn arc. This is exactly how you use a physical
   OSCARLOCATOR: line the node up on the equator-crossing longitude, then read
-  along the track. A live read-out under the **Sweep the arc** heading shows the
-  current EQX longitude and minute.
+  along the track. Under the **Sweep the arc** heading, two sliders —
+  **equator-crossing longitude** and **minutes after crossing** — set the same
+  values; dragging the disc and the sliders share state, so moving one updates
+  the other. The minute slider spans exactly one orbital period for the selected
+  satellite.
 - **Next pass** — seeds the overlay to the node of the next pass from your
   station.
 

@@ -1,3 +1,12 @@
+orbitdeck (0.35.5-1) unstable; urgency=medium
+
+  * Fix OSCARLOCATOR simulator arc dragging: the dragged arc no longer leaves a
+    ghost copy on the map, and the drag is smooth (removed the fragile blitting
+    fast-path; throttle motion events instead). Add equator-crossing-longitude
+    and minutes-after-crossing sliders to the Sweep panel, alongside dragging.
+
+ -- Paul Stoetzer, N8HM <noreply@example.com>  Mon, 22 Jun 2026 00:00:00 +0000
+
 orbitdeck (0.35.4-1) unstable; urgency=medium
 
   * Add A4 page-size support for every printable PDF (the OSCARLOCATOR, reports,

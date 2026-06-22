@@ -319,10 +319,12 @@ def test_qth_map_radius_capped():
         OL._base_map_page = orig
     assert 50.0 <= captured.get("rmax", 0) <= 80.0
 
-def test_oscarsim_drag_blit_matches_full_render():
-    """The drag fast-path (_render_drag, which blits only the moving artists over
-    a cached static background) reaches the same arc state as a full render, and
-    falls back to a full render when the static scene changes."""
+def test_oscarsim_drag_is_ghost_free_and_coalesced():
+    """A hand-drag redraws the whole scene each frame (no blitting), so the arc
+    never accumulates -- the artist counts after several drag frames match a
+    single render. The throttle coalesces rapid motion events into a pending
+    redraw instead of one synchronous redraw per event."""
+    import math
     import tkinter as tk
     from orbitdeck.gui.app import OrbitDeckApp
 
@@ -344,24 +346,94 @@ def test_oscarsim_drag_blit_matches_full_render():
     sim._mode.set("manual")
     sim._on_mode()
     root.update()
+    # baseline artist count from a clean render (re-fetch ax: map.clear() can
+    # replace the axes object on each render)
+    n_lines = len(sim.map.ax.lines)
+    n_texts = len(sim.map.ax.texts)
 
-    # a full render caches the static background
-    sim._eqx_lon.set(70.0)
-    sim._render()
+    class Ev:
+        def __init__(self, th, r):
+            self.inaxes = sim.map.ax
+            self.xdata = th
+            self.ydata = r
+            self.button = 1
+
+    # an arc-rotate gesture: press away from the dot, then several motions
+    sim._on_press(Ev(math.radians(30), 70.0))
+    assert sim._drag_kind == "arc"
+    for d in (20, 40, 60, 80):
+        sim._on_drag(Ev(math.radians(30 + d), 70.0))
+    # rapid motions are coalesced: a render is pending, not run per-event
+    assert sim._drag_pending is True
+    root.update()                       # let the throttle fire
+    sim._on_release(Ev(math.radians(120), 70.0))
     root.update()
-    assert sim._static_bg is not None
-    key = sim._static_key
 
-    # a drag frame reuses it (key unchanged) and updates the arc longitude
-    sim._eqx_lon.set(120.0)
-    sim._render_drag()
-    assert sim._static_key == key            # background was reused, not rebuilt
-    assert sim._eqx_lon.get() == 120.0
+    # no accumulation: a full clean render each frame keeps the artist count
+    # at the single-render baseline (no leftover/ghost arcs)
+    assert len(sim.map.ax.lines) == n_lines, (n_lines, len(sim.map.ax.lines))
+    assert len(sim.map.ax.texts) == n_texts, (n_texts, len(sim.map.ax.texts))
+    # the drag actually rotated the arc
+    assert sim._manual_arc is True
 
-    # changing the projection invalidates the cache -> full render path
-    sim._proj_mode.set("qth")
-    sim._render_drag()
-    assert sim._static_key != key            # rebuilt for the new scene
+    root.destroy()
+
+
+def test_oscarsim_sweep_sliders_drive_and_sync():
+    """The EQX-longitude and minutes-after-EQX sliders hand-position the arc
+    (switching to manual mode), share their variables with the drag handler so
+    the two stay in sync, and the minute slider's range tracks the period."""
+    import math
+    import tkinter as tk
+    from orbitdeck.gui.app import OrbitDeckApp
+
+    try:
+        root = tk.Tk()
+    except Exception:
+        return
+    import os
+    try:
+        os.remove(os.path.expanduser("~/.orbitdeck/config.json"))
+    except OSError:
+        pass
+    app = OrbitDeckApp(root)
+    app.store.save_config(onboarded=True)
+    sat = next(s for s in app.store.db.sats if s.name == "RS-44")
+    app.store.select(sat.norad)
+    app.show("oscarsim")
+    sim = app.current
+    root.update()
+
+    # the minute slider spans one orbital period for this satellite
+    assert abs(float(sim._min_scale.cget("to")) - sat.period_min) < 1.0
+
+    # moving the EQX slider switches to manual mode and sets the arc longitude
+    sim._eqx_lon.set(75.0)
+    sim._on_eqx_slider()
+    assert sim._manual_arc is True
+    assert abs(sim._eqx_lon.get() - 75.0) < 1e-6
+
+    # moving the minute slider slides the marker along the arc
+    sim._minute.set(40.0)
+    sim._on_min_slider()
+    assert abs(sim._minute.get() - 40.0) < 1e-6
+
+    # dragging the arc updates the SAME variable the slider is bound to, so the
+    # slider thumb follows the drag
+    ax = sim.map.ax
+
+    class Ev:
+        def __init__(self, th, r):
+            self.inaxes = ax
+            self.xdata = th
+            self.ydata = r
+            self.button = 1
+
+    sim._on_press(Ev(math.radians(30), 70.0))
+    sim._on_drag(Ev(math.radians(90), 70.0))
+    sim._on_release(Ev(math.radians(90), 70.0))
+    # eqx_lon (the slider's variable) moved off 75 due to the drag
+    assert abs(sim._eqx_lon.get() - 75.0) > 1.0
 
     root.destroy()
 

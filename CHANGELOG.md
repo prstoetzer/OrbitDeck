@@ -1,5 +1,24 @@
 # Changelog
 
+## [0.35.5]
+
+### Fixed
+- **OSCARLOCATOR Simulator: dragging the arc no longer leaves a ghost copy on
+  the map, and the drag is smooth.** The previous blitting fast-path (which
+  cached the static layer and repainted only the moving arc) was unreliable on
+  the real TkAgg backend: `restore_region`/`blit` left the previously drawn arc
+  visible and stuttered. It has been removed in favour of a single clean full
+  redraw per frame (which can never ghost, since the scene is cleared each time),
+  with rapid pointer-motion events coalesced through a short timer so the disc
+  stays responsive.
+
+### Added
+- **Sliders for equator-crossing longitude and minutes-after-crossing** in the
+  OSCARLOCATOR Simulator's "Sweep the arc" panel, matching the web simulator.
+  The arc can now be set either by dragging the disc or with the two sliders; the
+  controls share state, so dragging moves the sliders and vice versa. The minute
+  slider spans exactly one orbital period for the selected satellite.
+
 ## [0.35.4]
 
 ### Added
