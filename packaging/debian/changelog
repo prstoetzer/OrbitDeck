@@ -1,3 +1,24 @@
+orbitdeck (0.36.3-1) unstable; urgency=medium
+
+  * Fix tabs that could feel unclickable (reported on the Learn screen's
+    "Pointing" and "Link budget" tabs). The click was bound only to the tab's
+    text label, so clicks landing on the surrounding padding or the 2px underline
+    strip did nothing. The whole tab area (holder, label, and indicator) is now
+    clickable. This affects every tabbed screen, not just Learn.
+
+ -- Paul Stoetzer, N8HM <noreply@example.com>  Mon, 23 Jun 2026 00:00:00 +0000
+
+orbitdeck (0.36.2-1) unstable; urgency=medium
+
+  * DX Doppler: display the four dial frequencies to the Hz (was kHz-rounded), so
+    the home station's small Doppler near closest approach is visible instead of
+    appearing frozen. The underlying engine was already correct and full-precision
+    (CSV export was unaffected); this is a display-resolution fix. Added
+    regression tests covering home-station Doppler resolution, inverting-
+    transponder passband mapping, and DX-station dial locking in the fixed modes.
+
+ -- Paul Stoetzer, N8HM <noreply@example.com>  Mon, 23 Jun 2026 00:00:00 +0000
+
 orbitdeck (0.36.1-1) unstable; urgency=medium
 
   * Readability/consistency: informational text no longer sits on a stray

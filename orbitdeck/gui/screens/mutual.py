@@ -11,8 +11,18 @@ from ...engine.predict import Predictor
 
 
 def _mhz(hz):
-    """Format a dial frequency (Hz) as MHz to 3 decimals, or a dash for 0."""
-    return "%.3f" % (hz / 1e6) if hz else "\u2014"
+    """Format a dial frequency (Hz) as MHz with full Hz resolution, or a dash for
+    0. Doppler on the home station near closest approach can be only tens of Hz,
+    so the dial must be shown to the Hz -- rounding to kHz would make a correctly
+    computed small Doppler look frozen."""
+    if not hz:
+        return "\u2014"
+    mhz = hz / 1e6
+    # six decimals = 1 Hz resolution; group as MHz.kHz with a thin space so it
+    # stays readable, e.g. 435.640 950
+    s = "%.6f" % mhz
+    whole, frac = s.split(".")
+    return "%s.%s\u2009%s" % (whole, frac[:3], frac[3:])
 
 
 class MutualScreen(Screen):

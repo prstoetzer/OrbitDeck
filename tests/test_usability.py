@@ -838,3 +838,33 @@ def test_settings_screen_is_scrollable():
 
     assert find_canvas(scr.frame) is not None, "settings form is not scrollable"
     root.destroy()
+
+
+def test_tabbar_whole_holder_is_clickable():
+    """Regression: a TabBar tab must be selectable by clicking anywhere in its
+    area -- the holder frame, the text label, and the 2px indicator strip --
+    not only by hitting the text precisely. Binding the click to the label alone
+    left dead zones (padding + underline) that made tabs like the Learn screen's
+    'Pointing' and 'Link budget' feel unclickable."""
+    import tkinter as tk
+    from orbitdeck.gui.screens import TabBar
+
+    try:
+        root = tk.Tk()
+    except Exception:
+        return
+    tabs = TabBar(root)
+    tabs.add("One")
+    tabs.add("Two")
+    tabs.pack()
+    root.update_idletasks()
+    # the holder is the label's parent; the indicator is the second child
+    lbl1, ind1, page1 = tabs._tabs[1]
+    holder1 = lbl1.master
+    for widget, part in ((holder1, "holder"), (lbl1, "label"), (ind1, "indicator")):
+        tabs.select(0)                       # reset to the other tab
+        widget.event_generate("<Button-1>")
+        root.update()
+        assert tabs._active == 1, "clicking the %s did not select the tab" % part
+        assert page1.winfo_ismapped(), "tab page not shown after %s click" % part
+    root.destroy()

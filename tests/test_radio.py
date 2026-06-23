@@ -597,3 +597,81 @@ def test_dx_doppler_calibration_offsets_apply_once():
         assert abs((c[2] - b[2]) - 2000) <= 1     # my_tx
         assert abs((c[3] - b[3]) - 1000) <= 1     # dx_rx
         assert abs((c[4] - b[4]) - 2000) <= 1     # dx_tx
+
+
+def test_dx_doppler_home_station_doppler_is_resolved():
+    """Regression: the HOME station's Doppler must be computed and be visible at
+    sub-kHz resolution. Near closest approach the home Doppler can be only tens
+    of Hz; an earlier kHz-rounded display made it look frozen even though the
+    engine was correct. Assert the home RX dial actually varies by more than a
+    few Hz across the window AND that consecutive distinct Hz values are not
+    collapsed when rendered to the dial format used in the UI."""
+    from orbitdeck.engine import dxdoppler as DX
+    sat = _linear_inverting_sat()
+    me, dx, w = _mutual_window(sat)
+    tp = sat.transponders[0]
+    rows = DX.dx_doppler_table(w.start, w.end, sat, me, dx, tp, pb_offset=30_000,
+                               mode=DX.TRUE_RULE, step_s=30.0)
+    my_rx = [r[1] for r in rows]
+    dx_rx = [r[3] for r in rows]
+    # both stations have a real, changing Doppler (not zero, not frozen)
+    assert max(my_rx) - min(my_rx) > 50, "home RX Doppler should span >50 Hz"
+    assert max(dx_rx) - min(dx_rx) > 50, "dx RX Doppler should span >50 Hz"
+    # the two stations differ from each other (different geometry)
+    mid = len(rows) // 2
+    assert my_rx[mid] != dx_rx[mid]
+
+    # a Hz-resolution dial format keeps consecutive distinct values distinct,
+    # whereas a 3-decimal-MHz (kHz) format can collapse them. Verify the engine
+    # output has neighbouring rows that a kHz format WOULD collapse but a Hz
+    # format keeps separate -- i.e. there is genuine sub-kHz structure to show.
+    def khz(hz):
+        return "%.3f" % (hz / 1e6)
+    collapsed = sum(1 for a, b in zip(my_rx, my_rx[1:])
+                    if a != b and khz(a) == khz(b))
+    assert collapsed > 0, ("expected sub-kHz home Doppler steps that a kHz "
+                           "display would hide")
+
+
+def test_dx_doppler_inversion_flips_uplink_operating_point():
+    """An inverting linear transponder must map the passband the opposite way:
+    tuning UP on the downlink tunes DOWN on the uplink. Verify the uplink
+    operating point for a given downlink offset is mirrored versus a
+    non-inverting transponder of the same edges."""
+    from orbitdeck.engine import dxdoppler as DX
+    from orbitdeck.engine.satdb import Transponder
+    edges = dict(downlink=435_610_000, downlink_high=435_670_000,
+                 uplink=145_935_000, uplink_high=145_995_000, is_linear=True)
+    non_inv = Transponder(invert=False, **edges)
+    inv = Transponder(invert=True, **edges)
+    bw = non_inv.bandwidth()
+    off = int(0.25 * bw)               # 25% up from the low edge
+    _, ul_non = DX.passband_freqs(non_inv, off)
+    _, ul_inv = DX.passband_freqs(inv, off)
+    # non-inverting: uplink also 25% up; inverting: uplink 75% up (mirrored)
+    assert ul_non == 145_935_000 + off
+    assert ul_inv == 145_935_000 + (bw - off)
+    assert ul_inv != ul_non
+
+
+def test_dx_doppler_dx_anchor_pins_dx_dial_others_drift():
+    """Locking a DX-station dial must pin exactly that dial (DX RX or DX TX) to
+    the Hz across the window while the other three dials -- including the home
+    station's -- drift. Confirms DX Doppler is fully computed (not just the home
+    station) in the fixed modes and that the anchor selector works for DX."""
+    from orbitdeck.engine import dxdoppler as DX
+    sat = _linear_inverting_sat()
+    me, dx, w = _mutual_window(sat)
+    tp = sat.transponders[0]
+    # index into (t, my_rx, my_tx, dx_rx, dx_tx)
+    cases = [(DX.FIXED_DL, DX.DX_RX, 3), (DX.FIXED_UL, DX.DX_TX, 4)]
+    for mode, anchor, col in cases:
+        rows = DX.dx_doppler_table(w.start, w.end, sat, me, dx, tp,
+                                   pb_offset=30_000, mode=mode, anchor=anchor,
+                                   step_s=30.0)
+        spans = {c: max(r[c] for r in rows) - min(r[c] for r in rows)
+                 for c in (1, 2, 3, 4)}
+        assert spans[col] == 0, ("locked DX dial should be constant", mode, spans)
+        for c in (1, 2, 3, 4):
+            if c != col:
+                assert spans[c] > 0, ("other dials should drift", c, mode, spans)

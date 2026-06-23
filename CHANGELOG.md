@@ -1,5 +1,38 @@
 # Changelog
 
+## [0.36.3]
+
+### Fixed
+- **Tabs could feel unclickable.** Reported on the Learn screen's **Pointing**
+  and **Link budget** tabs, but the cause was general: each tab's click handler
+  was bound only to its text label, so a click that landed on the surrounding
+  padding or the 2-pixel underline strip did nothing — the tab seemed dead unless
+  you hit the text exactly. The entire tab area (the holder frame, the label, and
+  the indicator strip) is now clickable. This applies to every tabbed screen, not
+  just Learn. (The tabs' content and the buttons inside them — e.g. "Plot next
+  pass sky track", "Compute link" — were already working; the only barrier was
+  reaching the tab.)
+
+## [0.36.2]
+
+### Fixed
+- **DX Doppler now shows the home station's Doppler clearly.** The four dial
+  frequencies in the Mutual Windows → DX Doppler tab were displayed rounded to
+  the kHz (three decimals of MHz). Near closest approach the home station's
+  Doppler can be only tens of Hz, which rounded away entirely, so the home
+  columns looked frozen even though both stations' Doppler was being computed
+  correctly. Dials are now shown to the Hz (e.g. `435.640 950`), so the Doppler
+  on both the home and DX stations is visible and changes smoothly across the
+  window. The DX Doppler engine and the CSV export were already correct and
+  full-precision; this was a display-resolution fix only.
+
+### Notes
+- Verified and added regression tests for the existing (correct) behavior:
+  inverting linear transponders mirror the uplink operating point versus the
+  downlink offset, and locking any dial in the fixed modes — including the **DX
+  station's** RX or TX — pins exactly that dial while the other three (home and
+  DX) drift.
+
 ## [0.36.1]
 
 ### Fixed

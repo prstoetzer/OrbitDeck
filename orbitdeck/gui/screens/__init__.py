@@ -434,7 +434,14 @@ class TabBar:
         ind.pack(side="top", fill="x")
         page = ttk.Frame(self._body, style="TFrame")
         idx = len(self._tabs)
-        lbl.bind("<Button-1>", lambda _e, i=idx: self.select(i))
+        # bind the click to the whole tab area (holder + label + indicator
+        # strip), not just the text label -- otherwise clicks that land on the
+        # padding or the 2px underline do nothing, making a tab feel unclickable.
+        def _sel(_e, i=idx):
+            self.select(i)
+        holder.bind("<Button-1>", _sel)
+        lbl.bind("<Button-1>", _sel)
+        ind.bind("<Button-1>", _sel)
         self._tabs.append((lbl, ind, page))
         if self._use_groups:
             gi = getattr(self, "_cur_group", 0)
