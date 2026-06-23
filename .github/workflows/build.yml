@@ -1,20 +1,31 @@
 name: Build standalone apps
 
-# Build OrbitDeck into standalone executables for Windows, macOS, and Linux.
-# Runs on tags like v0.5.0 (and can be triggered manually). Artifacts are
-# uploaded per-OS; on a tag, they're also attached to a GitHub Release.
+# Build OrbitDeck into standalone executables for Windows, macOS, Linux, and
+# 64-bit Raspberry Pi OS. Runs on tags like v0.5.0 (and can be triggered
+# manually). Artifacts are uploaded per-target; on a tag, they're also attached
+# to a GitHub Release.
 #
-# macOS is built TWICE: an Apple Silicon (ARM64) app on the macos-latest runner
-# and an Intel (x86_64) app on the macos-13 runner, since PyInstaller emits a
-# host-architecture binary (target_arch=None) and a clean universal2 build isn't
-# reliable with the cartopy/GEOS/PROJ dependency stack. Users pick the artifact
-# matching their Mac.
+# Targets:
+#   - Windows x86_64           (windows-latest)
+#   - macOS Apple Silicon      (macos-latest, arm64)
+#   - macOS Intel              (macos-13, x86_64)
+#   - Linux x86_64             (ubuntu-latest)
+#   - Raspberry Pi OS 64-bit   (ubuntu-22.04-arm, arm64)
 #
-# Dependencies: every build includes the FULL optional set -- sgp4 (accurate
-# propagation), openpyxl (xlsx export) and cartopy (high-res coastlines). cartopy
-# needs the GEOS/PROJ system libraries, which install cleanly from PyPI wheels on
-# Linux/macOS but not on the Windows runner; there we use conda-forge (which
-# bundles GEOS/PROJ) to get cartopy, then pip for everything else.
+# macOS is built twice because PyInstaller emits a host-arch binary
+# (target_arch=None) and a clean universal2 build isn't reliable with the
+# cartopy/GEOS/PROJ stack. The Raspberry Pi build runs natively on an arm64 Linux
+# runner; ubuntu-22.04-arm (glibc 2.35) is deliberately older than Pi OS Bookworm
+# (glibc 2.36) so the binary runs there. NOTE: GitHub's arm64 Linux hosted
+# runners work only in PUBLIC repositories -- in a private repo this job needs a
+# self-hosted or larger arm64 runner (see packaging/BUILD.md).
+#
+# Dependencies: every build includes the FULL optional set where possible -- sgp4
+# (accurate propagation), openpyxl (xlsx export) and cartopy (high-res
+# coastlines). cartopy needs GEOS/PROJ: on Windows it comes from conda-forge; on
+# x86_64 Linux/macOS from PyPI wheels; on arm64 Linux (no cartopy wheel) it is
+# built from sdist against apt's GEOS/PROJ, falling back to OrbitDeck's bundled
+# coastlines if that build fails.
 
 on:
   push:
@@ -38,8 +49,21 @@ jobs:
             artifact: OrbitDeck-macos-arm64
           - os: macos-13            # last Intel (x86_64) runner image
             artifact: OrbitDeck-macos-intel
-          - os: ubuntu-latest
-            artifact: OrbitDeck-linux
+          - os: ubuntu-latest       # x86_64 Linux (PC/server distros)
+            artifact: OrbitDeck-linux-x86_64
+          # 64-bit Raspberry Pi OS: build natively on an arm64 Linux runner.
+          # ubuntu-22.04-arm (glibc 2.35) is intentionally OLDER than Raspberry
+          # Pi OS Bookworm (Debian 12, glibc 2.36), so the binary runs there;
+          # building on ubuntu-24.04-arm (glibc 2.39) would produce a binary that
+          # fails on the Pi with "GLIBC_2.3x not found". actions/setup-python
+          # supports arm64 on this runner (Python 3.9-3.14).
+          # NOTE 1: arm64 hosted runners are free on PUBLIC repos; a private repo
+          #   needs the (paid) arm64 runners or a self-hosted Pi runner.
+          # NOTE 2: 22.04 is an older image -- once GitHub deprecates it, move to
+          #   the oldest arm64 image whose glibc is still <= the target Pi OS
+          #   (check `ldd --version` on the Pi; Bookworm = 2.36). See BUILD.md.
+          - os: ubuntu-22.04-arm    # arm64 Linux -> 64-bit Raspberry Pi OS
+            artifact: OrbitDeck-raspberrypi-arm64
 
     defaults:
       run:
@@ -64,27 +88,76 @@ jobs:
           auto-activate-base: false
           activate-environment: build
 
+      # PyInstaller bundles the Tk runtime from the build machine; the
+      # setup-python build on Ubuntu needs the system Tcl/Tk libraries present
+      # for that to work. Also install GEOS/PROJ dev libraries: cartopy has no
+      # aarch64 PyPI wheel, so on the arm64 (Raspberry Pi) runner pip must build
+      # it from sdist, which needs these headers. Harmless on x86_64 (where the
+      # cartopy wheel is used instead).
+      - name: Install system libraries (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y python3-tk tk-dev \
+            libgeos-dev libproj-dev proj-bin proj-data
+
       # --- Dependencies (full optional set on every platform) ---
-      - name: Install dependencies (Linux/macOS)
-        if: runner.os != 'Windows'
+      # x86_64 Linux + both macOS arches: cartopy ships wheels, so plain pip
+      # handles the whole optional set. (Apple Silicon is arm64 but cartopy DOES
+      # publish macOS arm64 wheels, so it belongs here -- only arm64 *Linux*
+      # lacks a cartopy wheel.)
+      - name: Install dependencies (wheels available)
+        if: runner.os == 'macOS' || (runner.os == 'Linux' && runner.arch != 'ARM64')
         run: |
           python -m pip install --upgrade pip
           pip install pyinstaller
-          # cartopy wheels include GEOS/PROJ on Linux/macOS, so pip is fine here.
           pip install -e ".[full]"
+
+      # arm64 Linux (Raspberry Pi target): numpy/matplotlib/sgp4 have aarch64
+      # wheels, but cartopy does not -- it must build from sdist against the
+      # GEOS/PROJ libs installed above. Install the always-on extras first, then
+      # ATTEMPT cartopy; if it can't build, the app falls back to its bundled
+      # coastlines, so the build still succeeds.
+      - name: Install dependencies (arm64 Linux / Raspberry Pi)
+        if: runner.os == 'Linux' && runner.arch == 'ARM64'
+        run: |
+          python -m pip install --upgrade pip
+          pip install pyinstaller
+          pip install -e ".[accurate,excel]"
+          pip install "cartopy>=0.21" || echo "cartopy build failed on arm64; the app will use its bundled coastlines"
 
       - name: Install dependencies (Windows)
         if: runner.os == 'Windows'
         shell: bash -el {0}     # login shell so the conda env is activated
         run: |
-          # cartopy (and its GEOS/PROJ libraries) from conda-forge -- the
-          # reliable way to get it on Windows.
-          conda install -n build -y -c conda-forge "cartopy>=0.21"
+          # Get the whole NATIVE stack from conda-forge so it is ABI-consistent:
+          # cartopy (GEOS/PROJ), and numpy + matplotlib (whose C extensions must
+          # match the same numpy ABI). Mixing conda-forge cartopy with a separate
+          # pip numpy/matplotlib risks "numpy.core.multiarray failed to import".
+          conda install -n build -y -c conda-forge \
+            "cartopy>=0.21" "numpy>=1.26" "matplotlib>=3.8"
           python -m pip install --upgrade pip
           pip install pyinstaller
-          # The rest (incl. sgp4 + openpyxl) via pip; cartopy is already present
-          # so this won't try to rebuild it.
+          # The remaining pure-Python pieces (sgp4, openpyxl, certifi) via pip;
+          # numpy/matplotlib/cartopy are already satisfied by conda, so pip won't
+          # replace them.
           pip install -e ".[accurate,excel]"
+
+      # Fail fast if the native stack can't import (catches numpy/matplotlib ABI
+      # mismatches and missing-DLL problems like "DLL load failed importing
+      # ft2font" BEFORE spending time on the PyInstaller build). Runs in the same
+      # interpreter/env the build will freeze.
+      - name: Verify native imports (Linux/macOS)
+        if: runner.os != 'Windows'
+        run: |
+          python -c "import numpy, matplotlib; matplotlib.use('Agg'); import matplotlib.ft2font, matplotlib.pyplot; import sgp4.api; import orbitdeck; print('imports OK', orbitdeck.__version__)"
+          python -c "import cartopy.crs as ccrs; print('cartopy OK')" || echo "cartopy import failed (app falls back to bundled coastlines)"
+
+      - name: Verify native imports (Windows)
+        if: runner.os == 'Windows'
+        shell: bash -el {0}
+        run: |
+          python -c "import numpy, matplotlib; matplotlib.use('Agg'); import matplotlib.ft2font, matplotlib.pyplot; import sgp4.api; import cartopy.crs; import orbitdeck; print('imports OK', orbitdeck.__version__)"
 
       - name: Generate macOS .icns
         if: runner.os == 'macOS'
@@ -107,6 +180,23 @@ jobs:
         if: runner.os == 'Windows'
         shell: bash -el {0}     # use the activated conda env's PyInstaller/python
         run: pyinstaller --noconfirm orbitdeck.spec
+
+      # Confirm PyInstaller actually produced the expected bundle before we try
+      # to package it, so a failed/empty build surfaces here with a clear message
+      # rather than as a confusing "path not found" in the packaging step. This
+      # matters most for the least-exercised target (arm64 / Raspberry Pi).
+      - name: Verify build output (macOS)
+        if: runner.os == 'macOS'
+        run: test -d "dist/OrbitDeck.app" || (echo "::error::PyInstaller did not produce dist/OrbitDeck.app" && exit 1)
+
+      - name: Verify build output (Linux)
+        if: runner.os == 'Linux'
+        run: test -x "dist/OrbitDeck/OrbitDeck" || (echo "::error::PyInstaller did not produce dist/OrbitDeck/OrbitDeck" && exit 1)
+
+      - name: Verify build output (Windows)
+        if: runner.os == 'Windows'
+        shell: bash
+        run: test -f "dist/OrbitDeck/OrbitDeck.exe" || (echo "::error::PyInstaller did not produce dist/OrbitDeck/OrbitDeck.exe" && exit 1)
 
       # --- Package ---
       # Windows runners' Git Bash has no `zip`, so use PowerShell's
