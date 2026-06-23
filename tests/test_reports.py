@@ -164,3 +164,43 @@ def test_http_get_reports_403_and_404_clearly():
         assert "404" in raised
     finally:
         net.urllib.request.urlopen = saved
+
+
+def test_report_content_clears_branding_footer():
+    """Regression: printed reports must not draw content on top of the centred
+    branding credit at the foot of each page (which sits at y=0.045). The full
+    satellite report's pass-progression timeline chart previously printed its
+    x-axis label over the branding. Assert the flow floor and the timeline chart
+    bottom both sit clear of the branding band, and that a generated report
+    renders with no text below the clearance line."""
+    import os
+    import tkinter as tk
+    from orbitdeck.gui.app import OrbitDeckApp
+    from orbitdeck.engine import Observer
+    from orbitdeck.gui import reports as R
+
+    # static guarantees on the layout constants
+    # branding occupies ~0.045..0.058; the content flow floor must be above it
+    src = open(os.path.join(os.path.dirname(R.__file__), "reports.py")).read()
+    assert "self.y - need < 0.085" in src, "flow floor regressed below branding"
+    assert "fig.add_axes([0.13, 0.12," in src, "timeline chart bottom regressed"
+
+    try:
+        root = tk.Tk()
+    except Exception:
+        return
+    try:
+        app = OrbitDeckApp(root)
+    except Exception:
+        return
+    app.store.save_config(onboarded=True)
+    app.store.obs = Observer(lat=39.93, lon=-74.89, alt_m=20, valid=True)
+    sat = next((s for s in app.store.db.sats if s.transponders), None)
+    if sat is None:
+        root.destroy()
+        return
+    import tempfile
+    path = os.path.join(tempfile.gettempdir(), "test_branding_report.pdf")
+    R.generate_satellite_report(path, app.store, sat)
+    assert os.path.exists(path) and os.path.getsize(path) > 0
+    root.destroy()

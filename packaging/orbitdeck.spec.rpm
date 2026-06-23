@@ -2,13 +2,13 @@
 #
 # Build:
 #     # from the repo root, create a release tarball matching Source0, e.g.
-#     #   git archive --format=tar.gz --prefix=OrbitDeck-0.36.5/ \
-#     #       -o ~/rpmbuild/SOURCES/orbitdeck-0.36.5.tar.gz v0.36.5
+#     #   git archive --format=tar.gz --prefix=OrbitDeck-0.36.6/ \
+#     #       -o ~/rpmbuild/SOURCES/orbitdeck-0.36.6.tar.gz v0.36.6
 #     rpmbuild -ba packaging/orbitdeck.spec
 #
 # Keep Version in sync with orbitdeck/__init__.py.
 Name:           orbitdeck
-Version:        0.36.5
+Version:        0.36.6
 Release:        1%{?dist}
 Summary:        Desktop satellite tracking and orbital analysis for amateur radio
 
@@ -67,6 +67,8 @@ install -Dm644 packaging/io.github.prstoetzer.OrbitDeck.metainfo.xml \
 %{_metainfodir}/io.github.prstoetzer.OrbitDeck.metainfo.xml
 
 %changelog
+* Mon Jun 23 2026 Paul Stoetzer, N8HM - 0.36.6-1
+- Revert build-breaking size trims; fix report text overlapping the page-footer branding.
 * Mon Jun 23 2026 Paul Stoetzer, N8HM - 0.36.5-1
 - Fix tabs unclickable on macOS: respond to button-release, cross-platform font, robust wrap.
 * Mon Jun 23 2026 Paul Stoetzer, N8HM - 0.36.4-1

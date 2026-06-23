@@ -121,7 +121,10 @@ class _Page:
                                        color=C_RULE, linewidth=1.0))
 
     def ensure(self, need=0.06):
-        if self.y - need < 0.06:
+        # 0.085 floor keeps flowed content clear of the centred branding credit
+        # at the foot of the page (branding sits at y~0.045-0.058; text drawn with
+        # va="top" descends below its anchor, so stopping at 0.06 could clip it).
+        if self.y - need < 0.085:
             self._new_page()
 
     def title(self, text):
@@ -182,7 +185,7 @@ class _Page:
         row_h = 0.022
         for r, row in enumerate(rows):
             self.ensure(0.026)
-            if self.y <= 0.07:
+            if self.y <= 0.10:
                 _draw_header()
             if r % 2 == 1:
                 # the cell text is drawn with va="top" at self.y, so it occupies
@@ -768,7 +771,11 @@ def _progression_chart_pages(pdf, store, sat, when_unix, days, passes, by_day,
                      % sat.name, fontsize=14, color=C_TITLE,
                      fontweight="bold", va="top")
             top = 0.90
-        ax = fig.add_axes([0.13, 0.07, 0.82, top - 0.07])
+        # bottom raised to 0.12 so the x-axis tick labels and the "Time of day"
+        # xlabel clear the centred branding credit at the foot of the page
+        # (the branding sits at y~0.045; with the axis at 0.07 the xlabel was
+        # printing on top of it).
+        ax = fig.add_axes([0.13, 0.12, 0.82, top - 0.12])
         n = d1 - d0
         for li, di in enumerate(range(d0, d1)):
             y = n - 1 - li                 # top day first
@@ -853,10 +860,11 @@ def _pass_polar_grid(pdf, pred, sat, passes, title, subtitle, cols=3, rows=4):
             fig.text(0.07, 0.955, title + " (cont.)", fontsize=14,
                      color=C_TITLE, fontweight="bold", va="top")
             top = 0.92
-        # grid of polar axes
+        # grid of polar axes. The lower bound is 0.10 (not 0.06) so the lowest
+        # row's caption clears the centred branding credit at the foot of the page.
         gap_x, gap_y = 0.04, 0.03
         cell_w = (0.86 - (cols - 1) * gap_x) / cols
-        cell_h = (top - 0.06 - (rows - 1) * gap_y) / rows
+        cell_h = (top - 0.10 - (rows - 1) * gap_y) / rows
         for r in range(rows):
             for c in range(cols):
                 if idx >= len(passes):
@@ -966,7 +974,9 @@ def _mutual_polar_pages(pdf, store, sat, dx, wins, max_windows=12):
                      % (my_name, dx.lat, dx.lon),
                      fontsize=9, color=C_MUTED, va="top", wrap=True)
         top = 0.89 if pageno == 0 else 0.93
-        row_h = (top - 0.06) / rows_per_page
+        # 0.10 lower bound so the lowest row's station-name labels clear the
+        # centred branding credit at the foot of the page
+        row_h = (top - 0.10) / rows_per_page
         for r in range(rows_per_page):
             if idx >= len(sel):
                 break

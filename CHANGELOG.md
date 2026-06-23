@@ -1,5 +1,24 @@
 # Changelog
 
+## [0.36.6]
+
+### Fixed
+- **Builds were failing** because of the v0.36.4 bundle-size reductions. Reverted
+  them: the PyInstaller spec no longer filters data files via `_trim_datas` and no
+  longer excludes `scipy`/`pandas` (the frozen app needs more of that payload than
+  a static check suggests). The spec is back to its pre-0.36.4 state. `BUILD.md`
+  keeps the explanation of why the Windows build is larger, now with a caution
+  against trimming without testing every platform's built artifact.
+- **Printed reports no longer overlap the page-footer branding.** In the full
+  satellite report, the pass-progression timeline chart printed its "Time of day
+  (UTC hour)" axis label on top of the centred "OrbitDeck — Paul Stoetzer, N8HM"
+  credit at the foot of the page. Raised that chart's bottom and the content-flow,
+  table, polar-grid, and mutual-window row floors so all report content clears the
+  branding band. This covers the satellite, favorites, site-comparison, eclipse,
+  progression, polar-passes, and mutual-passes reports. OSCARLOCATOR sheets and
+  the reference-orbits sheet were already correct and are unchanged; the handouts
+  were verified clear (with a margin note added to keep future edits safe).
+
 ## [0.36.5]
 
 ### Fixed

@@ -13,6 +13,12 @@ PAGE_H_IN = 11.0
 
 
 def _brand(fig):
+    # Centred branding credit at the foot of every handout page, at y=0.045.
+    # The handout pages lay out fixed reference content with a manually
+    # decremented ``y`` cursor (no auto-overflow guard), so KEEP CONTENT ABOVE
+    # ~y=0.09: if you add items to the fixed lists below and the cursor runs
+    # lower than that, the text will start printing on top of this credit. The
+    # current content is well clear; verified by rendering every page.
     try:
         from .. import __version__ as _ver
     except Exception:

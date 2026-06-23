@@ -1,3 +1,19 @@
+orbitdeck (0.36.6-1) unstable; urgency=medium
+
+  * Revert the v0.36.4 bundle-size reductions, which broke the GitHub builds:
+    removed the _trim_datas data filter and the scipy/pandas excludes from the
+    PyInstaller spec (now byte-identical to the pre-0.36.4 spec). BUILD.md keeps
+    the explanation of why the Windows build is larger, with a caution against
+    aggressive trimming without testing every platform's artifact.
+  * Fix printed reports drawing content on top of the centred branding credit at
+    the foot of each page. The full satellite report's pass-progression timeline
+    chart printed its x-axis label over the branding; raised that chart and the
+    content-flow / table / polar-grid / mutual-row floors so all content clears
+    the footer. OSCARLOCATOR sheets were already fine and are unchanged. Handouts
+    were verified clear (a margin note was added to keep them that way).
+
+ -- Paul Stoetzer, N8HM <noreply@example.com>  Mon, 23 Jun 2026 00:00:00 +0000
+
 orbitdeck (0.36.5-1) unstable; urgency=medium
 
   * Fix tabs that stayed unclickable on macOS (reported on the Learn screen's
