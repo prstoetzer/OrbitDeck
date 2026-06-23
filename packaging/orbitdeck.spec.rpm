@@ -2,13 +2,13 @@
 #
 # Build:
 #     # from the repo root, create a release tarball matching Source0, e.g.
-#     #   git archive --format=tar.gz --prefix=OrbitDeck-0.35.6/ \
-#     #       -o ~/rpmbuild/SOURCES/orbitdeck-0.35.6.tar.gz v0.35.6
+#     #   git archive --format=tar.gz --prefix=OrbitDeck-0.36.1/ \
+#     #       -o ~/rpmbuild/SOURCES/orbitdeck-0.36.1.tar.gz v0.36.1
 #     rpmbuild -ba packaging/orbitdeck.spec
 #
 # Keep Version in sync with orbitdeck/__init__.py.
 Name:           orbitdeck
-Version:        0.35.6
+Version:        0.36.1
 Release:        1%{?dist}
 Summary:        Desktop satellite tracking and orbital analysis for amateur radio
 
@@ -67,6 +67,10 @@ install -Dm644 packaging/io.github.prstoetzer.OrbitDeck.metainfo.xml \
 %{_metainfodir}/io.github.prstoetzer.OrbitDeck.metainfo.xml
 
 %changelog
+* Mon Jun 23 2026 Paul Stoetzer, N8HM - 0.36.1-1
+- Flatten stray label backgrounds; make the Settings form scroll on short displays.
+* Sun Jun 22 2026 Paul Stoetzer, N8HM - 0.36.0-1
+- Add DX Doppler: four-dial two-station frequency tables in the mutual-window view.
 * Mon Jun 22 2026 Paul Stoetzer, N8HM - 0.35.6-1
 - Fix Windows build crash (ft2font DLL load failed): bundle matplotlib native libs.
 * Mon Jun 22 2026 Paul Stoetzer, N8HM - 0.35.5-1

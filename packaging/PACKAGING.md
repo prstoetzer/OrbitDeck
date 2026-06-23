@@ -60,7 +60,7 @@ dpkg-buildpackage -us -uc -b      # -b = binary only, unsigned
 The `.deb` is written to the **parent** directory. Install and run:
 
 ```bash
-sudo apt install ../orbitdeck_0.35.6-1_all.deb   # pulls deps + the full optional set
+sudo apt install ../orbitdeck_0.36.1-1_all.deb   # pulls deps + the full optional set
 orbitdeck
 ```
 
@@ -90,8 +90,8 @@ rpmdev-setuptree                  # creates ~/rpmbuild/{SOURCES,SPECS,...}
 
 ```bash
 # from the repo root: create the source tarball the spec expects
-git archive --format=tar.gz --prefix=OrbitDeck-0.35.6/ \
-    -o ~/rpmbuild/SOURCES/orbitdeck-0.35.6.tar.gz v0.35.6
+git archive --format=tar.gz --prefix=OrbitDeck-0.36.1/ \
+    -o ~/rpmbuild/SOURCES/orbitdeck-0.36.1.tar.gz v0.36.1
 
 rpmbuild -ba packaging/orbitdeck.spec.rpm
 ```
@@ -99,7 +99,7 @@ rpmbuild -ba packaging/orbitdeck.spec.rpm
 The binary RPM lands in `~/rpmbuild/RPMS/noarch/`. Install and run:
 
 ```bash
-sudo dnf install ~/rpmbuild/RPMS/noarch/orbitdeck-0.35.6-1.*.noarch.rpm
+sudo dnf install ~/rpmbuild/RPMS/noarch/orbitdeck-0.36.1-1.*.noarch.rpm
 orbitdeck
 ```
 
@@ -125,7 +125,7 @@ makepkg -si                       # build + install, pulling dependencies
 orbitdeck
 ```
 
-`makepkg` produces `orbitdeck-0.35.6-1-any.pkg.tar.zst`. The recipe pulls
+`makepkg` produces `orbitdeck-0.36.1-1-any.pkg.tar.zst`. The recipe pulls
 `tk`, `python-matplotlib`, `python-numpy`, and `python-certifi` as hard
 dependencies, and lists `python-sgp4` / `python-cartopy` / `python-openpyxl` as
 `optdepends`. On Arch, optdepends are **not** auto-installed, so to get the full
@@ -210,7 +210,7 @@ git clone ssh://aur@aur.archlinux.org/orbitdeck.git aur-orbitdeck
 cd aur-orbitdeck
 cp /path/to/PKGBUILD /path/to/.SRCINFO .   # ONLY these (plus any .install)
 git add PKGBUILD .SRCINFO
-git commit -m "Initial import: orbitdeck 0.35.6-1"
+git commit -m "Initial import: orbitdeck 0.36.1-1"
 git push
 ```
 
@@ -226,7 +226,7 @@ The package then appears at `https://aur.archlinux.org/packages/orbitdeck`.
 updpkgsums
 makepkg --printsrcinfo > .SRCINFO
 # 3. commit + push
-git commit -am "Update to 0.36.0-1"
+git commit -am "Update to 0.36.1-1"
 git push
 ```
 
@@ -238,7 +238,7 @@ of date.
 
 - The AUR git repo holds **only** the recipe — never the source tree, the built
   package, or `src/`/`pkg/` directories.
-- The `v0.35.6` **tag must be live and public on GitHub** or `updpkgsums` and
+- The `v0.36.1` **tag must be live and public on GitHub** or `updpkgsums` and
   users' builds will 404 on the `source=` URL.
 - `arch=('any')` is correct (pure-Python / noarch): one package serves every
   architecture.

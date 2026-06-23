@@ -1,5 +1,41 @@
 # Changelog
 
+## [0.36.1]
+
+### Fixed
+- **Readability & consistency: stray label backgrounds removed.** Informational
+  text previously sat on a slightly lighter panel-coloured rectangle that didn't
+  match the window (most visible behind muted hints and mono read-outs). The
+  shared label styles (`Muted`, `Mono`, `Panel`, `PanelH`) and the control
+  containers (`Panel.TFrame`, the panel radio/check variants) now use the window
+  background, so text other than buttons never has its own background. The
+  deliberate grouped read-out cards (KVPanel on Track, Radio, etc.) and dashboard
+  panels are unchanged.
+- **Settings screen no longer cut off on short displays.** On a MacBook Air (and
+  any display where the window is shorter than the form), the bottom of Settings —
+  the pass-prediction and printing/page-size options — was clipped with no way to
+  reach it. The Settings form is now wrapped in a vertical scroller with an
+  auto-hiding scrollbar and mouse-wheel support. A reusable `make_vscroll_frame`
+  helper was added for tall forms.
+
+## [0.36.0]
+
+### Added
+- **DX Doppler** in the Mutual Windows detail view. Double-clicking a mutual
+  window now opens a tabbed dialog: the existing side-by-side sky tracks move to a
+  **Sky tracks** tab, and a new **DX Doppler** tab predicts the four radio dial
+  frequencies — your RX, your TX, the DX's RX, the DX's TX — at 30-second steps
+  across the window, so two operators on a transponder can agree on where to tune
+  to hear each other. Because each station has different geometry to the
+  satellite, each sees a different Doppler shift; the table accounts for that.
+  Three operating policies are offered: **True rule** (both hold the same point in
+  the satellite passband, all four dials move), and **Fixed downlink** / **Fixed
+  uplink** (lock one chosen dial of one station for the whole window; the other
+  three drift). A passband-position slider applies to linear transponders, and the
+  table exports to CSV. Backed by a new, GUI-independent `orbitdeck.engine.dxdoppler`
+  module with first-order Doppler and the dial conventions `rx = dl·(1−β)+cal` and
+  `tx = ul/(1−β)+cal` (β positive-receding), consistent with the rest of OrbitDeck.
+
 ## [0.35.6]
 
 ### Fixed

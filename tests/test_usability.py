@@ -749,3 +749,92 @@ def test_true_vs_mean_anomaly_gap():
     # eccentric: true anomaly leads mean anomaly past perigee
     nu = A.true_anomaly_deg(90.0, 0.4)
     assert nu > 95.0
+
+
+def test_label_styles_use_window_background():
+    """Readability/consistency: informational text must not sit on a background
+    that differs from the window. The shared label styles (and the panel-frame /
+    panel radio-check styles) are configured to the window background COL_BG, so
+    text never shows a stray panel-coloured rectangle (only buttons, entries,
+    sliders and the deliberate KVPanel cards have their own background)."""
+    import tkinter as tk
+    from tkinter import ttk
+    from orbitdeck.gui.app import OrbitDeckApp
+    from orbitdeck.gui.screens import COL_BG
+
+    try:
+        root = tk.Tk()
+        OrbitDeckApp(root)
+    except Exception:
+        return          # no display / Tk in a bad state from a prior test
+    st = ttk.Style()
+    for style in ("TLabel", "Panel.TLabel", "Muted.TLabel", "MutedBg.TLabel",
+                  "PanelH.TLabel", "Mono.TLabel", "Panel.TFrame",
+                  "Panel.TRadiobutton", "Panel.TCheckbutton"):
+        bg = str(st.lookup(style, "background"))
+        assert bg.lower() == COL_BG.lower(), (style, bg)
+    root.destroy()
+
+
+def test_vscroll_frame_scrolls_tall_content():
+    """make_vscroll_frame yields an interior that scrolls when its content is
+    taller than the viewport -- this is what keeps the Settings form reachable on
+    short displays. The canvas scrollregion must exceed the visible height."""
+    import tkinter as tk
+    from tkinter import ttk
+    from orbitdeck.gui.app import OrbitDeckApp
+    from orbitdeck.gui.screens import make_vscroll_frame
+
+    try:
+        root = tk.Tk()
+        root.geometry("600x300")
+        OrbitDeckApp(root)          # configures the ttk theme used by the frame
+    except Exception:
+        return          # no display / Tk in a bad state from a prior test
+    container, interior = make_vscroll_frame(root)
+    container.pack(fill="both", expand=True)
+    for i in range(60):
+        ttk.Label(interior, text="row %d" % i).pack(anchor="w")
+    root.update_idletasks()
+    canvas = container.winfo_children()[0]
+    assert isinstance(canvas, tk.Canvas)
+    x0, y0, x1, y1 = canvas.bbox("all")
+    # content is much taller than the 300px window -> scrollable
+    assert (y1 - y0) > 300
+    root.destroy()
+
+
+def test_settings_screen_is_scrollable():
+    """The Settings screen wraps its tall form in a vertical scroller so the
+    bottom (pass-prediction + printing prefs) isn't clipped on small displays."""
+    import tkinter as tk
+    from orbitdeck.gui.app import OrbitDeckApp
+
+    try:
+        root = tk.Tk()
+    except Exception:
+        return
+    import os
+    try:
+        os.remove(os.path.expanduser("~/.orbitdeck/config.json"))
+    except OSError:
+        pass
+    try:
+        app = OrbitDeckApp(root)
+    except Exception:
+        return          # Tk in a bad state from a prior test
+    app.store.save_config(onboarded=True)
+    app.show("location")
+    scr = app.current
+
+    def find_canvas(w):
+        if isinstance(w, tk.Canvas):
+            return w
+        for c in w.winfo_children():
+            r = find_canvas(c)
+            if r:
+                return r
+        return None
+
+    assert find_canvas(scr.frame) is not None, "settings form is not scrollable"
+    root.destroy()

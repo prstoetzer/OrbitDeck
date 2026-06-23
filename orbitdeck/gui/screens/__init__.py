@@ -117,6 +117,62 @@ def make_scrolled_tree(parent, columns, show="headings", height=16,
     return container, tree
 
 
+def make_vscroll_frame(parent):
+    """Return (container, interior) where ``interior`` is a frame you build into
+    and ``container`` is packed/gridded by the caller. The interior scrolls
+    vertically when its content is taller than the visible area, with an
+    auto-hiding themed scrollbar and mouse-wheel support. Use this for tall
+    forms (e.g. Settings) so low-resolution displays never clip the bottom.
+
+    The interior tracks the container's width, so content reflows/wraps to the
+    available width instead of triggering a horizontal scrollbar.
+    """
+    container = ttk.Frame(parent, style="TFrame")
+    canvas = tk.Canvas(container, bg=COL_BG, highlightthickness=0, bd=0)
+    vsb = ttk.Scrollbar(container, orient="vertical", command=canvas.yview)
+    canvas.configure(yscrollcommand=autohide_scrollbar(vsb, "right"))
+    vsb.pack(side="right", fill="y")
+    canvas.pack(side="left", fill="both", expand=True)
+
+    interior = ttk.Frame(canvas, style="TFrame")
+    win_id = canvas.create_window((0, 0), window=interior, anchor="nw")
+
+    def _on_interior(_e=None):
+        canvas.configure(scrollregion=canvas.bbox("all"))
+
+    def _on_canvas(e):
+        # keep the interior as wide as the canvas so content wraps to width
+        canvas.itemconfigure(win_id, width=e.width)
+
+    interior.bind("<Configure>", _on_interior)
+    canvas.bind("<Configure>", _on_canvas)
+
+    # mouse wheel: bind only while the pointer is over this canvas, so nested
+    # scroll regions and other screens aren't affected.
+    def _wheel(e):
+        if e.num == 4:
+            canvas.yview_scroll(-1, "units")
+        elif e.num == 5:
+            canvas.yview_scroll(1, "units")
+        else:
+            canvas.yview_scroll(-1 if e.delta > 0 else 1, "units")
+
+    def _bind_wheel(_e=None):
+        canvas.bind_all("<MouseWheel>", _wheel)
+        canvas.bind_all("<Button-4>", _wheel)
+        canvas.bind_all("<Button-5>", _wheel)
+
+    def _unbind_wheel(_e=None):
+        canvas.unbind_all("<MouseWheel>")
+        canvas.unbind_all("<Button-4>")
+        canvas.unbind_all("<Button-5>")
+
+    canvas.bind("<Enter>", _bind_wheel)
+    canvas.bind("<Leave>", _unbind_wheel)
+
+    return container, interior
+
+
 class Screen:
     """Base screen. Subclasses build into self.frame and override hooks."""
     live = False

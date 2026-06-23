@@ -19,7 +19,13 @@ class LocationScreen(Screen):
         self._t_settings = tabs.add("Observer & preferences")
         self._t_about = tabs.add("About")
         tabs.pack(fill="both", expand=True)
-        self._build_settings(self._t_settings)
+        # the settings form is tall; wrap it in a vertical scroller so the
+        # bottom (pass-prediction + printing prefs) is never clipped on short
+        # displays (e.g. a MacBook Air at its default resolution).
+        from . import make_vscroll_frame
+        sc, settings_body = make_vscroll_frame(self._t_settings)
+        sc.pack(fill="both", expand=True)
+        self._build_settings(settings_body)
         self._build_about(self._t_about)
 
     def _build_settings(self, parent):

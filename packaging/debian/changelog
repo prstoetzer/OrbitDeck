@@ -1,3 +1,26 @@
+orbitdeck (0.36.1-1) unstable; urgency=medium
+
+  * Readability/consistency: informational text no longer sits on a stray
+    panel-coloured rectangle -- the shared label and control-container styles use
+    the window background, so only buttons, entry fields, sliders and the
+    deliberate readout cards have their own background.
+  * Fix the Settings screen being cut off at the bottom on short displays (e.g. a
+    MacBook Air at default resolution): the form is now wrapped in a vertical
+    scroller (new make_vscroll_frame helper) with an auto-hiding scrollbar and
+    mouse-wheel support.
+
+ -- Paul Stoetzer, N8HM <noreply@example.com>  Mon, 23 Jun 2026 00:00:00 +0000
+
+orbitdeck (0.36.0-1) unstable; urgency=medium
+
+  * Add DX Doppler to the Mutual Windows detail view: double-clicking a window now
+    opens a tabbed dialog whose new "DX Doppler" tab predicts the four dial
+    frequencies (your RX/TX and the DX's RX/TX) across the mutual window, under
+    True-rule, Fixed-downlink and Fixed-uplink policies, with a passband-position
+    control for linear transponders and CSV export.
+
+ -- Paul Stoetzer, N8HM <noreply@example.com>  Sun, 22 Jun 2026 00:00:00 +0000
+
 orbitdeck (0.35.6-1) unstable; urgency=medium
 
   * Fix the Windows standalone build crashing at launch with "DLL load failed

@@ -403,13 +403,36 @@ station and lists all their windows together in one chronological table, each
 tagged with its satellite. **Export CSV** saves the table, and a button prints
 the mutual-windows report.
 
-**Double-click any window** to open a detail view showing the pass on a polar
-sky plot **from each station's perspective side by side** — your station on the
-left, the DX station on the right. (In All-favorites mode the detail is built for
-that window's own satellite.) Each plot draws that station's full pass in grey
-with the **mutually-visible portion highlighted in bold orange**, and marks AOS
-(circle) and LOS (square). This makes it easy to see when in the pass the
-satellite is workable from both ends and how high it sits in each sky.
+**Double-click any window** to open a detail view with two tabs.
+
+The **Sky tracks** tab shows the pass on a polar sky plot **from each station's
+perspective side by side** — your station on the left, the DX station on the
+right. (In All-favorites mode the detail is built for that window's own
+satellite.) Each plot draws that station's full pass in grey with the
+**mutually-visible portion highlighted in bold orange**, and marks AOS (circle)
+and LOS (square). This makes it easy to see when in the pass the satellite is
+workable from both ends and how high it sits in each sky.
+
+The **DX Doppler** tab predicts the **four radio dial frequencies** — your RX,
+your TX, the DX's RX, the DX's TX — at 30-second steps across the window, so two
+operators on a transponder can agree on where to tune to hear each other. Because
+each station has different geometry, each sees a *different* Doppler shift; the
+table accounts for that. Choose an operating policy:
+
+- **True rule** — both stations work the **same spot in the satellite passband**,
+  each applying its own Doppler. All four dials move. This is the natural
+  "everyone holds the same point on the bird" approach.
+- **Fixed downlink** / **Fixed uplink** — **lock one dial** of one station (chosen
+  with the **Lock** selector: your TX/RX or the DX's TX/RX) to a single value for
+  the whole window; the satellite-frame tuning then drifts so that dial stays put,
+  and the other three move. Useful when one operator parks a radio and never
+  touches it.
+
+For a **linear** transponder a **Passband** slider chooses where in the passband
+you're working (it's hidden for FM/single-channel birds). A `—` in a TX column
+means the transponder is receive-only. **Export CSV** saves the full table (dial
+frequencies in Hz). If the satellite has no transponder data, the tab explains
+that the dials can't be computed.
 
 ### 3.14 Workable
 

@@ -460,3 +460,140 @@ def test_link_budget_satellite_downlink_eirp():
     hp = LB.link_budget(rng, freq, tx_power_w=2.0, tx_gain_dbi=2.0,
                         rx_gain_dbi=12.0, line_loss_db=1.5)
     assert abs((hp["eirp_dbm"] - lo["eirp_dbm"]) - 3.0) < 0.05
+
+
+# ---- DX Doppler (two-station four-dial prediction) ----
+
+def _linear_inverting_sat():
+    """An RS-44-like satellite with a linear inverting transponder, built from a
+    fixed OMM so the test is deterministic."""
+    omm = [{
+        "OBJECT_NAME": "RS-44", "OBJECT_ID": "2019-038D",
+        "EPOCH": "2024-06-01T04:00:00.000000", "MEAN_MOTION": 11.85,
+        "ECCENTRICITY": 0.0220, "INCLINATION": 82.52,
+        "RA_OF_ASC_NODE": 150.0, "ARG_OF_PERICENTER": 100.0,
+        "MEAN_ANOMALY": 0.0, "BSTAR": 0.0, "MEAN_MOTION_DOT": 0.0,
+        "MEAN_MOTION_DDOT": 0.0, "NORAD_CAT_ID": 44909, "REV_AT_EPOCH": 20000,
+        "ELEMENT_SET_NO": 999,
+    }]
+    db = SatDb()
+    db.load_gp_json(json.dumps(omm))
+    sat = db.sats[0]
+    from orbitdeck.engine.satdb import Transponder
+    sat.transponders = [Transponder(
+        downlink=435_610_000, downlink_high=435_670_000,
+        uplink=145_935_000, uplink_high=145_995_000,
+        invert=True, is_linear=True)]
+    return sat
+
+
+def _mutual_window(sat):
+    """Find a real mutual window between two well-separated stations."""
+    me = Observer(lat=39.93, lon=-74.89, alt_m=20, valid=True)   # US east coast
+    dx = Observer(lat=51.5, lon=-0.13, alt_m=20, valid=True)     # London
+    pred = Predictor()
+    pred.set_site(me)
+    assert pred.set_sat(sat)
+    t0 = sat.epoch_unix
+    wins = pred.mutual_windows(t0, dx, 0.0, 5, horizon_days=3)
+    assert wins, "expected at least one mutual window"
+    return me, dx, wins[0]
+
+
+def test_dx_doppler_true_rule_all_four_move():
+    """True Rule: both stations work the same passband point, each with its own
+    Doppler, so all four dials differ between the two stations and change over
+    the window."""
+    from orbitdeck.engine import dxdoppler as DX
+    sat = _linear_inverting_sat()
+    me, dx, w = _mutual_window(sat)
+    tp = sat.transponders[0]
+    rows = DX.dx_doppler_table(w.start, w.end, sat, me, dx, tp, pb_offset=30_000,
+                               mode=DX.TRUE_RULE, step_s=30.0)
+    assert len(rows) >= 3
+    # me and dx see different Doppler -> their RX dials differ at a mid step
+    mid = rows[len(rows) // 2]
+    _t, my_rx, my_tx, dx_rx, dx_tx = mid
+    assert my_rx != dx_rx
+    # every dial moves across the window (downlink RX spans a real range)
+    my_rxs = [r[1] for r in rows]
+    assert max(my_rxs) - min(my_rxs) > 100   # Hz; Doppler swing is kHz-scale
+
+
+def test_dx_doppler_fixed_uplink_pins_anchor_only():
+    """Fixed Uplink anchored on ME_TX: my TX dial is identical at every step
+    (the lock holds), while the other three dials drift. This is the memo's
+    central correctness criterion -- catches the 'lock recomputed from live
+    beta' bug, which would let the pinned dial wander."""
+    from orbitdeck.engine import dxdoppler as DX
+    sat = _linear_inverting_sat()
+    me, dx, w = _mutual_window(sat)
+    tp = sat.transponders[0]
+    rows = DX.dx_doppler_table(w.start, w.end, sat, me, dx, tp, pb_offset=30_000,
+                               mode=DX.FIXED_UL, anchor=DX.ME_TX, step_s=30.0)
+    assert len(rows) >= 4
+    my_tx = [r[2] for r in rows]
+    # the anchored dial is pinned: identical (to the rounded Hz) at every step
+    assert len(set(my_tx)) == 1, ("my_tx should be constant, got spread of %d Hz"
+                                  % (max(my_tx) - min(my_tx)))
+    # the other three drift over the window
+    my_rx = [r[1] for r in rows]
+    dx_rx = [r[3] for r in rows]
+    dx_tx = [r[4] for r in rows]
+    assert max(my_rx) - min(my_rx) > 50
+    assert max(dx_rx) - min(dx_rx) > 50
+    assert max(dx_tx) - min(dx_tx) > 50
+
+
+def test_dx_doppler_fixed_downlink_pins_dx_rx():
+    """Fixed Downlink anchored on DX_RX: the DX station's RX dial holds constant;
+    the other three drift."""
+    from orbitdeck.engine import dxdoppler as DX
+    sat = _linear_inverting_sat()
+    me, dx, w = _mutual_window(sat)
+    tp = sat.transponders[0]
+    rows = DX.dx_doppler_table(w.start, w.end, sat, me, dx, tp, pb_offset=20_000,
+                               mode=DX.FIXED_DL, anchor=DX.DX_RX, step_s=30.0)
+    assert len(rows) >= 4
+    dx_rx = [r[3] for r in rows]
+    assert len(set(dx_rx)) == 1, ("dx_rx should be constant, got spread of %d Hz"
+                                  % (max(dx_rx) - min(dx_rx)))
+    # at least one other dial drifts
+    my_rx = [r[1] for r in rows]
+    assert max(my_rx) - min(my_rx) > 50
+
+
+def test_dx_doppler_receive_only_has_no_tx():
+    """A receive-only transponder (uplink == 0) yields zero TX dials and no
+    drift in fixed-uplink mode (degenerates to true-rule on the downlink)."""
+    from orbitdeck.engine import dxdoppler as DX
+    from orbitdeck.engine.satdb import Transponder
+    sat = _linear_inverting_sat()
+    sat.transponders = [Transponder(downlink=435_800_000, uplink=0,
+                                    is_linear=False)]
+    me, dx, w = _mutual_window(sat)
+    tp = sat.transponders[0]
+    rows = DX.dx_doppler_table(w.start, w.end, sat, me, dx, tp, pb_offset=0,
+                               mode=DX.FIXED_UL, anchor=DX.ME_TX, step_s=30.0)
+    assert rows
+    assert all(r[2] == 0 and r[4] == 0 for r in rows)   # no TX anywhere
+
+
+def test_dx_doppler_calibration_offsets_apply_once():
+    """cal_dl / cal_ul shift the RX / TX dials by exactly their value and don't
+    bias the fixed-dial drift (they cancel in the lock solve)."""
+    from orbitdeck.engine import dxdoppler as DX
+    sat = _linear_inverting_sat()
+    me, dx, w = _mutual_window(sat)
+    tp = sat.transponders[0]
+    base = DX.dx_doppler_table(w.start, w.end, sat, me, dx, tp, pb_offset=30_000,
+                               mode=DX.TRUE_RULE, step_s=30.0)
+    cal = DX.dx_doppler_table(w.start, w.end, sat, me, dx, tp, pb_offset=30_000,
+                              mode=DX.TRUE_RULE, cal_dl=1000, cal_ul=2000,
+                              step_s=30.0)
+    # RX dials shift by +1000 Hz, TX dials by +2000 Hz, at every step
+    for b, c in zip(base, cal):
+        assert abs((c[1] - b[1]) - 1000) <= 1     # my_rx
+        assert abs((c[2] - b[2]) - 2000) <= 1     # my_tx
+        assert abs((c[3] - b[3]) - 1000) <= 1     # dx_rx
+        assert abs((c[4] - b[4]) - 2000) <= 1     # dx_tx

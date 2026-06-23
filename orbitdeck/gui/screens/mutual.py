@@ -4,10 +4,15 @@ import math
 import tkinter as tk
 from tkinter import ttk
 
-from . import (Screen, MplPanel, COL_BG, COL_TEXT, COL_MUTED,
+from . import (Screen, MplPanel, TabBar, COL_BG, COL_TEXT, COL_MUTED,
                COL_ACCENT, COL_WARN, COL_GRID, fmt_hms, fmt_utc, now_unix, make_scrolled_tree)
 from ...engine import Observer, grid_to_latlon
 from ...engine.predict import Predictor
+
+
+def _mhz(hz):
+    """Format a dial frequency (Hz) as MHz to 3 decimals, or a dash for 0."""
+    return "%.3f" % (hz / 1e6) if hz else "\u2014"
 
 
 class MutualScreen(Screen):
@@ -262,19 +267,29 @@ class MutualScreen(Screen):
         win = tk.Toplevel(self.app.root)
         win.title("Mutual pass \u2014 %s" % s.name)
         win.configure(bg=COL_BG)
-        win.geometry("900x560")
+        win.geometry("900x620")
         header = ("%s \u2014 mutual pass starting %s UTC  (mutual %s)"
                   % (s.name, fmt_utc(w.start, "%Y-%m-%d %H:%M:%S"),
                      fmt_hms(w.end - w.start)))
         tk.Label(win, text=header, bg=COL_BG, fg=COL_TEXT,
                  font=("TkDefaultFont", 11, "bold")).pack(anchor="w",
                                                           padx=14, pady=(10, 2))
-        tk.Label(win, text="The grey arc is the full pass from that station; "
+
+        tabs = TabBar(win)
+        t_sky = tabs.add("Sky tracks")
+        t_dop = tabs.add("DX Doppler")
+        tabs.pack(fill="both", expand=True, padx=8, pady=4)
+        self._detail_tabs = tabs
+
+        self._build_sky_tab(t_sky, s, w, my_track, dx_track)
+        self._build_dxdoppler_tab(t_dop, s, w, dx_obs)
+
+    def _build_sky_tab(self, parent, s, w, my_track, dx_track):
+        tk.Label(parent, text="The grey arc is the full pass from that station; "
                  "the bold orange arc is the mutually-visible portion. "
                  "Circle = AOS, square = LOS.", bg=COL_BG, fg=COL_MUTED).pack(
-            anchor="w", padx=14, pady=(0, 6))
-
-        body = tk.Frame(win, bg=COL_BG)
+            anchor="w", padx=14, pady=(8, 6))
+        body = tk.Frame(parent, bg=COL_BG)
         body.pack(fill="both", expand=True, padx=8, pady=4)
         my_name = getattr(self.store, "obs_name", "My station")
         self._draw_station_polar(
@@ -285,6 +300,151 @@ class MutualScreen(Screen):
             "DX %.2f,%.2f  (max el %.0f\u00b0)"
             % (self._dx_ll[0], self._dx_ll[1], w.dx_max_el),
             dx_track, w.start, w.end)
+
+    def _build_dxdoppler_tab(self, parent, s, w, dx_obs):
+        from ...engine import dxdoppler as DX
+        tps = [tp for tp in (s.transponders or []) if tp.downlink]
+        if not tps:
+            tk.Label(parent, text="This satellite has no transponder data, so "
+                     "DX Doppler dial frequencies can't be computed.",
+                     bg=COL_BG, fg=COL_MUTED, wraplength=820,
+                     justify="left").pack(anchor="w", padx=14, pady=14)
+            return
+
+        me_obs = self.store.obs
+        my_name = getattr(self.store, "obs_name", "My station")
+        st = {"sat": s, "w": w, "me": me_obs, "dx": dx_obs, "tps": tps}
+
+        tk.Label(parent, text="Dial frequencies for both stations across the "
+                 "mutual window. \u201cTrue rule\u201d holds the same spot in the "
+                 "satellite passband (all four dials move). \u201cFixed\u201d locks "
+                 "one dial for the whole window (the other three drift).",
+                 bg=COL_BG, fg=COL_MUTED, wraplength=840, justify="left").pack(
+            anchor="w", padx=14, pady=(8, 4))
+
+        bar = ttk.Frame(parent, style="TFrame")
+        bar.pack(fill="x", padx=12, pady=4)
+
+        # transponder picker (only if more than one)
+        self._dxd_tp = tk.IntVar(value=0)
+        if len(tps) > 1:
+            ttk.Label(bar, text="Transponder:", style="TLabel").pack(
+                side="left")
+            names = []
+            for i, tp in enumerate(tps):
+                kind = "lin" if tp.is_linear else "FM"
+                names.append("%d: %.3f/%.3f %s" % (
+                    i + 1, tp.downlink / 1e6,
+                    (tp.uplink / 1e6) if tp.uplink else 0.0, kind))
+            cb = ttk.Combobox(bar, state="readonly", width=22, values=names)
+            cb.current(0)
+            cb.pack(side="left", padx=(2, 10))
+            cb.bind("<<ComboboxSelected>>",
+                    lambda _e: (self._dxd_tp.set(cb.current()),
+                                self._dxd_render()))
+
+        ttk.Label(bar, text="Mode:", style="TLabel").pack(side="left")
+        self._dxd_mode = tk.StringVar(value=DX.TRUE_RULE)
+        for lab, val in (("True rule", DX.TRUE_RULE),
+                         ("Fixed downlink", DX.FIXED_DL),
+                         ("Fixed uplink", DX.FIXED_UL)):
+            ttk.Radiobutton(bar, text=lab, value=val, variable=self._dxd_mode,
+                            command=lambda: self._dxd_render()).pack(
+                side="left", padx=(2, 0))
+
+        bar2 = ttk.Frame(parent, style="TFrame")
+        bar2.pack(fill="x", padx=12, pady=2)
+        # anchor: which station's dial is locked (fixed modes only)
+        ttk.Label(bar2, text="Lock:", style="TLabel").pack(side="left")
+        self._dxd_anchor = tk.StringVar(value=DX.ME_TX)
+        anchor_opts = (("My TX", DX.ME_TX), ("My RX", DX.ME_RX),
+                       ("DX TX", DX.DX_TX), ("DX RX", DX.DX_RX))
+        self._dxd_anchor_lbls = {v: k for k, v in anchor_opts}
+        self._dxd_anchor_btns = []
+        for lab, val in anchor_opts:
+            rb = ttk.Radiobutton(bar2, text=lab, value=val,
+                                 variable=self._dxd_anchor,
+                                 command=lambda: self._dxd_render())
+            rb.pack(side="left", padx=(2, 0))
+            self._dxd_anchor_btns.append(rb)
+
+        # passband offset (linear only), as a percent of the downlink passband
+        self._dxd_pb = tk.DoubleVar(value=50.0)
+        self._dxd_pb_scale = ttk.Scale(bar2, from_=0.0, to=100.0,
+                                       variable=self._dxd_pb,
+                                       command=lambda _v: self._dxd_render())
+        self._dxd_pb_lbl = ttk.Label(bar2, text="  Passband:", style="TLabel")
+
+        cols = ("t", "myrx", "mytx", "dxrx", "dxtx")
+        heads = ("UTC", "%s RX" % my_name, "%s TX" % my_name, "DX RX", "DX TX")
+        treewrap, tree = make_scrolled_tree(parent, cols, show="headings",
+                                            height=14)
+        for c, h in zip(cols, heads):
+            tree.heading(c, text=h)
+            tree.column(c, width=150, anchor="center")
+        treewrap.pack(fill="both", expand=True, padx=12, pady=(6, 2))
+        info = tk.StringVar(value="")
+        ttk.Label(parent, textvariable=info, style="Muted.TLabel").pack(
+            anchor="w", padx=14, pady=(0, 6))
+        btnrow = ttk.Frame(parent, style="TFrame")
+        btnrow.pack(fill="x", padx=12, pady=(0, 8))
+
+        def render():
+            tp = st["tps"][self._dxd_tp.get()]
+            mode = self._dxd_mode.get()
+            anchor = self._dxd_anchor.get()
+            fixed = mode in (DX.FIXED_DL, DX.FIXED_UL)
+            for rb in self._dxd_anchor_btns:
+                rb.configure(state=("normal" if fixed else "disabled"))
+            # passband control only for a linear transponder
+            if tp.is_linear and tp.bandwidth() > 0:
+                self._dxd_pb_lbl.pack(side="left", padx=(10, 0))
+                self._dxd_pb_scale.pack(side="left", fill="x", expand=True,
+                                        padx=(2, 8))
+                pb_off = int(round(self._dxd_pb.get() / 100.0 * tp.bandwidth()))
+            else:
+                self._dxd_pb_lbl.pack_forget()
+                self._dxd_pb_scale.pack_forget()
+                pb_off = 0
+            for i in tree.get_children():
+                tree.delete(i)
+            rows = DX.dx_doppler_table(
+                st["w"].start, st["w"].end, st["sat"], st["me"], st["dx"], tp,
+                pb_offset=pb_off, mode=mode, anchor=anchor, step_s=30.0)
+            self._dxd_rows = rows
+            for (t, my_rx, my_tx, dx_rx, dx_tx) in rows:
+                tree.insert("", "end", values=(
+                    fmt_utc(t, "%H:%M:%S"),
+                    _mhz(my_rx), _mhz(my_tx), _mhz(dx_rx), _mhz(dx_tx)))
+            if fixed:
+                info.set("%d steps every 30 s. Locked dial: %s (held constant "
+                         "for the whole window); the other three drift with "
+                         "Doppler. 0.000 means no uplink."
+                         % (len(rows), self._dxd_anchor_lbls.get(anchor,
+                                                                 anchor)))
+            else:
+                info.set("%d steps every 30 s. Both stations hold the same spot "
+                         "in the passband; all four dials move with each "
+                         "station's own Doppler." % len(rows))
+
+        ttk.Button(btnrow, text="Export CSV\u2026",
+                   command=lambda: self._export_dxdoppler(s)).pack(side="right")
+        self._dxd_render = render
+        render()
+
+    def _export_dxdoppler(self, s):
+        rows = getattr(self, "_dxd_rows", None)
+        if not rows:
+            return
+        from .. import exports as EX
+        headers = ["utc", "my_rx_hz", "my_tx_hz", "dx_rx_hz", "dx_tx_hz"]
+        out = [[fmt_utc(t), my_rx, my_tx, dx_rx, dx_tx]
+               for (t, my_rx, my_tx, dx_rx, dx_tx) in rows]
+        self.save_text_dialog(
+            EX.rows_to_csv(headers, out),
+            "dx_doppler_%s.csv" % s.name.replace("/", "-").replace(" ", "_"),
+            title="Export DX Doppler", ext=".csv",
+            filetypes=[("CSV", "*.csv")])
 
     def _draw_station_polar(self, parent, side, title, track, mstart, mend):
         panel = MplPanel(parent, figsize=(4.3, 4.3), polar=True)

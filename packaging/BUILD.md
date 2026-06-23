@@ -365,7 +365,7 @@ produces a single `OrbitDeck-Setup.exe`. Install it, then create
 
 ```ini
 #define MyAppName "OrbitDeck"
-#define MyAppVersion "0.35.6"
+#define MyAppVersion "0.36.1"
 #define MyAppPublisher "Paul Stoetzer, N8HM"
 #define MyAppURL "https://github.com/prstoetzer/OrbitDeck"
 #define MyAppExeName "OrbitDeck.exe"
@@ -408,7 +408,7 @@ Compile from the repo root after building the bundle:
 ```powershell
 pyinstaller orbitdeck.spec
 & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" packaging\windows\orbitdeck.iss
-# -> dist\OrbitDeck-0.35.6-Setup.exe
+# -> dist\OrbitDeck-0.36.1-Setup.exe
 ```
 
 Then **sign the installer** with `signtool` exactly as for the `.exe`. Inno
@@ -439,7 +439,7 @@ create-dmg \
   --icon "OrbitDeck.app" 150 190 \
   --app-drop-link 390 190 \
   --hdiutil-quiet \
-  "dist/OrbitDeck-0.35.6.dmg" \
+  "dist/OrbitDeck-0.36.1.dmg" \
   "dist/OrbitDeck.app"
 ```
 
@@ -448,10 +448,10 @@ prompt:
 
 ```bash
 codesign --force --sign "Developer ID Application: Your Name (TEAMID)" \
-  "dist/OrbitDeck-0.35.6.dmg"
-xcrun notarytool submit "dist/OrbitDeck-0.35.6.dmg" \
+  "dist/OrbitDeck-0.36.1.dmg"
+xcrun notarytool submit "dist/OrbitDeck-0.36.1.dmg" \
   --keychain-profile "OrbitDeckNotary" --wait
-xcrun stapler staple "dist/OrbitDeck-0.35.6.dmg"
+xcrun stapler staple "dist/OrbitDeck-0.36.1.dmg"
 ```
 
 > **`.pkg` alternative.** For an installer that places the app and can run
@@ -461,9 +461,9 @@ xcrun stapler staple "dist/OrbitDeck-0.35.6.dmg"
 > pkgbuild --root dist/OrbitDeck.app \
 >   --install-location "/Applications/OrbitDeck.app" \
 >   --identifier io.github.prstoetzer.OrbitDeck \
->   --version 0.35.6 OrbitDeck-component.pkg
+>   --version 0.36.1 OrbitDeck-component.pkg
 > productbuild --sign "Developer ID Installer: Your Name (TEAMID)" \
->   --package OrbitDeck-component.pkg "dist/OrbitDeck-0.35.6.pkg"
+>   --package OrbitDeck-component.pkg "dist/OrbitDeck-0.36.1.pkg"
 > ```
 > Note a `.pkg` is signed with a **Developer ID *Installer*** certificate
 > (distinct from the *Application* certificate used for the app), then notarized

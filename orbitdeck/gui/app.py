@@ -123,18 +123,23 @@ class OrbitDeckApp:
             pass
         st.configure(".", background=COL_BG, foreground=COL_TEXT, font=FONT)
         st.configure("TFrame", background=COL_BG)
-        st.configure("Panel.TFrame", background=COL_PANEL)
+        # Panel.TFrame historically used a slightly lighter panel colour, which
+        # left informational text sitting on a stray darker rectangle that
+        # differed from the window. Flatten control containers to the window
+        # background so text (other than buttons) never has its own background.
+        # The deliberate readout CARDS are KVPanel, which paints its own
+        # tk.Label(bg=COL_PANEL) widgets and is unaffected by these ttk styles.
+        st.configure("Panel.TFrame", background=COL_BG)
         st.configure("TLabel", background=COL_BG, foreground=COL_TEXT)
-        st.configure("Panel.TLabel", background=COL_PANEL, foreground=COL_TEXT)
-        st.configure("Muted.TLabel", background=COL_PANEL, foreground=COL_MUTED)
-        # muted text that sits directly on the main background (not a panel),
-        # so empty/short status labels don't show a stray panel-coloured sliver
+        st.configure("Panel.TLabel", background=COL_BG, foreground=COL_TEXT)
+        st.configure("Muted.TLabel", background=COL_BG, foreground=COL_MUTED)
+        # kept as an explicit alias (same as Muted.TLabel now) for callers that
+        # specifically want window-background muted text
         st.configure("MutedBg.TLabel", background=COL_BG, foreground=COL_MUTED)
         st.configure("H.TLabel", background=COL_BG, foreground=COL_TEXT, font=FONT_H)
-        # bold section header that sits on a panel-coloured frame
-        st.configure("PanelH.TLabel", background=COL_PANEL, foreground=COL_TEXT,
+        st.configure("PanelH.TLabel", background=COL_BG, foreground=COL_TEXT,
                      font=FONT_H)
-        st.configure("Mono.TLabel", background=COL_PANEL, foreground=COL_TEXT,
+        st.configure("Mono.TLabel", background=COL_BG, foreground=COL_TEXT,
                      font=FONT_MONO)
         st.configure("TButton", background=COL_PANEL, foreground=COL_TEXT,
                      borderwidth=0, focusthickness=0, padding=6)
@@ -195,20 +200,22 @@ class OrbitDeckApp:
                foreground=[("active", COL_TEXT), ("selected", COL_TEXT)],
                indicatorcolor=[("selected", COL_ACCENT),
                                ("pressed", COL_ACCENT)])
-        # panel-coloured variants for radio/check buttons placed on a panel frame
-        st.configure("Panel.TRadiobutton", background=COL_PANEL,
-                     foreground=COL_TEXT, indicatorcolor=COL_BG,
+        # "Panel" radio/check variants now sit on the window background too (the
+        # containers they live on were flattened); the indicator reads against
+        # the panel colour for contrast.
+        st.configure("Panel.TRadiobutton", background=COL_BG,
+                     foreground=COL_TEXT, indicatorcolor=COL_PANEL,
                      focuscolor=COL_ACCENT)
         st.map("Panel.TRadiobutton",
-               background=[("active", COL_PANEL)],
+               background=[("active", COL_BG)],
                foreground=[("active", COL_TEXT), ("selected", COL_TEXT)],
                indicatorcolor=[("selected", COL_ACCENT),
                                ("pressed", COL_ACCENT)])
-        st.configure("Panel.TCheckbutton", background=COL_PANEL,
-                     foreground=COL_TEXT, indicatorcolor=COL_BG,
+        st.configure("Panel.TCheckbutton", background=COL_BG,
+                     foreground=COL_TEXT, indicatorcolor=COL_PANEL,
                      focuscolor=COL_ACCENT)
         st.map("Panel.TCheckbutton",
-               background=[("active", COL_PANEL)],
+               background=[("active", COL_BG)],
                foreground=[("active", COL_TEXT), ("selected", COL_TEXT)],
                indicatorcolor=[("selected", COL_ACCENT),
                                ("pressed", COL_ACCENT)])
