@@ -81,6 +81,40 @@ try:
 except Exception:
     cartopy_datas, cartopy_binaries, cartopy_hiddenimports = [], [], []
 
+
+def _trim_datas(datas):
+    """Drop large data files that collect_all() grabs but OrbitDeck never uses.
+
+    This matters most on Windows, where the dependencies come from conda-forge
+    and bundle a much fuller native/data payload than the pip wheels used on
+    Linux/macOS. The biggest avoidable chunk is the PROJ datum-shift grid set
+    (share/proj/*): OrbitDeck only ever needs ``proj.db`` for basic projections,
+    not the optional high-accuracy transformation grids, which can be 100+ MB.
+    Also drop matplotlib/cartopy sample and test data. Pure filtering -- it never
+    removes a code module, only inert data files, so it can't break imports.
+    """
+    import os
+
+    def drop(dest):
+        d = dest.replace("\\", "/").lower()
+        base = os.path.basename(d)
+        # PROJ grids: keep proj.db (+ its ini), drop everything else under proj/
+        if "/proj/" in d or d.startswith("proj/") or "share/proj" in d:
+            return base not in ("proj.db", "proj.ini")
+        # matplotlib bundled sample images and the test suite's baseline images
+        if "mpl-data/sample_data/" in d:
+            return True
+        if "/tests/" in d and ("matplotlib" in d or "cartopy" in d):
+            return True
+        # cartopy ships no offline feature data by default (it downloads Natural
+        # Earth on demand); any *_test / gallery data is unused here
+        if "cartopy" in d and ("/data/tests" in d or "/tests/" in d):
+            return True
+        return False
+
+    kept = [(src, dest, typ) for (src, dest, typ) in datas if not drop(dest)]
+    return kept
+
 # Per-platform icon for the executable itself.
 if sys.platform == "win32":
     exe_icon = "orbitdeck/gui/assets/icon.ico"
@@ -93,7 +127,7 @@ a = Analysis(
     ["run.py"],
     pathex=[],
     binaries=mpl_binaries + cartopy_binaries + vendored_binaries,
-    datas=asset_datas + mpl_datas + certifi_datas + cartopy_datas,
+    datas=_trim_datas(asset_datas + mpl_datas + certifi_datas + cartopy_datas),
     hiddenimports=[
         # ssl / certificate handling for HTTPS data fetches:
         "certifi", "ssl",
@@ -111,9 +145,16 @@ a = Analysis(
     hooksconfig={},
     runtime_hooks=[],
     excludes=[
-        # trim things OrbitDeck never uses to keep the bundle small:
+        # trim things OrbitDeck never uses to keep the bundle small. This helps
+        # the Windows build most: its deps come from conda-forge, which pulls a
+        # heavier scientific stack than the pip wheels used on Linux/macOS.
         "PyQt5", "PyQt6", "PySide2", "PySide6", "wx",
         "pytest", "IPython", "notebook",
+        # scipy + pandas are not imported by OrbitDeck and are only *optional* for
+        # cartopy (image warping / faster kd-tree); excluding them removes a large
+        # payload (scipy alone bundles its own BLAS, ~100 MB on Windows). If a
+        # future cartopy feature needs them, drop the relevant name from here.
+        "scipy", "pandas",
     ],
     win_no_prefer_redirects=False,
     win_private_assemblies=False,
@@ -161,6 +202,6 @@ if sys.platform == "darwin":
         bundle_identifier="org.orbitdeck.app",
         info_plist={
             "NSHighResolutionCapable": True,
-            "CFBundleShortVersionString": "0.36.3",
+            "CFBundleShortVersionString": "0.36.5",
         },
     )

@@ -144,13 +144,38 @@ matplotlib/tkinter app.
 
 ## Reducing size
 
-The spec already excludes Qt, wx, pytest, and IPython. **UPX compression is
-disabled** on purpose: it can corrupt compressed native DLLs (numpy, the
-FreeType library behind matplotlib's `ft2font`, and PROJ behind cartopy),
-producing runtime "DLL load failed" crashes — exactly the kind of failure that
-is hard to diagnose in a frozen GUI app. Typical bundle size is ~150–250 MB
-(matplotlib + numpy dominate); if you want it smaller, prefer trimming
-`excludes` over re-enabling UPX.
+The spec excludes Qt, wx, pytest, IPython, **scipy and pandas** (none are used by
+OrbitDeck; scipy/pandas are only *optional* for cartopy), and it trims unused data
+files via `_trim_datas` — chiefly the PROJ datum-shift grids (keeping only
+`proj.db`), matplotlib sample data, and cartopy/matplotlib test data.
+
+**UPX compression is disabled** on purpose: it can corrupt compressed native DLLs
+(numpy, the FreeType library behind matplotlib's `ft2font`, and PROJ behind
+cartopy), producing runtime "DLL load failed" crashes — exactly the kind of
+failure that is hard to diagnose in a frozen GUI app. Prefer trimming `excludes`
+or `_trim_datas` over re-enabling UPX.
+
+### Why the Windows build is larger than Linux/macOS
+
+It's expected, and mostly comes from how the dependencies are sourced:
+
+- **conda-forge vs. pip wheels.** Windows installs cartopy + numpy + matplotlib
+  from **conda-forge** (the reliable way to get a working GEOS/PROJ on Windows),
+  whereas Linux and macOS use **pip wheels**. conda builds bundle a fuller native
+  dependency chain (the whole GEOS/PROJ/Shapely geospatial stack plus PROJ's data
+  payload), and `collect_all("cartopy")` walks all of it. The `_trim_datas` filter
+  claws back the largest avoidable piece (the PROJ grids).
+- **UPX off.** UPX used to roughly halve the many Windows DLLs; with it disabled
+  (to avoid the corruption above), Windows loses the most because it has the most
+  and largest DLLs.
+- **conda libraries are generally heavier** than the equivalent pip wheels.
+
+If you need a substantially smaller Windows build, the options are: (a) source the
+geospatial stack from pip wheels instead of conda (cartopy now ships Windows
+wheels for recent versions — test that GEOS/PROJ load correctly before switching),
+or (b) ship without cartopy and rely on OrbitDeck's bundled coastlines (the app
+already falls back to them when cartopy is absent). Both trade some map fidelity or
+robustness for size. The current bundle prioritizes a build that just works.
 
 ## Code signing & notarization
 
@@ -372,7 +397,7 @@ produces a single `OrbitDeck-Setup.exe`. Install it, then create
 
 ```ini
 #define MyAppName "OrbitDeck"
-#define MyAppVersion "0.36.3"
+#define MyAppVersion "0.36.5"
 #define MyAppPublisher "Paul Stoetzer, N8HM"
 #define MyAppURL "https://github.com/prstoetzer/OrbitDeck"
 #define MyAppExeName "OrbitDeck.exe"
@@ -415,7 +440,7 @@ Compile from the repo root after building the bundle:
 ```powershell
 pyinstaller orbitdeck.spec
 & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" packaging\windows\orbitdeck.iss
-# -> dist\OrbitDeck-0.36.3-Setup.exe
+# -> dist\OrbitDeck-0.36.5-Setup.exe
 ```
 
 Then **sign the installer** with `signtool` exactly as for the `.exe`. Inno
@@ -446,7 +471,7 @@ create-dmg \
   --icon "OrbitDeck.app" 150 190 \
   --app-drop-link 390 190 \
   --hdiutil-quiet \
-  "dist/OrbitDeck-0.36.3.dmg" \
+  "dist/OrbitDeck-0.36.5.dmg" \
   "dist/OrbitDeck.app"
 ```
 
@@ -455,10 +480,10 @@ prompt:
 
 ```bash
 codesign --force --sign "Developer ID Application: Your Name (TEAMID)" \
-  "dist/OrbitDeck-0.36.3.dmg"
-xcrun notarytool submit "dist/OrbitDeck-0.36.3.dmg" \
+  "dist/OrbitDeck-0.36.5.dmg"
+xcrun notarytool submit "dist/OrbitDeck-0.36.5.dmg" \
   --keychain-profile "OrbitDeckNotary" --wait
-xcrun stapler staple "dist/OrbitDeck-0.36.3.dmg"
+xcrun stapler staple "dist/OrbitDeck-0.36.5.dmg"
 ```
 
 > **`.pkg` alternative.** For an installer that places the app and can run
@@ -468,9 +493,9 @@ xcrun stapler staple "dist/OrbitDeck-0.36.3.dmg"
 > pkgbuild --root dist/OrbitDeck.app \
 >   --install-location "/Applications/OrbitDeck.app" \
 >   --identifier io.github.prstoetzer.OrbitDeck \
->   --version 0.36.3 OrbitDeck-component.pkg
+>   --version 0.36.5 OrbitDeck-component.pkg
 > productbuild --sign "Developer ID Installer: Your Name (TEAMID)" \
->   --package OrbitDeck-component.pkg "dist/OrbitDeck-0.36.3.pkg"
+>   --package OrbitDeck-component.pkg "dist/OrbitDeck-0.36.5.pkg"
 > ```
 > Note a `.pkg` is signed with a **Developer ID *Installer*** certificate
 > (distinct from the *Application* certificate used for the app), then notarized

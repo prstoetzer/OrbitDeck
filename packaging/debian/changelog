@@ -1,3 +1,28 @@
+orbitdeck (0.36.5-1) unstable; urgency=medium
+
+  * Fix tabs that stayed unclickable on macOS (reported on the Learn screen's
+    Pointing and Link budget tabs). Three robustness changes to the tab bar:
+    tabs now respond to <ButtonRelease-1> as well as <Button-1> (macOS/Aqua does
+    not always deliver <Button-1> to a nested label); the tab font is now the
+    native TkDefaultFont instead of the Linux-only "DejaVu Sans" that macOS
+    silently substitutes with different metrics; and the grouped/wrapping tab
+    layout is recomputed once geometry settles and grows the strip to fit wrapped
+    rows, so no tab is ever clipped out of the clickable area. Reflow and the
+    deferred relayout preserve the current tab instead of snapping to the first.
+
+ -- Paul Stoetzer, N8HM <noreply@example.com>  Mon, 23 Jun 2026 00:00:00 +0000
+
+orbitdeck (0.36.4-1) unstable; urgency=medium
+
+  * Reduce bundle size, especially on Windows (whose conda-forge dependency stack
+    is heavier than the pip wheels used on Linux/macOS): exclude scipy and pandas
+    (unused by OrbitDeck; only optional for cartopy), and trim large unused data
+    files via the spec's _trim_datas -- chiefly the PROJ datum-shift grids (only
+    proj.db is kept), matplotlib sample data, and cartopy/matplotlib test data.
+    Documented the cause of the Windows/other size gap in BUILD.md.
+
+ -- Paul Stoetzer, N8HM <noreply@example.com>  Mon, 23 Jun 2026 00:00:00 +0000
+
 orbitdeck (0.36.3-1) unstable; urgency=medium
 
   * Fix tabs that could feel unclickable (reported on the Learn screen's

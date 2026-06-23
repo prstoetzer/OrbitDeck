@@ -26,6 +26,11 @@ COL_GRID = "#30363d"
 FONT_MONO = ("DejaVu Sans Mono", 10)
 FONT_BIG = ("DejaVu Sans Mono", 22, "bold")
 FONT_H = ("DejaVu Sans", 13, "bold")
+# Tab strip font. "DejaVu Sans" does not exist on macOS, where Tk silently
+# substitutes a fallback with different metrics; the Tk named font "TkDefaultFont"
+# resolves to the correct native UI font on every platform, keeping tab sizing
+# (and therefore the wrap layout) consistent.
+TAB_FONT = "TkDefaultFont"
 
 
 def fmt_hms(seconds):
@@ -427,21 +432,27 @@ class TabBar:
         from tkinter import ttk
         holder = tk.Frame(self._bar, bg=COL_PANEL)
         lbl = tk.Label(holder, text=name, bg=COL_PANEL, fg=COL_MUTED,
-                       font=("DejaVu Sans", 10), padx=10, pady=5,
+                       font=TAB_FONT, padx=10, pady=5,
                        cursor="hand2")
         lbl.pack(side="top")
         ind = tk.Frame(holder, bg=COL_PANEL, height=2)
         ind.pack(side="top", fill="x")
         page = ttk.Frame(self._body, style="TFrame")
         idx = len(self._tabs)
-        # bind the click to the whole tab area (holder + label + indicator
-        # strip), not just the text label -- otherwise clicks that land on the
-        # padding or the 2px underline do nothing, making a tab feel unclickable.
+
+        # Make the whole tab reliably clickable on every platform -- including
+        # macOS/Aqua, where binding only the text label left some tabs feeling
+        # dead. We bind every sub-widget of the tab (holder, label, indicator)
+        # to BOTH <Button-1> and <ButtonRelease-1>: Aqua does not always deliver
+        # <Button-1> to a child tk.Label inside nested frames, but it reliably
+        # delivers the release, so the release is the dependable selector.
         def _sel(_e, i=idx):
             self.select(i)
-        holder.bind("<Button-1>", _sel)
-        lbl.bind("<Button-1>", _sel)
-        ind.bind("<Button-1>", _sel)
+            return "break"
+        for w in (holder, lbl, ind):
+            w.bind("<Button-1>", _sel)
+            w.bind("<ButtonRelease-1>", _sel)
+
         self._tabs.append((lbl, ind, page))
         if self._use_groups:
             gi = getattr(self, "_cur_group", 0)
@@ -474,12 +485,31 @@ class TabBar:
         for i, (_n, btn, _idxs) in enumerate(self._groups):
             on = (i == gi)
             btn.configure(fg=COL_ACCENT if on else COL_MUTED, bg=COL_BG)
+        self._layout_group(gi, select_first=True)
+        # Re-run the layout once the geometry has settled. The first pass can run
+        # before the bar has its real width (winfo_width() returns 1 early, and
+        # the timing differs by platform -- notably on macOS), which could wrap
+        # tabs to a row the bar didn't reveal, leaving them visible-but-awkward
+        # or off-strip. A deferred second pass uses the true width, but must NOT
+        # re-select the first tab (that would snap the user back if they've
+        # already clicked another tab in the group).
+        try:
+            self.outer.after_idle(
+                lambda: self._layout_group(self._active_group,
+                                           select_first=False))
+        except Exception:
+            pass
+
+    def _layout_group(self, gi, select_first=True):
         # show only this group's tab holders
         for h in self._holders:
             h.grid_forget()
             h.pack_forget()
         idxs = self._groups[gi][2]
-        bar_w = self._bar.winfo_width() or 1100
+        self._bar.update_idletasks()
+        bar_w = self._bar.winfo_width()
+        if bar_w <= 1:
+            bar_w = 1100
         x = row = col = 0
         for ti in idxs:
             h = self._holders[ti]
@@ -492,8 +522,12 @@ class TabBar:
             h.grid(row=row, column=col, padx=1, pady=2, sticky="w")
             x += w
             col += 1
-        # select the first tab in the group
-        if idxs:
+        # let the bar grow tall enough to show every wrapped row, so no tab is
+        # ever clipped out of the clickable area
+        self._bar.configure(height=0)        # 0 = shrink-to-fit children
+        self._bar.grid_propagate(True)
+        # select the first tab only on the initial layout
+        if idxs and select_first:
             self.select(idxs[0])
 
     def _place_wrapped(self):
@@ -515,18 +549,23 @@ class TabBar:
 
     def _reflow(self, _evt=None):
         if self._use_groups:
-            self.select_group(self._active_group, force=True)
+            # re-flow the active group's tabs for the new width WITHOUT resetting
+            # the user's current tab selection
+            self._layout_group(self._active_group, select_first=False)
         elif self._wrap:
             self._place_wrapped()
 
 
     def _highlight(self, active):
+        import tkinter.font as tkfont
+        bold = tkfont.Font(font=TAB_FONT)
+        bold.configure(weight="bold")
+        normal = tkfont.Font(font=TAB_FONT)
         for i, (lbl, ind, _page) in enumerate(self._tabs):
             on = (i == active)
             lbl.configure(fg=COL_ACCENT if on else COL_MUTED,
                           bg=COL_PANEL,
-                          font=("DejaVu Sans", 10, "bold") if on
-                          else ("DejaVu Sans", 10))
+                          font=bold if on else normal)
             ind.configure(bg=COL_ACCENT if on else COL_PANEL)
 
     def select(self, idx):

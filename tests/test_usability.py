@@ -868,3 +868,39 @@ def test_tabbar_whole_holder_is_clickable():
         assert tabs._active == 1, "clicking the %s did not select the tab" % part
         assert page1.winfo_ismapped(), "tab page not shown after %s click" % part
     root.destroy()
+
+
+def test_tabbar_release_selects_and_group_reflow_preserves_selection():
+    """macOS/Aqua does not always deliver <Button-1> to a nested tk.Label, so the
+    tab must also respond to <ButtonRelease-1>. And re-flowing a grouped tab strip
+    (on resize or a deferred geometry pass) must NOT snap the user back to the
+    first tab of the group."""
+    import tkinter as tk
+    from orbitdeck.gui.screens import TabBar
+
+    try:
+        root = tk.Tk()
+    except Exception:
+        return
+    tabs = TabBar(root, groups=True)
+    tabs.add_group("G1")
+    tabs.add("A")
+    tabs.add("B")
+    c = tabs.add("C")
+    tabs.pack()
+    tabs.layout()
+    root.update_idletasks()
+
+    # release on the third tab's label selects it (Aqua-reliable path)
+    lbl_c = tabs._tabs[2][0]
+    tabs.select(0)
+    lbl_c.event_generate("<ButtonRelease-1>")
+    root.update()
+    assert tabs._active == 2, "release did not select the tab"
+
+    # a reflow must keep tab C selected, not reset to the group's first tab
+    tabs._reflow()
+    root.update()
+    assert tabs._active == 2, "reflow reset the selection"
+    assert c.winfo_ismapped()
+    root.destroy()

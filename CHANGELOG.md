@@ -1,5 +1,37 @@
 # Changelog
 
+## [0.36.5]
+
+### Fixed
+- **Tabs that stayed unclickable on macOS.** A previous release made the whole
+  tab area clickable, but some tabs (reported: the Learn screen's **Pointing** and
+  **Link budget**) remained unresponsive specifically on macOS. Three causes
+  addressed together: (1) tabs now respond to `<ButtonRelease-1>` as well as
+  `<Button-1>`, because macOS/Aqua does not reliably deliver `<Button-1>` to a
+  `tk.Label` nested inside frames — the release event is the dependable selector;
+  (2) the tab strip now uses the native `TkDefaultFont` instead of the Linux-only
+  "DejaVu Sans", which macOS was silently substituting with different metrics that
+  could perturb the wrap layout; and (3) the grouped/wrapping tab layout is
+  recomputed once the geometry settles (using the true bar width rather than an
+  early/stale value) and the strip grows to fit any wrapped rows, so a tab can
+  never end up clipped out of the clickable area. Re-flowing on resize now
+  preserves the current tab instead of snapping back to the first one in the
+  group.
+
+## [0.36.4]
+
+### Changed
+- **Smaller standalone bundles, especially on Windows.** The Windows build was
+  noticeably larger than Linux/macOS because its dependencies come from
+  conda-forge (the reliable way to get GEOS/PROJ on Windows), which bundles a
+  fuller native + data payload than the pip wheels used elsewhere — and because
+  UPX is disabled (it corrupts DLLs). This release trims the largest avoidable
+  pieces that `collect_all` was pulling but OrbitDeck never uses: the PROJ
+  datum-shift grids (only `proj.db` is kept), matplotlib sample data, and
+  cartopy/matplotlib test data, plus excluding **scipy** and **pandas** (unused
+  by OrbitDeck; only optional for cartopy). `BUILD.md` now explains the
+  Windows/other size gap and the options for going smaller.
+
 ## [0.36.3]
 
 ### Fixed
