@@ -28,16 +28,23 @@ runner. Two things make it work: `ubuntu-22.04-arm` ships glibc 2.35, which is
 current 64-bit Pi (a binary built on the newer `ubuntu-24.04-arm` would fail with
 a `GLIBC_2.3x not found` error); and because cartopy has no aarch64 PyPI wheel,
 the job installs GEOS/PROJ via `apt` and builds cartopy from source (falling back
-to OrbitDeck's bundled coastlines if that build fails). The artifact targets
-**64-bit (aarch64) Raspberry Pi OS only** — it will not run on the legacy 32-bit
-(armhf) Pi OS.
+to OrbitDeck's bundled coastlines if that build fails). `actions/setup-python`
+supports arm64 on this runner. The artifact targets **64-bit (aarch64) Raspberry
+Pi OS only** — it will not run on the legacy 32-bit (armhf) Pi OS.
 
-> ⚠️ **arm64 runners require a public repository.** GitHub's free `*-arm` hosted
-> runners only work in **public** repos; in a private repo the Raspberry Pi job
-> will fail to start. For a private repo, either make the build workflow run in a
-> public fork, attach a **self-hosted arm64 runner** (e.g. an actual Raspberry Pi
-> registered as a runner) and change `runs-on` to its label, or use a paid arm64
-> **larger runner**.
+> **arm64 runner availability.** GitHub's `*-arm` hosted runners are free on
+> **public** repositories. They are also available on **private** repositories
+> (they consume Actions minutes at the arm64 rate). If you would rather not use
+> hosted arm64 minutes, register an actual Raspberry Pi as a **self-hosted arm64
+> runner** and change the Pi job's `runs-on` to its label.
+
+> **Image deprecation.** GitHub supports only the latest two Ubuntu images, so the
+> `ubuntu-22.04-arm` label will eventually be retired. When it is, move the Pi job
+> to the *oldest still-available* arm64 image whose glibc is **≤** your target Pi
+> OS's glibc (run `ldd --version` on the Pi to check — Bookworm is 2.36). Building
+> on too new an image is what produces `GLIBC_... not found` on the Pi. If no
+> hosted image is old enough, build on a self-hosted Pi runner, which sidesteps
+> the glibc question entirely.
 
 ## Quick start (current platform)
 
