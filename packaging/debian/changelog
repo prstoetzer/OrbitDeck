@@ -1,3 +1,25 @@
+orbitdeck (0.36.8-1) unstable; urgency=medium
+
+  * Reachability sweep across all screens: the Orbital Analysis Info readout and
+    the Radio link-budget readout could be taller than the window and were clipped
+    at the bottom (Element-set / Uplink sections) with no scrollbar on shorter
+    displays. Both readouts now live in a vertical scroller. Audited every screen
+    in its default state, every tab on every tabbed screen, and the OSCARLOCATOR
+    Sim's drive modes; no other clipped-without-scroll content remains.
+
+ -- Paul Stoetzer, N8HM <noreply@example.com>  Mon, 23 Jun 2026 00:00:00 +0000
+
+orbitdeck (0.36.7-1) unstable; urgency=medium
+
+  * Fix the lab "Challenges..." launcher (and the Trace-orbits control) appearing
+    to be missing. They live at the bottom of the OSCARLOCATOR Sim control column,
+    which can be taller than the window; on shorter displays the bottom of the
+    column was clipped with no scrollbar, so those lab-mode controls fell off the
+    bottom. The control column is now wrapped in a vertical scroller, so they are
+    reachable. The challenges feature itself was never removed.
+
+ -- Paul Stoetzer, N8HM <noreply@example.com>  Mon, 23 Jun 2026 00:00:00 +0000
+
 orbitdeck (0.36.6-1) unstable; urgency=medium
 
   * Revert the v0.36.4 bundle-size reductions, which broke the GitHub builds:

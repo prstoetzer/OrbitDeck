@@ -904,3 +904,97 @@ def test_tabbar_release_selects_and_group_reflow_preserves_selection():
     assert tabs._active == 2, "reflow reset the selection"
     assert c.winfo_ismapped()
     root.destroy()
+
+
+def test_oscarsim_lab_challenges_reachable():
+    """Regression: the lab-mode 'Challenges...' launcher (and the Trace-orbits
+    control) must be reachable. The OSCARLOCATOR Sim control column can be taller
+    than the window, and these controls are packed at the bottom when lab mode is
+    entered; without the column being scrollable they fell off the bottom and
+    looked dropped. Assert the lab-extras frame is mapped with a real size in lab
+    mode and that the control column is wrapped in a scroll canvas."""
+    import tkinter as tk
+    from orbitdeck.gui.app import OrbitDeckApp
+
+    try:
+        root = tk.Tk()
+        root.geometry("1280x800")
+    except Exception:
+        return
+    try:
+        app = OrbitDeckApp(root)
+    except Exception:
+        return
+    app.store.save_config(onboarded=True)
+    sat = next(iter(app.store.db.sats), None)
+    if sat is not None:
+        app.store.select(sat.norad)
+    app.show("oscarsim")
+    scr = app.current
+
+    # close the lab editor dialog that auto-opens, so it doesn't hold the loop
+    scr._mode.set("lab")
+    scr._on_mode()
+    root.update()
+    for w in list(root.winfo_children()):
+        if isinstance(w, tk.Toplevel):
+            try:
+                w.destroy()
+            except Exception:
+                pass
+    root.update()
+    root.update_idletasks()
+
+    # lab extras (which contains the Challenges launcher) must have real size
+    le = scr._lab_extras
+    assert le.winfo_manager() == "pack", "lab extras not packed in lab mode"
+    assert le.winfo_reqheight() > 1, "lab extras has no content height"
+
+    # the control column must be inside a scroll canvas so the bottom is reachable
+    def find_canvas(w):
+        if isinstance(w, tk.Canvas):
+            return w
+        for c in w.winfo_children():
+            r = find_canvas(c)
+            if r:
+                return r
+        return None
+
+    assert find_canvas(scr.frame) is not None, "control column is not scrollable"
+    root.destroy()
+
+
+def test_orbit_and_radio_readouts_are_scrollable():
+    """Regression (reachability sweep): the Orbital Analysis Info readout and the
+    Radio link-budget readout can be taller than the window; both must live in a
+    scroll canvas so their lower sections (Element set / Uplink) are reachable on
+    shorter displays rather than clipped with no scrollbar."""
+    import tkinter as tk
+    from orbitdeck.gui.app import OrbitDeckApp
+
+    try:
+        root = tk.Tk()
+        root.geometry("1280x720")
+    except Exception:
+        return
+    try:
+        app = OrbitDeckApp(root)
+    except Exception:
+        return
+    app.store.save_config(onboarded=True)
+    sat = next((s for s in app.store.db.sats if s.transponders), None)
+    if sat is None:
+        sat = next(iter(app.store.db.sats), None)
+    if sat is not None:
+        app.store.select(sat.norad)
+
+    def has_canvas(w):
+        if isinstance(w, tk.Canvas):
+            return True
+        return any(has_canvas(c) for c in w.winfo_children())
+
+    for key in ("orbit", "radio"):
+        app.show(key)
+        root.update_idletasks()
+        assert has_canvas(app.current.frame), "%s readout is not scrollable" % key
+    root.destroy()

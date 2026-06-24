@@ -1,5 +1,30 @@
 # Changelog
 
+## [0.36.8]
+
+### Fixed
+- **Reachability sweep across every screen.** Two screens could clip content at
+  the bottom on shorter displays with no way to scroll to it: **Orbital Analysis**
+  (the Info readout's lower sections, e.g. Element set) and **Radio** (the
+  link-budget readout's Uplink section below the Downlink). Both readouts now live
+  in a vertical scroller, so all of their content is reachable. As part of the
+  sweep, every screen was checked in its default state, every tab on every tabbed
+  screen (Learn's five groups, Radio, Orbital Analysis's pages, Planning,
+  Settings) was exercised, and the OSCARLOCATOR Sim's drive modes were checked;
+  no other clipped-without-scroll content remains.
+
+## [0.36.7]
+
+### Fixed
+- **The lab "Challenges…" launcher was unreachable on shorter displays** (it
+  looked like the feature had been removed). The challenges live at the bottom of
+  the OSCARLOCATOR Sim's control column, shown only in lab mode along with the
+  Trace-orbits control. That column can be taller than the window, and it wasn't
+  scrollable, so the lab-mode controls packed at the bottom fell off the visible
+  area. The control column is now wrapped in a vertical scroller (auto-hiding
+  scrollbar, mouse-wheel), so the Challenges launcher and Trace-orbits control are
+  reachable. The challenges feature itself was never dropped.
+
 ## [0.36.6]
 
 ### Fixed

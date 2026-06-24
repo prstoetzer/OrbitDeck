@@ -47,9 +47,15 @@ class OrbitScreen(Screen):
         self._highlight_tab(0)
 
         # two presentation surfaces: a KV card (data pages) and a plot (graph
-        # pages). We show whichever the active page needs.
-        self.kv = KVPanel(self.frame, label_width=15)
-        self.kv.pack(fill="both", expand=True, padx=16, pady=8)
+        # pages). We show whichever the active page needs. The data pages (e.g.
+        # Info) can be taller than the window, so the KV card lives inside a
+        # vertical scroller -- otherwise the bottom sections (Element set, etc.)
+        # are clipped with no way to reach them on shorter displays.
+        from . import make_vscroll_frame
+        self._kv_scroll, kv_interior = make_vscroll_frame(self.frame)
+        self.kv = KVPanel(kv_interior, label_width=15)
+        self.kv.pack(fill="both", expand=True)
+        self._kv_scroll.pack(fill="both", expand=True, padx=16, pady=8)
         self.plotwrap = ttk.Frame(self.frame, style="Panel.TFrame")
         # a scrollable table surface, used by the equator-crossings list page
         self.tablewrap = ttk.Frame(self.frame, style="TFrame")
@@ -120,11 +126,11 @@ class OrbitScreen(Screen):
             self.plotwrap.pack_forget()
             self._plot_shown = False
         self._hide_table()
-        if not self.kv.outer.winfo_ismapped():
-            self.kv.pack(fill="both", expand=True, padx=16, pady=8)
+        if not self._kv_scroll.winfo_ismapped():
+            self._kv_scroll.pack(fill="both", expand=True, padx=16, pady=8)
 
     def _show_table(self):
-        self.kv.outer.pack_forget()
+        self._kv_scroll.pack_forget()
         if self._plot_shown:
             self.plotwrap.pack_forget()
             self._plot_shown = False
@@ -133,7 +139,7 @@ class OrbitScreen(Screen):
             self._table_shown = True
 
     def _show_plot(self, polar=False, dopbar=False):
-        self.kv.outer.pack_forget()
+        self._kv_scroll.pack_forget()
         self._hide_table()
         if not self._plot_shown:
             self.plotwrap.pack(fill="both", expand=True, padx=12, pady=8)

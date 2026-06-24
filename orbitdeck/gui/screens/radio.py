@@ -143,8 +143,15 @@ class RadioScreen(Screen):
         ttk.Button(self._timebar, text="TCA",
                    command=self._snap_tca).pack(side="left", padx=2)
 
-        self.kv = KVPanel(parent, label_width=22)
-        self.kv.pack(fill="both", expand=True, padx=8, pady=6)
+        # the readout below the input rows can be taller than the window (Pass,
+        # Geometry, Downlink and Uplink sections); put the KV card in a vertical
+        # scroller so the lower sections are reachable on shorter displays. The
+        # input rows above stay fixed.
+        from . import make_vscroll_frame
+        kv_scroll, kv_interior = make_vscroll_frame(parent)
+        kv_scroll.pack(fill="both", expand=True, padx=8, pady=6)
+        self.kv = KVPanel(kv_interior, label_width=22)
+        self.kv.pack(fill="both", expand=True)
 
     def _snap_tca(self):
         # re-centre the scrubber on closest approach

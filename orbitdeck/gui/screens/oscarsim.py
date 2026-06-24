@@ -72,9 +72,17 @@ class OscarSimScreen(Screen):
         body = ttk.Frame(self.frame, style="TFrame")
         body.pack(fill="both", expand=True, padx=12, pady=4)
 
-        # --- left: controls
-        ctrl = ttk.Frame(body, style="Panel.TFrame")
-        ctrl.pack(side="left", fill="y", padx=(0, 8))
+        # --- left: controls. The control column is taller than the window on
+        # smaller displays (and grows when lab mode adds the Trace/Challenges
+        # controls), so wrap it in a vertical scroller -- otherwise widgets
+        # packed at the bottom (notably the lab "Challenges..." launcher) fall
+        # off the bottom and look like they are missing.
+        from . import make_vscroll_frame
+        ctrl_scroll, ctrl = make_vscroll_frame(body)
+        ctrl_scroll.configure(width=300)
+        ctrl_scroll.pack(side="left", fill="y", padx=(0, 8))
+        ctrl_scroll.pack_propagate(False)
+        ctrl.configure(style="Panel.TFrame")
         ttk.Label(ctrl, text="Drive the overlay", style="Panel.TLabel",
                   font=("DejaVu Sans", 11, "bold")).pack(anchor="w", padx=10,
                                                          pady=(10, 4))
