@@ -1,3 +1,12 @@
+orbitdeck (0.36.10-1) unstable; urgency=medium
+
+  * Fix reversed OSCARLOCATOR path-arc rotation-direction instruction:
+    northern sheets now say rotate clockwise, southern counter-clockwise
+    (the printed label and rim arrow were inverted; the engine and the
+    interactive simulator were already correct).
+
+ -- Paul Stoetzer, N8HM <n8hm@arrl.net>  Wed, 25 Jun 2026 12:00:00 -0400
+
 orbitdeck (0.36.9-1) unstable; urgency=medium
 
   * Fix the rove plan sheet: the State/DXCC/Grids labels are now vertically

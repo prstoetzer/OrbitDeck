@@ -1025,12 +1025,15 @@ def _arc_page(pdf, pred, sat, proj, rmax, reduced_text=False):
     # plot so it never overlaps the track. The overlay pivots on the centre, so
     # the move is a rotation: a curved arrow on the rim shows its size and sense.
     #
-    # The sheet's azimuth axis is N-up, theta clockwise. A westward node drift
-    # rotates the sheet counter-clockwise on the page; at the top of the page
-    # CCW motion sweeps toward the LEFT (toward West/270deg). On the southern
-    # sheet the longitude is mirrored, which flips the on-screen sense.
+    # These sheets are north-up azimuthal views (looking down on the North Pole
+    # for the northern sheets). Earth spins counter-clockwise seen from above the
+    # North Pole, so eastward is CCW and WESTWARD is CLOCKWISE on the page. The
+    # ascending node drifts WEST each pass, so the overlay must be rotated
+    # CLOCKWISE on a northern sheet. The southern sheet views the same globe from
+    # the other side (longitude handedness mirrored), which flips the on-screen
+    # sense to counter-clockwise.
     west = shift < 0
-    ccw = west if not proj.is_south else (not west)   # on-screen rotation sense
+    ccw = (not west) if not proj.is_south else west   # on-screen rotation sense
     # the per-pass rotation indicator sits OUTSIDE the rim; in reduced-text mode
     # keep the sheet clean (nothing outside the circle), since the advance angle
     # is already stated inside the circle.

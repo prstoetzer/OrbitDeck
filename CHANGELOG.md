@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.36.10]
+
+### Fixed
+- OSCARLOCATOR path-arc sheets stated the wrong per-pass rotation direction.
+  Because the ascending node drifts west each pass and these are north-up
+  azimuthal views (Earth spins counter-clockwise seen from above the North
+  Pole, so westward is clockwise on the page), northern sheets should rotate
+  **clockwise** and southern sheets **counter-clockwise** — the printed label
+  and the rim arrow had this inverted. The propagation engine and the
+  interactive OSCARLOCATOR simulator were already correct; only the printed
+  sheet's stated sense was reversed. Both the text and the drawn arrow are
+  driven by one flag, so they stay consistent.
+
 ## [0.36.9]
 
 ### Fixed

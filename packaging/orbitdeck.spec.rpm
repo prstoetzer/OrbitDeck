@@ -2,13 +2,13 @@
 #
 # Build:
 #     # from the repo root, create a release tarball matching Source0, e.g.
-#     #   git archive --format=tar.gz --prefix=OrbitDeck-0.36.9/ \
-#     #       -o ~/rpmbuild/SOURCES/orbitdeck-0.36.9.tar.gz v0.36.9
+#     #   git archive --format=tar.gz --prefix=OrbitDeck-0.36.10/ \
+#     #       -o ~/rpmbuild/SOURCES/orbitdeck-0.36.10.tar.gz v0.36.10
 #     rpmbuild -ba packaging/orbitdeck.spec
 #
 # Keep Version in sync with orbitdeck/__init__.py.
 Name:           orbitdeck
-Version:        0.36.9
+Version:        0.36.10
 Release:        1%{?dist}
 Summary:        Desktop satellite tracking and orbital analysis for amateur radio
 
@@ -67,6 +67,9 @@ install -Dm644 packaging/io.github.prstoetzer.OrbitDeck.metainfo.xml \
 %{_metainfodir}/io.github.prstoetzer.OrbitDeck.metainfo.xml
 
 %changelog
+* Wed Jun 25 2026 Paul Stoetzer, N8HM - 0.36.10-1
+- Fix reversed OSCARLOCATOR path-arc rotation sense (north now clockwise, south counter-clockwise)
+
 * Tue Jun 24 2026 Paul Stoetzer, N8HM - 0.36.9-1
 - Fix rove plan sheet alignment + branding overlap + full DXCC names; cache observer geometry for speed.
 * Mon Jun 23 2026 Paul Stoetzer, N8HM - 0.36.8-1
