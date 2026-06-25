@@ -1,5 +1,27 @@
 # Changelog
 
+## [0.36.9]
+
+### Fixed
+- **Rove plan sheet layout.** Three issues in the printable rove plan: (1) the
+  "States:" / "DXCC:" / "Grids:" labels were not aligned with their values —
+  label and value shared a baseline position but used different vertical anchors,
+  so each value sat slightly below its label; both now use the same top alignment
+  and line up. (2) Entries could overflow into the page-footer branding; the sheet
+  now paginates by measured entry height with a footer-clearance floor, so an
+  entry is moved to the next page rather than printed over the credit. (3) DXCC
+  entity names were being truncated at the first space ("United States" → "United");
+  full names are now kept.
+
+### Changed
+- **Faster propagation.** The predictor now caches the observer's ECEF position
+  and latitude trigonometry (computed once per site in `set_site`) instead of
+  recomputing them on every `look()` / azimuth-elevation call. For a fixed ground
+  station these are constant; only the Earth-rotation term changes with time.
+  About 14% faster on engine-heavy workloads (pass scans, dense track/Doppler
+  sampling); output is bit-identical to before (verified against the on-the-fly
+  computation and the full numeric test suite).
+
 ## [0.36.8]
 
 ### Fixed

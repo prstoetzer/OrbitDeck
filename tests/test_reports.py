@@ -204,3 +204,67 @@ def test_report_content_clears_branding_footer():
     R.generate_satellite_report(path, app.store, sat)
     assert os.path.exists(path) and os.path.getsize(path) > 0
     root.destroy()
+
+
+def test_rove_sheet_paginates_and_keeps_full_dxcc_names():
+    """The rove plan sheet must (a) paginate so entries never overflow into the
+    footer branding, and (b) keep full DXCC entity names (e.g. 'United States',
+    not a space-truncated 'United')."""
+    import os
+    import tempfile
+    import tkinter as tk
+    from orbitdeck.gui.app import OrbitDeckApp
+    from orbitdeck.engine import Observer
+    from orbitdeck.gui.rovesheet import generate_rove_sheet_pdf
+
+    try:
+        root = tk.Tk()
+    except Exception:
+        return
+    try:
+        app = OrbitDeckApp(root)
+    except Exception:
+        return
+    app.store.save_config(onboarded=True)
+    app.store.obs = Observer(lat=39.93, lon=-74.89, alt_m=20, valid=True)
+
+    def res(el):
+        return {"aos": 1.75e9, "los": 1.75e9 + 1200, "max_el": el,
+                "grids": list(range(1234)),
+                "states": {"NJ", "PA", "NY"},
+                "dxcc": {"United States", "Canada"}}
+    # many stops -> must split across pages
+    rows = [("FN%02d" % i, "RS-44", res(30 + i)) for i in range(14)]
+    path = os.path.join(tempfile.gettempdir(), "test_rove.pdf")
+    generate_rove_sheet_pdf(path, "RS-44", app.store, rows)
+    assert os.path.exists(path) and os.path.getsize(path) > 0
+
+    # the PDF should have more than one page for 14 stops
+    try:
+        import pypdf
+        n = len(pypdf.PdfReader(path).pages)
+    except Exception:
+        n = None
+    if n is not None:
+        assert n >= 2, "14 rove stops should paginate to >=2 pages, got %s" % n
+    root.destroy()
+
+
+def test_predictor_observer_cache_matches_recompute():
+    """The cached observer ECEF/latitude trig (a speed optimisation) must exactly
+    equal the on-the-fly computation, and must refresh when the site changes."""
+    import math
+    from orbitdeck.engine import Observer, Predictor
+    from orbitdeck.engine.predict import _geodetic_to_ecef, DEG
+
+    for lat, lon, alt in [(39.93, -74.89, 20), (-33.9, 18.4, 100), (0, 0, 0)]:
+        p = Predictor()
+        p.set_site(Observer(lat=lat, lon=lon, alt_m=alt, valid=True))
+        assert p._obs_ecef == _geodetic_to_ecef(lat, lon, alt / 1000.0)
+        assert p._obs_slat == math.sin(lat * DEG)
+        assert p._obs_clat == math.cos(lat * DEG)
+    p = Predictor()
+    p.set_site(Observer(lat=0, lon=0, alt_m=0, valid=True))
+    e1 = p._obs_ecef
+    p.set_site(Observer(lat=45, lon=90, alt_m=0, valid=True))
+    assert p._obs_ecef != e1, "observer cache did not refresh on set_site"

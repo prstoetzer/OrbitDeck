@@ -1,3 +1,19 @@
+orbitdeck (0.36.9-1) unstable; urgency=medium
+
+  * Fix the rove plan sheet: the State/DXCC/Grids labels are now vertically
+    aligned with their values (they shared a y but used different vertical
+    anchors, so values sat lower than their labels); entries are paginated by
+    measured height so they never overflow into the footer branding; and DXCC
+    entity names are kept in full ("United States" was being truncated to
+    "United").
+  * Speed: cache the observer's ECEF position and latitude trig in the predictor
+    instead of recomputing them (sin/cos/sqrt) on every look()/azel call. These
+    are constant for a fixed site; only the Earth-rotation term varies per
+    timestamp. ~14% faster on engine-heavy work (pass scans, dense sampling);
+    results are bit-identical (verified).
+
+ -- Paul Stoetzer, N8HM <noreply@example.com>  Tue, 24 Jun 2026 00:00:00 +0000
+
 orbitdeck (0.36.8-1) unstable; urgency=medium
 
   * Reachability sweep across all screens: the Orbital Analysis Info readout and

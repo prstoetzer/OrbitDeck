@@ -167,7 +167,6 @@ def _teme_to_ecef_lla(r, jd):
 
 class Predictor:
     def __init__(self):
-        self._o = Observer()
         self._sat = None
         self._epoch_unix = 0.0
         self._have = False
@@ -176,9 +175,21 @@ class Predictor:
         # memoised SGP4 states keyed on rounded unix time (see _eci_state)
         self._eci_cache = {}
         self._eci_cache_max = 4096
+        self.set_site(Observer())    # also primes the observer-geometry cache
 
     def set_site(self, o: Observer):
         self._o = o
+        # Precompute the parts of the observer geometry that do NOT change with
+        # time: its ECEF position and the trig of its latitude. These were being
+        # recomputed (sin/cos/sqrt) on every look()/azel call -- tens of
+        # thousands of times during a pass scan -- even though a fixed site's
+        # ECEF coordinates are constant. Only the Earth-rotation (GMST) part
+        # varies per timestamp.
+        self._obs_ecef = _geodetic_to_ecef(o.lat, o.lon, o.alt_m / 1000.0)
+        _latr = o.lat * DEG
+        self._obs_slat = math.sin(_latr)
+        self._obs_clat = math.cos(_latr)
+        self._obs_lon_rad = o.lon * DEG
 
     def set_sat(self, s: SatEntry) -> bool:
         el = Elements(
@@ -262,8 +273,7 @@ class Predictor:
         jd = jd_of(unix)
         th = _gmst_rad(jd)
         ct, st = math.cos(th), math.sin(th)
-        xe, ye, ze = _geodetic_to_ecef(self._o.lat, self._o.lon,
-                                       self._o.alt_m / 1000.0)
+        xe, ye, ze = self._obs_ecef       # constant for a fixed site
         ox = xe * ct - ye * st
         oy = xe * st + ye * ct
         oz = ze
@@ -274,9 +284,8 @@ class Predictor:
         rx, ry, rz = r[0] - ox, r[1] - oy, r[2] - oz
         rng = math.sqrt(rx * rx + ry * ry + rz * rz)
         # topocentric ENU at observer (use GMST-rotated longitude)
-        lat = self._o.lat * DEG
-        lst = th + self._o.lon * DEG
-        slat, clat = math.sin(lat), math.cos(lat)
+        lst = th + self._obs_lon_rad
+        slat, clat = self._obs_slat, self._obs_clat     # constant for the site
         ss, cs = math.sin(lst), math.cos(lst)
         # East, North, Up unit vectors in TEME
         e = -ss * rx + cs * ry
