@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.37.0]
+
+### Added
+- **OrbitTerm**, a terminal (curses) companion UI for headless boxes and SSH
+  sessions. It reuses the OrbitDeck engine and the shared `~/.orbitdeck` config
+  and AMSAT catalog cache, so its numbers match the desktop GUI. Screens: Home
+  dashboard, Satellites picker, live Track, Next Passes, Pass Detail (with an
+  ASCII elevation profile), Sky Radar (ASCII polar plot), Ground Track (ASCII
+  world map), Pass Progression (one 24-hour timeline per day, shaded by max
+  elevation), Illumination (sunlit/eclipse raster plus an umbral-eclipse
+  ephemeris), Orbital Analysis, Radio/Doppler (with a live shift curve across
+  the next pass), and Settings. Pure standard library — no new dependencies.
+  Launch with `orbitterm` or `python -m orbitterm`.
+
 ## [0.36.10]
 
 ### Fixed

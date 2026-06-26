@@ -60,7 +60,7 @@ dpkg-buildpackage -us -uc -b      # -b = binary only, unsigned
 The `.deb` is written to the **parent** directory. Install and run:
 
 ```bash
-sudo apt install ../orbitdeck_0.36.10-1_all.deb   # pulls deps + the full optional set
+sudo apt install ../orbitdeck_0.37.0-1_all.deb   # pulls deps + the full optional set
 orbitdeck
 ```
 
@@ -90,8 +90,8 @@ rpmdev-setuptree                  # creates ~/rpmbuild/{SOURCES,SPECS,...}
 
 ```bash
 # from the repo root: create the source tarball the spec expects
-git archive --format=tar.gz --prefix=OrbitDeck-0.36.10/ \
-    -o ~/rpmbuild/SOURCES/orbitdeck-0.36.10.tar.gz v0.36.10
+git archive --format=tar.gz --prefix=OrbitDeck-0.37.0/ \
+    -o ~/rpmbuild/SOURCES/orbitdeck-0.37.0.tar.gz v0.37.0
 
 rpmbuild -ba packaging/orbitdeck.spec.rpm
 ```
@@ -99,7 +99,7 @@ rpmbuild -ba packaging/orbitdeck.spec.rpm
 The binary RPM lands in `~/rpmbuild/RPMS/noarch/`. Install and run:
 
 ```bash
-sudo dnf install ~/rpmbuild/RPMS/noarch/orbitdeck-0.36.10-1.*.noarch.rpm
+sudo dnf install ~/rpmbuild/RPMS/noarch/orbitdeck-0.37.0-1.*.noarch.rpm
 orbitdeck
 ```
 
@@ -125,7 +125,7 @@ makepkg -si                       # build + install, pulling dependencies
 orbitdeck
 ```
 
-`makepkg` produces `orbitdeck-0.36.10-1-any.pkg.tar.zst`. The recipe pulls
+`makepkg` produces `orbitdeck-0.37.0-1-any.pkg.tar.zst`. The recipe pulls
 `tk`, `python-matplotlib`, `python-numpy`, and `python-certifi` as hard
 dependencies, and lists `python-sgp4` / `python-cartopy` / `python-openpyxl` as
 `optdepends`. On Arch, optdepends are **not** auto-installed, so to get the full
@@ -210,7 +210,7 @@ git clone ssh://aur@aur.archlinux.org/orbitdeck.git aur-orbitdeck
 cd aur-orbitdeck
 cp /path/to/PKGBUILD /path/to/.SRCINFO .   # ONLY these (plus any .install)
 git add PKGBUILD .SRCINFO
-git commit -m "Initial import: orbitdeck 0.36.10-1"
+git commit -m "Initial import: orbitdeck 0.37.0-1"
 git push
 ```
 
@@ -226,7 +226,7 @@ The package then appears at `https://aur.archlinux.org/packages/orbitdeck`.
 updpkgsums
 makepkg --printsrcinfo > .SRCINFO
 # 3. commit + push
-git commit -am "Update to 0.36.10-1"
+git commit -am "Update to 0.37.0-1"
 git push
 ```
 
@@ -238,7 +238,7 @@ of date.
 
 - The AUR git repo holds **only** the recipe — never the source tree, the built
   package, or `src/`/`pkg/` directories.
-- The `v0.36.10` **tag must be live and public on GitHub** or `updpkgsums` and
+- The `v0.37.0` **tag must be live and public on GitHub** or `updpkgsums` and
   users' builds will 404 on the `source=` URL.
 - `arch=('any')` is correct (pure-Python / noarch): one package serves every
   architecture.
@@ -341,7 +341,87 @@ After installing any of the above:
 
 Every helper carries the version string. On a release, bump:
 
-- `orbitdeck/__init__.py`, `pyproject.toml`, `orbitdeck.spec`
-- `packaging/PKGBUILD` (`pkgver`)
-- `packaging/orbitdeck.spec.rpm` (`Version`)
+- `orbitdeck/__init__.py`, `orbitterm/__init__.py`, `pyproject.toml`,
+  `orbitdeck.spec`
+- `packaging/PKGBUILD` (`pkgver`) and `packaging/PKGBUILD-git`
+- `packaging/.SRCINFO` (`pkgver` + the source URL/tarball name)
+- `packaging/orbitdeck.spec.rpm` (`Version` + a new `%changelog` entry)
 - `packaging/debian/changelog` (new entry)
+- `packaging/io.github.prstoetzer.OrbitDeck.metainfo.xml` (new `<release>`)
+- the version assertion in `tests/test_analysis.py`
+
+---
+
+## Automated builds on release (GitHub Actions)
+
+Two workflows produce the downloadable builds and attach them to the GitHub
+Release automatically. **You do not run any packaging commands by hand for a
+release — you just push a tag.**
+
+| Workflow | File | Produces |
+| --- | --- | --- |
+| Build standalone apps | `.github/workflows/build.yml` | PyInstaller bundles: Windows, macOS (Apple Silicon), Linux x86_64, Raspberry Pi OS arm64 |
+| Build native Linux packages | `.github/workflows/packages.yml` | `.deb` (amd64 + arm64), `.rpm`, Arch package + regenerated `.SRCINFO`, AppImage (x86_64 + aarch64), Flatpak bundle |
+
+### How to cut a release
+
+1. Bump every version string (see *Keeping versions in sync* above), update
+   `CHANGELOG.md`, and add changelog entries to the rpm spec and
+   `debian/changelog`. Commit.
+2. Tag the commit with `vX.Y.Z` and push the tag:
+
+   ```bash
+   git tag v0.37.0
+   git push origin v0.37.0
+   ```
+
+3. Both workflows trigger on the `v*` tag. Each job builds its target and, on a
+   tag, attaches the resulting file(s) to the release for that tag via
+   `softprops/action-gh-release` (the release is created if it doesn't exist).
+4. When the runs finish, the Release page has every artifact: the PyInstaller
+   bundles plus `.deb`/`.rpm`/Arch/AppImage/Flatpak.
+
+To build the packages **without** publishing a release — e.g. to test the
+pipeline — use **Run workflow** (the `workflow_dispatch` trigger) on the Actions
+tab; each job then uploads its output as a normal workflow artifact instead of
+attaching it to a release.
+
+### Why these base images (oldest-supported)
+
+Each native package is built on, or in a container of, the **oldest supported
+release** of its distro family, so the package installs there and on everything
+newer:
+
+- **`.deb` → Ubuntu 22.04 LTS** (glibc 2.35, debhelper 13). Installs on Ubuntu
+  22.04+, Debian 12+, and Raspberry Pi OS Bookworm. arm64 is built on the
+  `ubuntu-22.04-arm` runner.
+- **`.rpm` → `rockylinux:9` container** (glibc 2.34). Installs on RHEL/Rocky/Alma
+  9+ and current Fedora.
+- **Arch → `archlinux:latest` container.** Arch is rolling, so "oldest" doesn't
+  apply; CI validates `makepkg` and regenerates `.SRCINFO` (the file you push to
+  the AUR — CI does not publish to the AUR for you).
+- **AppImage → Ubuntu 22.04** (oldest glibc) for the widest reach; it bundles its
+  own Python, so it runs across distros. Built for x86_64 and aarch64.
+- **Flatpak → Freedesktop runtime 24.08**, which ships its own runtime and is
+  distro-independent.
+
+OrbitDeck is pure-Python (`noarch`) plus Tk, so glibc/Python availability is the
+only real portability constraint — the oldest-base choice above covers it. A
+package built on a *newer* base could fail to install on an older release with
+`GLIBC_2.3x not found` or a too-new Python, which is exactly what this avoids.
+
+### Caveats and notes
+
+- **arm64 Linux runners are free on public repos only.** In a private repo the
+  `arm64` `.deb`/AppImage jobs need a self-hosted or larger arm64 runner. The
+  same note already applies to the Raspberry Pi job in `build.yml`.
+- **Flatpak/AppImage cartopy:** the portable bundles ship without cartopy (its
+  GEOS/PROJ build is heavy inside a runtime/AppDir), so they fall back to the
+  bundled coastlines. The `.deb`/`.rpm` pull cartopy from the distro where it is
+  packaged.
+- **AUR is not auto-published.** CI proves `makepkg` works and emits a fresh
+  `.SRCINFO`; pushing to the AUR remains a manual `git push` to the AUR remote
+  (see *Submitting to the AUR* above).
+- **The Flatpak manifest** (`packaging/flatpak/…yml`) pulls dependency wheels at
+  build time for convenience. A Flathub submission should replace that module
+  with pinned source modules from `flatpak-pip-generator`.

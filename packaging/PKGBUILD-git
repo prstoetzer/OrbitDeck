@@ -15,7 +15,7 @@
 # git, not by a checksum — and pkgver() derives the version from `git describe`.
 pkgname=orbitdeck-git
 _pkgname=orbitdeck
-pkgver=0.36.10.r0.g0000000
+pkgver=0.37.0.r0.g0000000
 pkgrel=1
 pkgdesc="Desktop satellite tracking and orbital analysis for amateur radio (git)"
 arch=('any')

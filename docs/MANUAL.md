@@ -46,7 +46,9 @@ sources.
 5. [Reports (printable PDFs)](#5-reports-printable-pdfs)
 6. [Data sources & staying accurate](#6-data-sources--staying-accurate)
 7. [Files & where settings live](#7-files--where-settings-live)
-8. [Troubleshooting](#8-troubleshooting)
+8. [OrbitTerm — the terminal UI](#8-orbitterm--the-terminal-ui)
+9. [Troubleshooting](#9-troubleshooting)
+10. [Author & supporting AMSAT](#10-author--supporting-amsat)
 
 ---
 
@@ -1047,7 +1049,156 @@ Deleting that directory resets OrbitDeck to a first-run state.
 
 ---
 
-## 8. Troubleshooting
+## 8. OrbitTerm — the terminal UI
+
+**OrbitTerm** is a companion application that brings the core of OrbitDeck to a
+plain terminal. It is built for **headless boxes and SSH sessions** — a Raspberry
+Pi at the antenna, a remote shack PC, a server with no display — where the
+windowed GUI can't run. It uses only the Python standard library (`curses`), so
+it needs **no extra dependencies** beyond OrbitDeck itself, and it reuses the
+same propagation engine and the same `~/.orbitdeck` configuration and catalog
+cache as the desktop app. Whatever station, favorites, selected satellite, and
+catalog you have in the GUI are already there in OrbitTerm, and every computed
+number (look angles, pass times, Doppler) matches the GUI exactly.
+
+Radio (CAT) and rotator control remain out of scope here too — OrbitTerm tells
+you where to point and what Doppler to expect, but does not key a radio.
+
+### 8.1 Launching
+
+```sh
+orbitterm            # if installed via pip / a native package
+python -m orbitterm  # from a source checkout
+```
+
+The interface is a left **navigation column** and a content pane, with a title
+bar (selected satellite and your grid) and a footer that always lists the keys
+available on the current screen.
+
+<p align="center">
+  <img src="img/orbitterm_home.png" width="80%" alt="OrbitTerm Home: station, catalog status, selected-satellite look, next pass, and what's up now">
+</p>
+
+### 8.2 Navigating
+
+- **Number keys 1–9, 0** jump straight to a screen.
+- **Tab** moves focus to/from the navigation column; then **↑/↓** pick a screen
+  and **Enter** (or **→**) returns to the content.
+- **`[` / `]`** step to the previous / next satellite on the detail screens.
+- **↑/↓, PgUp/PgDn, Home/End** move within lists.
+- **Enter** selects, opens, or begins editing depending on the screen.
+- **`/`** starts a search (Satellites); **`f`** toggles a favorite.
+- **`R`** fetches a fresh AMSAT catalog online (Home and Settings).
+- **`q`** quits.
+
+### 8.3 The screens
+
+**Home** — a dashboard: your station and grid, catalog freshness, the selected
+satellite's live look and next pass, and a list of everything currently above
+the horizon.
+
+**Satellites** — the catalog as a scrollable, searchable list (press **`/`** to
+filter by name or NORAD id). Each row shows inclination, period, altitude and a
+live up/down status. **`f`** favorites a satellite (favorites sort to the top);
+**Enter** selects it for the detail screens.
+
+**Track** — the full live look for the selected satellite: azimuth and elevation
+(with a bar), slant range, range rate, sub-point, altitude, sunlit/eclipse, and
+the Sun's position, plus a naked-eye-visibility check and an AOS/LOS countdown.
+
+<p align="center">
+  <img src="img/orbitterm_track.png" width="80%" alt="OrbitTerm Track: live look angles, range, range rate, sub-point, sun geometry and pass context">
+</p>
+
+**Next Passes** — a scrollable table of upcoming passes (date, AOS / TCA / LOS,
+maximum elevation, and AOS/LOS azimuths). Max elevation is colour-coded by pass
+quality. **`e`/`E`** lowers/raises the minimum-elevation filter; **Enter** opens
+the highlighted pass in Pass Detail.
+
+<p align="center">
+  <img src="img/orbitterm_passes.png" width="80%" alt="OrbitTerm Next Passes: pass table with AOS/TCA/LOS, azimuths and quality-coloured max elevation">
+</p>
+
+**Pass Detail** — the AOS/TCA/LOS events for one pass with their azimuths and
+elevations, plus an **ASCII elevation profile** of the whole pass that peaks at
+TCA and marks the current time. **`n`** jumps to the next pass.
+
+**Sky Radar** — an ASCII polar sky plot of everything above the horizon right
+now: north up, with elevation rings (the rim is the horizon, the centre is
+overhead). Each satellite is a lettered marker keyed to a side list.
+
+**Ground Track** — an ASCII world map showing the selected satellite's sub-point
+(**◉**), its ground track (past as dots, the next orbit as **+**), its coverage
+footprint (**°**), and your station (**▲**).
+
+<p align="center">
+  <img src="img/orbitterm_groundtrack.png" width="80%" alt="OrbitTerm Ground Track: ASCII world map with sub-point, ground track, footprint circle and station">
+</p>
+
+**Pass Progression** — every pass of the selected satellite over the next N days
+(10 by default; **`+`/`-`** loads more or fewer in 7-day steps), drawn as one
+24-hour timeline per day. Each pass sits at its time of day, its width is its
+duration, and its shade encodes maximum elevation, so you can watch the pass
+times drift from day to day at a glance.
+
+<p align="center">
+  <img src="img/orbitterm_progression.png" width="80%" alt="OrbitTerm Pass Progression: one 24-hour timeline per day, passes shaded by maximum elevation">
+</p>
+
+**Illumination** — the selected satellite's sunlit/eclipse picture, in two views
+toggled with **`v`**. The *raster* shows a 30-day window with days across the
+bottom and minutes-into-orbit up the side; bright cells are sunlit, blanks are
+umbral eclipse, and the footer gives the mean eclipse fraction per orbit. Scroll
+the window forward and back in time with **`←`/`→`** (**`0`** resets). The
+*eclipse table* is an umbral-eclipse ephemeris over a selectable span
+(**`+`/`-`**, 1–14 days): press **`s`** to switch between the per-orbit list
+(enter, exit, duration, the sunlight interval to the next eclipse, and the
+orbit-plane beta angle) and the per-day summary (eclipse count, total and longest
+shadow time, percent of the day in shadow, and beta). High beta means shallow,
+short eclipses — or none at all in continuous sunlight. This is the data for
+power-budget reasoning, matching the desktop Illumination screen.
+
+<p align="center">
+  <img src="img/orbitterm_illumination.png" width="80%" alt="OrbitTerm Illumination: ASCII sunlit/eclipse raster over a 30-day window with the mean eclipse fraction">
+</p>
+
+**Orbital Analysis** — the full element set plus derived quantities: semi-major
+axis, apogee/perigee, J2 node and perigee drift, sun-synchronicity, LTAN,
+beta\* threshold, ground-track shift per orbit, repeat-track cycle, longest
+possible pass, a decay estimate, and the live mean/true anomaly.
+
+<p align="center">
+  <img src="img/orbitterm_orbit.png" width="80%" alt="OrbitTerm Orbital Analysis: elements and derived J2 drift, LTAN, beta-star, decay and live anomaly">
+</p>
+
+**Radio** — Doppler tuning for the selected transponder (**`t`** cycles through
+a satellite's transponders): the nominal downlink/uplink, the **tune-now** dials
+corrected for the current range rate, the shift, and a live **downlink-Doppler
+curve** across the next pass (high as the bird approaches, sweeping down through
+zero at TCA to low as it recedes).
+
+<p align="center">
+  <img src="img/orbitterm_radio.png" width="80%" alt="OrbitTerm Radio: nominal vs Doppler-corrected dials and a live downlink Doppler curve across the next pass">
+</p>
+
+**Settings** — edit your station latitude, longitude, altitude and name, and the
+minimum-elevation filter, with the resulting Maidenhead grid shown live. Changes
+are written to the shared `~/.orbitdeck/config.json`, so they apply to the GUI
+too. **`R`** refreshes the catalog.
+
+### 8.4 Notes
+
+- The ASCII world map and sky radar are **schematic aids** for orienting the eye;
+  the underlying geometry (az/el, sub-point, Doppler, pass times) is the same
+  precise engine output as the GUI.
+- Deep-space orbits (period ≥ 225 min) are flagged as *approximate* when the full
+  reference SDP4 backend isn't installed, exactly as in the GUI.
+- A terminal of at least ~80×24 is recommended; the map and radar use whatever
+  space is available and scale down gracefully on smaller windows.
+
+---
+
+## 9. Troubleshooting
 
 **Pass times look wrong / a yellow banner is showing.** You are on demo or stale
 elements. Click **Update GP**. If you just did, check that your **GP source** in
@@ -1083,9 +1234,15 @@ the warning and restore full accuracy (and faster propagation generally).
 at **100% / actual size** (no "fit to page" scaling), and that the transparencies
 are pinned through the exact center.
 
+**OrbitTerm shows odd characters or a broken layout.** Your terminal needs UTF-8
+and a reasonable size (~80×24 minimum). Over SSH, ensure a UTF-8 locale and a
+`TERM` your client understands (e.g. `xterm-256color`). OrbitTerm needs no
+graphical display, so it is the right choice on a headless Pi or server where the
+GUI can't run.
+
 ---
 
-## 9. Author & supporting AMSAT
+## 10. Author & supporting AMSAT
 
 OrbitDeck is written by **Paul Stoetzer, N8HM**. The source code, issue tracker,
 and releases are on GitHub at **github.com/prstoetzer/OrbitDeck**.

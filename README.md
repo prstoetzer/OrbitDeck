@@ -246,6 +246,38 @@ target/rove planning (`engine.planning`), Sun/Moon/planet/EME geometry
 
 ---
 
+## OrbitTerm — the terminal UI
+
+For headless boxes and SSH sessions there's **OrbitTerm**, a curses companion
+that runs in any terminal with no GUI and no extra dependencies. It reuses this
+same engine and the shared `~/.orbitdeck` config and catalog cache, so its
+numbers match the desktop app.
+
+```sh
+orbitterm            # if installed via pip
+python -m orbitterm  # from a source checkout
+```
+
+It covers live tracking, a scrollable pass table, an ASCII sky radar and world
+ground-track map, full orbital analysis, and transponder Doppler dials with a
+live shift curve. See [orbitterm/README.md](orbitterm/README.md) for the screen
+and key reference.
+
+<p align="center">
+  <img src="docs/img/orbitterm_track.png" width="48%" alt="OrbitTerm Track: live az/el, range, Doppler, sub-point and pass context">
+  <img src="docs/img/orbitterm_radio.png" width="48%" alt="OrbitTerm Radio: transponder Doppler dials and a live shift curve across the next pass">
+</p>
+<p align="center">
+  <img src="docs/img/orbitterm_groundtrack.png" width="48%" alt="OrbitTerm Ground Track: ASCII world map with track, footprint, sub-point and station">
+  <img src="docs/img/orbitterm_passes.png" width="48%" alt="OrbitTerm Next Passes: scrollable pass table with quality-coloured max elevation">
+</p>
+<p align="center">
+  <img src="docs/img/orbitterm_illumination.png" width="48%" alt="OrbitTerm Illumination: ASCII sunlit/eclipse raster over a 30-day window with the mean eclipse fraction">
+  <img src="docs/img/orbitterm_progression.png" width="48%" alt="OrbitTerm Pass Progression: one 24-hour timeline per day, passes shaded by maximum elevation">
+</p>
+
+---
+
 ## Project layout
 
 ```

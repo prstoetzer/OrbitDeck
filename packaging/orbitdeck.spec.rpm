@@ -2,13 +2,13 @@
 #
 # Build:
 #     # from the repo root, create a release tarball matching Source0, e.g.
-#     #   git archive --format=tar.gz --prefix=OrbitDeck-0.36.10/ \
-#     #       -o ~/rpmbuild/SOURCES/orbitdeck-0.36.10.tar.gz v0.36.10
+#     #   git archive --format=tar.gz --prefix=OrbitDeck-0.37.0/ \
+#     #       -o ~/rpmbuild/SOURCES/orbitdeck-0.37.0.tar.gz v0.37.0
 #     rpmbuild -ba packaging/orbitdeck.spec
 #
 # Keep Version in sync with orbitdeck/__init__.py.
 Name:           orbitdeck
-Version:        0.36.10
+Version:        0.37.0
 Release:        1%{?dist}
 Summary:        Desktop satellite tracking and orbital analysis for amateur radio
 
@@ -60,13 +60,18 @@ install -Dm644 packaging/io.github.prstoetzer.OrbitDeck.metainfo.xml \
 %license LICENSE
 %doc README.md docs/MANUAL.md
 %{python3_sitelib}/orbitdeck/
+%{python3_sitelib}/orbitterm/
 %{python3_sitelib}/orbitdeck-%{version}*
 %{_bindir}/orbitdeck
+%{_bindir}/orbitterm
 %{_datadir}/applications/orbitdeck.desktop
 %{_datadir}/icons/hicolor/256x256/apps/orbitdeck.png
 %{_metainfodir}/io.github.prstoetzer.OrbitDeck.metainfo.xml
 
 %changelog
+* Thu Jun 26 2026 Paul Stoetzer, N8HM - 0.37.0-1
+- Add OrbitTerm, a curses terminal UI for headless/SSH use
+
 * Wed Jun 25 2026 Paul Stoetzer, N8HM - 0.36.10-1
 - Fix reversed OSCARLOCATOR path-arc rotation sense (north now clockwise, south counter-clockwise)
 

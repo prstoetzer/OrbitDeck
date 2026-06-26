@@ -5,6 +5,11 @@ is a self-contained app that bundles the Python interpreter, OrbitDeck, and all
 dependencies (numpy, matplotlib, tkinter) so users **don't need Python
 installed**.
 
+> This document covers the **standalone PyInstaller apps**. For the **native
+> Linux packages** (`.deb`, `.rpm`, Arch, AppImage, Flatpak) and how they are
+> built automatically on a release tag, see
+> [PACKAGING.md → Automated builds on release](PACKAGING.md#automated-builds-on-release-github-actions).
+
 > **PyInstaller does not cross-compile.** A Windows `.exe` must be built on
 > Windows, a macOS `.app` on macOS, and a Linux binary on Linux. To produce all
 > targets, use the GitHub Actions workflow in `.github/workflows/build.yml`,
@@ -18,9 +23,13 @@ The `build.yml` workflow produces one artifact per target:
 | --- | --- | --- |
 | Windows x86_64 | `windows-latest` | `OrbitDeck-windows` |
 | macOS Apple Silicon | `macos-latest` (arm64) | `OrbitDeck-macos-arm64` |
-| macOS Intel | `macos-13` (x86_64) | `OrbitDeck-macos-intel` |
 | Linux x86_64 | `ubuntu-latest` | `OrbitDeck-linux-x86_64` |
 | Raspberry Pi OS 64-bit | `ubuntu-22.04-arm` (arm64) | `OrbitDeck-raspberrypi-arm64` |
+
+> A separate macOS **Intel** (`macos-13`) build was dropped: those runners did
+> not reliably produce a working bundle with the cartopy/GEOS/PROJ stack. Intel
+> Macs can run the source install (`pip install`) or the Apple-Silicon build
+> under Rosetta 2.
 
 **Raspberry Pi build.** The Pi target builds natively on GitHub's arm64 Linux
 runner. Two things make it work: `ubuntu-22.04-arm` ships glibc 2.35, which is
@@ -401,7 +410,7 @@ produces a single `OrbitDeck-Setup.exe`. Install it, then create
 
 ```ini
 #define MyAppName "OrbitDeck"
-#define MyAppVersion "0.36.10"
+#define MyAppVersion "0.37.0"
 #define MyAppPublisher "Paul Stoetzer, N8HM"
 #define MyAppURL "https://github.com/prstoetzer/OrbitDeck"
 #define MyAppExeName "OrbitDeck.exe"
@@ -444,7 +453,7 @@ Compile from the repo root after building the bundle:
 ```powershell
 pyinstaller orbitdeck.spec
 & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" packaging\windows\orbitdeck.iss
-# -> dist\OrbitDeck-0.36.10-Setup.exe
+# -> dist\OrbitDeck-0.37.0-Setup.exe
 ```
 
 Then **sign the installer** with `signtool` exactly as for the `.exe`. Inno
@@ -475,7 +484,7 @@ create-dmg \
   --icon "OrbitDeck.app" 150 190 \
   --app-drop-link 390 190 \
   --hdiutil-quiet \
-  "dist/OrbitDeck-0.36.10.dmg" \
+  "dist/OrbitDeck-0.37.0.dmg" \
   "dist/OrbitDeck.app"
 ```
 
@@ -484,10 +493,10 @@ prompt:
 
 ```bash
 codesign --force --sign "Developer ID Application: Your Name (TEAMID)" \
-  "dist/OrbitDeck-0.36.10.dmg"
-xcrun notarytool submit "dist/OrbitDeck-0.36.10.dmg" \
+  "dist/OrbitDeck-0.37.0.dmg"
+xcrun notarytool submit "dist/OrbitDeck-0.37.0.dmg" \
   --keychain-profile "OrbitDeckNotary" --wait
-xcrun stapler staple "dist/OrbitDeck-0.36.10.dmg"
+xcrun stapler staple "dist/OrbitDeck-0.37.0.dmg"
 ```
 
 > **`.pkg` alternative.** For an installer that places the app and can run
@@ -497,9 +506,9 @@ xcrun stapler staple "dist/OrbitDeck-0.36.10.dmg"
 > pkgbuild --root dist/OrbitDeck.app \
 >   --install-location "/Applications/OrbitDeck.app" \
 >   --identifier io.github.prstoetzer.OrbitDeck \
->   --version 0.36.10 OrbitDeck-component.pkg
+>   --version 0.37.0 OrbitDeck-component.pkg
 > productbuild --sign "Developer ID Installer: Your Name (TEAMID)" \
->   --package OrbitDeck-component.pkg "dist/OrbitDeck-0.36.10.pkg"
+>   --package OrbitDeck-component.pkg "dist/OrbitDeck-0.37.0.pkg"
 > ```
 > Note a `.pkg` is signed with a **Developer ID *Installer*** certificate
 > (distinct from the *Application* certificate used for the app), then notarized

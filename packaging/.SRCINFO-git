@@ -1,6 +1,6 @@
 pkgbase = orbitdeck-git
 	pkgdesc = Desktop satellite tracking and orbital analysis for amateur radio (git)
-	pkgver = 0.36.10.r0.g0000000
+	pkgver = 0.37.0.r0.g0000000
 	pkgrel = 1
 	url = https://github.com/prstoetzer/OrbitDeck
 	arch = any
