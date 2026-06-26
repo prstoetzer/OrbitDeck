@@ -8,17 +8,19 @@ name: Build standalone apps
 # Targets:
 #   - Windows x86_64           (windows-latest)
 #   - macOS Apple Silicon      (macos-latest, arm64)
-#   - macOS Intel              (macos-13, x86_64)
 #   - Linux x86_64             (ubuntu-latest)
 #   - Raspberry Pi OS 64-bit   (ubuntu-22.04-arm, arm64)
 #
-# macOS is built twice because PyInstaller emits a host-arch binary
-# (target_arch=None) and a clean universal2 build isn't reliable with the
-# cartopy/GEOS/PROJ stack. The Raspberry Pi build runs natively on an arm64 Linux
-# runner; ubuntu-22.04-arm (glibc 2.35) is deliberately older than Pi OS Bookworm
-# (glibc 2.36) so the binary runs there. NOTE: GitHub's arm64 Linux hosted
-# runners work only in PUBLIC repositories -- in a private repo this job needs a
-# self-hosted or larger arm64 runner (see packaging/BUILD.md).
+# macOS ships an Apple-Silicon (arm64) build only. PyInstaller emits a host-arch
+# binary (target_arch=None) and a clean universal2 build isn't reliable with the
+# cartopy/GEOS/PROJ stack; the macos-13 Intel runner was dropped because those
+# builds did not reliably succeed. Intel Macs can run the source install
+# (pip install) or the arm64 build under Rosetta 2. The Raspberry Pi build runs
+# natively on an arm64 Linux runner; ubuntu-22.04-arm (glibc 2.35) is
+# deliberately older than Pi OS Bookworm (glibc 2.36) so the binary runs there.
+# NOTE: GitHub's arm64 Linux hosted runners work only in PUBLIC repositories --
+# in a private repo this job needs a self-hosted or larger arm64 runner (see
+# packaging/BUILD.md).
 #
 # Dependencies: every build includes the FULL optional set where possible -- sgp4
 # (accurate propagation), openpyxl (xlsx export) and cartopy (high-res
@@ -47,8 +49,6 @@ jobs:
             artifact: OrbitDeck-windows
           - os: macos-latest        # Apple Silicon (ARM64) runner
             artifact: OrbitDeck-macos-arm64
-          - os: macos-13            # last Intel (x86_64) runner image
-            artifact: OrbitDeck-macos-intel
           - os: ubuntu-latest       # x86_64 Linux (PC/server distros)
             artifact: OrbitDeck-linux-x86_64
           # 64-bit Raspberry Pi OS: build natively on an arm64 Linux runner.
