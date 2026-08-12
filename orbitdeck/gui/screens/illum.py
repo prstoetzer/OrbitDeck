@@ -160,7 +160,7 @@ class IllumScreen(Screen):
         page_daily = sub.add("Daily summary")
 
         cols = ("enter", "exit", "dur", "intvl", "beta")
-        heads = ("Enter (UTC)", "Exit (UTC)", "Duration",
+        heads = ("Enter", "Exit", "Duration",
                  "Interval between", "Sun angle")
         ow, self._tree_orbit = make_scrolled_tree(
             page_orbit, cols, show="headings", height=18)

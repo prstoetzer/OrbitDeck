@@ -402,3 +402,113 @@ def workable_grids(sub_lat, sub_lon, alt_km):
             lon += 2.0
         lat += 1.0
     return sorted(grids)
+
+
+# ---------------------------------------------------------------------------
+# Orbital velocity and launch identity (audit items B1)
+# ---------------------------------------------------------------------------
+MU_EARTH = 398600.4418          # km^3/s^2
+
+
+def orbital_velocity_kms(sma_km, r_km):
+    """Vis-viva speed at radius ``r_km`` on an orbit of semi-major axis
+    ``sma_km``. Everything needed is already in the element set."""
+    if sma_km <= 0 or r_km <= 0:
+        return 0.0
+    v2 = MU_EARTH * (2.0 / r_km - 1.0 / sma_km)
+    return math.sqrt(v2) if v2 > 0 else 0.0
+
+
+def velocity_extremes_kms(sma_km, ecc):
+    """(v_apogee, v_perigee) in km/s. Slowest at apogee, fastest at perigee."""
+    if sma_km <= 0:
+        return (0.0, 0.0)
+    e = max(0.0, min(0.999, ecc))
+    ra = sma_km * (1.0 + e)
+    rp = sma_km * (1.0 - e)
+    return (orbital_velocity_kms(sma_km, ra),
+            orbital_velocity_kms(sma_km, rp))
+
+
+def cospar_launch_year(intl_desig):
+    """Launch year from a COSPAR designator ('1998-067A' -> 1998).
+
+    Two-digit legacy forms ('98067A') are resolved on the usual pivot: 57-99 is
+    1957-1999, 00-56 is 2000-2056. Returns None if it cannot be read.
+    """
+    s = (intl_desig or "").strip()
+    if not s:
+        return None
+    if "-" in s:
+        head = s.split("-")[0]
+        if head.isdigit():
+            n = int(head)
+            if len(head) == 4:
+                return n
+            return 1900 + n if n >= 57 else 2000 + n
+    digits = ""
+    for ch in s:
+        if ch.isdigit():
+            digits += ch
+        else:
+            break
+    if len(digits) >= 2:
+        n = int(digits[:2])
+        return 1900 + n if n >= 57 else 2000 + n
+    return None
+
+
+def launch_stem(intl_desig):
+    """The launch part of a COSPAR designator, without the piece letter.
+
+    '1998-067A' -> '1998-067'. Objects sharing a stem went up together.
+    """
+    s = (intl_desig or "").strip().upper()
+    if not s:
+        return ""
+    if "-" in s:
+        head, _sep, tail = s.partition("-")
+        num = "".join(c for c in tail if c.isdigit())
+        return "%s-%s" % (head, num) if num else head
+    core = ""
+    for ch in s:
+        if ch.isdigit():
+            core += ch
+        else:
+            break
+    return core
+
+
+def launch_siblings(db, sat, limit=12):
+    """Other catalog objects from the same launch."""
+    stem = launch_stem(getattr(sat, "intl_des", None)
+                       or getattr(sat, "intl_desig", None)
+                       or getattr(sat, "cospar", "") or "")
+    if not stem:
+        return []
+    out = []
+    for s in getattr(db, "sats", []) or []:
+        if s is sat:
+            continue
+        other = launch_stem(getattr(s, "intl_des", None)
+                            or getattr(s, "intl_desig", None)
+                            or getattr(s, "cospar", "") or "")
+        if other and other == stem:
+            out.append(s)
+        if len(out) >= limit:
+            break
+    return out
+
+
+def years_in_orbit(intl_desig, now):
+    """Approximate years since launch, from the COSPAR year.
+
+    The designator carries the year but not the day, so this is a whole-year
+    figure and is labelled as approximate wherever it is shown - claiming a
+    precise age from data that does not contain one would be a lie.
+    """
+    yr = cospar_launch_year(intl_desig)
+    if yr is None:
+        return None
+    import time as _t
+    return (_t.gmtime(now).tm_year - yr)

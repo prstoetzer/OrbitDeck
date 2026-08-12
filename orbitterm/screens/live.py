@@ -24,7 +24,16 @@ class HomeScreen(Screen):
         addstr(win, y, x0, "Station", cp(CLR_HEADER) | _bold())
         addstr(win, y, x0 + 12, "%s   %s" % (
             st.store.obs_name, fmt.fmt_latlon(st.obs.lat, st.obs.lon)))
-        addstr(win, y, x0 + 12 + 40, "grid %s" % st.grid(), cp(CLR_DIM))
+        # Only place the grid at the far column when it actually fits; at 80
+        # columns the nav leaves ~61 and "grid FM29nw" was cut to "grid FM2".
+        gx = x0 + 12 + 40
+        gtxt = "grid %s" % st.grid()
+        if gx + len(gtxt) <= x0 + w:
+            addstr(win, y, gx, gtxt, cp(CLR_DIM))
+        else:
+            # Narrow: put the grid on its own line rather than truncating it.
+            addstr(win, y + 1, x0 + 12, gtxt, cp(CLR_DIM))
+            y += 1
         y += 1
         addstr(win, y, x0, "Catalog", cp(CLR_HEADER) | _bold())
         age = st.catalog_age_days()
@@ -67,10 +76,21 @@ class HomeScreen(Screen):
         passes = pred.predict_passes(now, st.min_el, 1)
         if passes:
             p = passes[0]
-            addstr(win, y, x0 + 12, "%s  in %s   max el %.0f\u00b0   dur %s" % (
+            _long = "%s  in %s   max el %.0f\u00b0   dur %s" % (
                 fmt.fmt_clock(p.aos, with_date=True),
                 fmt.fmt_dur(p.aos - now), p.max_el,
-                fmt.fmt_dur(p.los - p.aos)))
+                fmt.fmt_dur(p.los - p.aos))
+            if len(_long) <= w - 12:
+                addstr(win, y, x0 + 12, _long)
+            else:
+                # Split rather than clip: "dur" was being cut off entirely, so
+                # the pass length - the thing you plan around - was invisible.
+                addstr(win, y, x0 + 12, "%s  in %s" % (
+                    fmt.fmt_clock(p.aos, with_date=True),
+                    fmt.fmt_dur(p.aos - now)))
+                y += 1
+                addstr(win, y, x0 + 12, "max el %.0f\u00b0   dur %s" % (
+                    p.max_el, fmt.fmt_dur(p.los - p.aos)), cp(CLR_DIM))
             y += 1
             addstr(win, y, x0 + 12, "AOS az %s  \u2192  LOS az %s" % (
                 fmt.fmt_az(p.az_aos), fmt.fmt_az(p.az_los)), cp(CLR_DIM))

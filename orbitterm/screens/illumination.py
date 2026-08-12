@@ -98,33 +98,30 @@ class IlluminationScreen(Screen):
         ndays = gw
 
         addstr(win, y0, x0, "min", cp(CLR_DIM))
-        # sample sunlit/eclipse into a gh x ndays grid; row 0 = top = full period
+        # A filled lit/dark raster wants SOLID cells, not braille. Braille's
+        # 2x4 dots render an area as sparse specks that read washed out - a
+        # clear downgrade from the original block glyphs. Half-blocks give the
+        # best of both: fully filled cells AND 2x the vertical resolution, so
+        # eclipse-season boundaries land on a half-row instead of a whole one.
+        from ..canvas import HalfBlockCanvas, blit_half
+        cv = HalfBlockCanvas(ndays, gh)
         lit_total = 0
         cell_total = 0
-        rows = []
-        for r in range(gh):
-            # top row is the largest minutes-into-orbit value
-            frac_orbit = 1.0 - (r / max(1, gh - 1))
-            line = []
-            for d in range(ndays):
-                tt = t0 + d * 86400 + frac_orbit * period * 60.0
-                lit = pred.sunlit_at(tt)
-                line.append(lit)
-                lit_total += 1 if lit else 0
+        for dy in range(cv.height):
+            frac_orbit = 1.0 - (dy / max(1, cv.height - 1))
+            for dx in range(cv.width):
+                tt = t0 + dx * 86400 + frac_orbit * period * 60.0
                 cell_total += 1
-            rows.append(line)
-        # draw, with a couple of y-axis tick labels
+                if pred.sunlit_at(tt):
+                    lit_total += 1
+                    cv.set(dx, dy, cp(CLR_WARN))
         for r in range(gh):
             yy = y0 + 1 + r
             frac_orbit = 1.0 - (r / max(1, gh - 1))
             if r == 0 or r == gh - 1 or r == gh // 2:
                 addstr(win, yy, x0, "%3.0fm" % (frac_orbit * period),
                        cp(CLR_DIM))
-            cells = []
-            for lit in rows[r]:
-                cells.append("\u2588" if lit else " ")
-            # sunlit bright (yellow), eclipse dark (blank on default bg)
-            addstr(win, yy, gx, "".join(cells), cp(CLR_WARN))
+        blit_half(win, cv, y0 + 1, gx)
         # x axis
         base = y0 + 1 + gh
         hline(win, base, gx, ndays, "\u2500", cp(CLR_DIM))

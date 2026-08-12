@@ -18,6 +18,7 @@ from .. import exports as EX
 
 
 class RadioScreen(Screen):
+    sat_scoped = ("_passes",)
     def build(self):
         self.sat_header("Radio \u2014 Link Budget & Doppler Playbook")
         # shared upcoming-pass picker: both tabs plan against the chosen pass
@@ -39,8 +40,10 @@ class RadioScreen(Screen):
         tabs.pack(fill="both", expand=True, padx=12, pady=(2, 8))
         self._tab_link = tabs.add("Link budget")
         self._tab_pb = tabs.add("Doppler playbook")
+        self._tab_plan = tabs.add("Passband plan")
         self._build_link(self._tab_link)
         self._build_playbook(self._tab_pb)
+        self._build_plan(self._tab_plan)
 
     # ---- pass picker ----
     def _reload_passes(self):
@@ -342,6 +345,55 @@ class RadioScreen(Screen):
 
     def on_show(self):
         self._reload_passes()
+        self._refresh_plan()
+
+    def _build_plan(self, parent):
+        top = ttk.Frame(parent, style="TFrame")
+        top.pack(fill="x", padx=4, pady=6)
+        self._plan_info = tk.StringVar(
+            value="Dial pairs across the selected transponder's passband.")
+        ttk.Label(top, textvariable=self._plan_info,
+                  style="Muted.TLabel").pack(side="left")
+        ttk.Button(top, text="Refresh",
+                   command=self._refresh_plan).pack(side="right")
+        cols = ("pct", "dl", "ul")
+        wrap, self._plan_tree = make_scrolled_tree(parent, cols,
+                                                   show="headings", height=13)
+        for c, h, w in (("pct", "Passband %", 120),
+                        ("dl", "Downlink (MHz)", 200),
+                        ("ul", "Uplink (MHz)", 200)):
+            self._plan_tree.heading(c, text=h)
+            self._plan_tree.column(c, width=w, anchor="center")
+        wrap.pack(fill="both", expand=True, padx=4, pady=8)
+
+    def _refresh_plan(self):
+        if not hasattr(self, "_plan_tree"):
+            return
+        from ...engine.satdb import passband_plan
+        self._plan_tree.delete(*self._plan_tree.get_children())
+        s = self.sat()
+        if not s:
+            self._plan_info.set("No satellite selected.")
+            return
+        self.store.ensure_transponders(s)
+        tp = self.store.selected_transponder(s)
+        if not tp:
+            self._plan_info.set("No transponders loaded for %s." % s.name)
+            return
+
+        def mhz(hz):
+            return "%.6f" % (hz / 1e6) if hz else "\u2014"
+        for pct, dl, ul in passband_plan(tp):
+            self._plan_tree.insert("", "end", values=(
+                "%d%%" % pct, mhz(dl), mhz(ul)))
+        if tp.is_linear and tp.bandwidth():
+            self._plan_info.set(
+                "%s \u2014 %s%s, %.0f kHz wide. Tune uplink & downlink together."
+                % (s.name, tp.kind(), " (INVERTING)" if tp.invert else "",
+                   tp.bandwidth() / 1e3))
+        else:
+            self._plan_info.set("%s \u2014 %s: single channel, no passband."
+                                % (s.name, tp.kind()))
 
     def _next_pass(self):
         pred = self.pred()

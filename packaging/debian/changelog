@@ -1,4 +1,4 @@
-orbitdeck (0.37.0-1) unstable; urgency=medium
+orbitdeck (0.38.0-1) unstable; urgency=medium
 
   * Add OrbitTerm, a curses terminal UI for headless/SSH use. It reuses the
     OrbitDeck engine and the shared ~/.orbitdeck config and catalog cache.

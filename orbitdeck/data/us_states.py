@@ -86,3 +86,32 @@ def workable_states(in_footprint):
         if any(in_footprint(lat, lon) for (lat, lon) in pts):
             out.append(code)
     return sorted(out)
+
+
+# US state (and DC) name <-> USPS abbreviation, for target-search matching.
+STATE_NAMES = {
+    "AL": "Alabama", "AK": "Alaska", "AZ": "Arizona", "AR": "Arkansas",
+    "CA": "California", "CO": "Colorado", "CT": "Connecticut",
+    "DE": "Delaware", "DC": "District of Columbia", "FL": "Florida",
+    "GA": "Georgia", "HI": "Hawaii", "ID": "Idaho", "IL": "Illinois",
+    "IN": "Indiana", "IA": "Iowa", "KS": "Kansas", "KY": "Kentucky",
+    "LA": "Louisiana", "ME": "Maine", "MD": "Maryland", "MA": "Massachusetts",
+    "MI": "Michigan", "MN": "Minnesota", "MS": "Mississippi", "MO": "Missouri",
+    "MT": "Montana", "NE": "Nebraska", "NV": "Nevada", "NH": "New Hampshire",
+    "NJ": "New Jersey", "NM": "New Mexico", "NY": "New York",
+    "NC": "North Carolina", "ND": "North Dakota", "OH": "Ohio",
+    "OK": "Oklahoma", "OR": "Oregon", "PA": "Pennsylvania",
+    "RI": "Rhode Island", "SC": "South Carolina", "SD": "South Dakota",
+    "TN": "Tennessee", "TX": "Texas", "UT": "Utah", "VT": "Vermont",
+    "VA": "Virginia", "WA": "Washington", "WV": "West Virginia",
+    "WI": "Wisconsin", "WY": "Wyoming",
+}
+NAME_TO_ABBREV = {v.upper(): k for k, v in STATE_NAMES.items()}
+
+
+def state_abbrev(value):
+    """Resolve a state name or abbreviation to its USPS abbreviation, or None."""
+    v = (value or "").strip()
+    if v.upper() in STATE_NAMES:
+        return v.upper()
+    return NAME_TO_ABBREV.get(v.upper())

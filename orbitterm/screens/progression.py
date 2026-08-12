@@ -79,13 +79,13 @@ class ProgressionScreen(Screen):
             for k, cch in enumerate(lab):
                 if col + k < tl_w:
                     ruler[col + k] = cch
-        addstr(win, y0 + 2, x0, "local h", cp(CLR_DIM))
+        addstr(win, y0 + 2, x0, "UTC h", cp(CLR_DIM))
         addstr(win, y0 + 2, axis_x, "".join(ruler), cp(CLR_DIM))
         hline(win, y0 + 3, axis_x, tl_w, "\u2500", cp(CLR_DIM))
 
-        # group passes by local day
+        # group passes by UTC day
         import datetime as dt
-        start_day = dt.date.fromtimestamp(self._t0)
+        start_day = dt.datetime.fromtimestamp(self._t0, dt.timezone.utc).date()
         rows_y0 = y0 + 4
         page = h - 5
         self._page = page
@@ -102,11 +102,12 @@ class ProgressionScreen(Screen):
             for hh in (6, 12, 18):
                 col = int(hh / 24 * tl_w)
                 addstr(win, yy, axis_x + col, "\u00b7", cp(CLR_DIM))
-            # passes that fall on this day (by AOS local date)
+            # passes that fall on this day (by AOS UTC date)
             day_passes = [p for p in self._passes
-                          if dt.date.fromtimestamp(p.aos) == day]
+                          if dt.datetime.fromtimestamp(
+                              p.aos, dt.timezone.utc).date() == day]
             for p in day_passes:
-                lt = time.localtime(p.aos)
+                lt = time.gmtime(p.aos)
                 frac = (lt.tm_hour * 3600 + lt.tm_min * 60 + lt.tm_sec) / 86400.0
                 col = int(frac * tl_w)
                 dur = max(1, int((p.los - p.aos) / 86400.0 * tl_w))

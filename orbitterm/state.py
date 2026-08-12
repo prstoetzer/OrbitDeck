@@ -40,12 +40,31 @@ class AppState:
         return self.store.db.get(self.selected_norad)
 
     def select(self, norad):
+        """Change the active satellite and tell listeners.
+
+        The listener hook exists so screens can drop results belonging to the
+        previous satellite. Without it a cached screen redraws one bird's data
+        under another bird's name, which is not a cosmetic bug - it is the UI
+        asserting something false.
+        """
+        changed = norad != self.selected_norad
         self.selected_norad = norad
         self.store.selected_norad = norad
         try:
             self.store.save_config()
         except Exception:
             pass
+        if changed:
+            for cb in getattr(self, "_sat_listeners", ()):
+                try:
+                    cb(norad)
+                except Exception:
+                    pass
+
+    def on_sat_change(self, callback):
+        if not hasattr(self, "_sat_listeners"):
+            self._sat_listeners = []
+        self._sat_listeners.append(callback)
 
     def pred_for(self, sat):
         """Return the shared Predictor configured for a given satellite."""

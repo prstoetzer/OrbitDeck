@@ -353,3 +353,186 @@ def sat_to_sat_windows(pred1, pred2, t, hours=24.0, step_s=30.0):
         cur["duration_s"] = cur["end"] - cur["start"]
         windows.append(cur)
     return windows
+
+
+# ---------------------------------------------------------------------------
+# EME analysis (ported from CardSat 0.9.75's SCR_EME analysis page + planner)
+# ---------------------------------------------------------------------------
+# Path loss alone does not tell an EME operator whether tonight is worth it.
+# What matters is the combination of declination (how long the Moon is up and
+# how high), perigee/apogee distance (path degradation), sky background
+# temperature behind the Moon, Faraday rotation, and libration spread.
+
+EME_BANDS = [("50 MHz", 50.0), ("144 MHz", 144.0), ("432 MHz", 432.0),
+             ("1296 MHz", 1296.0), ("10368 MHz", 10368.0)]
+
+MOON_PERIGEE_REF_KM = 356500.0     # the reference distance for 0 dB degradation
+GROUND_GAIN_MAX_EL = 8.0           # below this the ground reflection helps
+
+
+def moon_dec_deg(t):
+    """Geocentric declination of the Moon (degrees).
+
+    Declination sets how long the Moon is above the horizon and how high it
+    gets, so it is the first thing an EME operator looks at when picking a week.
+    """
+    x, y, z = _moon_eci_unit(jd_of(t))
+    return math.degrees(math.atan2(z, math.hypot(x, y)))
+
+
+def moon_galactic_lat_deg(t):
+    """Galactic latitude of the Moon (degrees).
+
+    Near zero the Moon sits against the galactic plane, where the sky behind it
+    is hot - the difference between an easy 2 m night and an impossible one.
+    Uses the J2000 north galactic pole.
+    """
+    x, y, z = _moon_eci_unit(jd_of(t))
+    ra = math.atan2(y, x)
+    dec = math.asin(max(-1.0, min(1.0, z)))
+    # J2000 north galactic pole
+    ra_gp = math.radians(192.85948)
+    dec_gp = math.radians(27.12825)
+    sin_b = (math.sin(dec) * math.sin(dec_gp)
+             + math.cos(dec) * math.cos(dec_gp) * math.cos(ra - ra_gp))
+    return math.degrees(math.asin(max(-1.0, min(1.0, sin_b))))
+
+
+def eme_faraday_deg(freq_mhz, solar_flux=None):
+    """Approximate one-way Faraday rotation (degrees).
+
+    About a quarter turn at 144 MHz for mid solar flux, scaling as 1/f^2. This
+    is a coarse model - real rotation depends on the whole ionospheric path -
+    but it is what tells you whether polarity offset will matter tonight, and
+    at 1296+ the answer is reliably "no".
+    """
+    sfu = solar_flux if (solar_flux and solar_flux > 0) else 120.0
+    f = freq_mhz if freq_mhz and freq_mhz > 0 else 144.0
+    return 90.0 * (sfu / 120.0) * (144.0 * 144.0) / (f * f)
+
+
+def eme_sky_temp_k(t, freq_mhz, lat=0.0, lon=0.0):
+    """Sky background temperature (K) behind the Moon on a given band.
+
+    Cold-sky minimum scales with frequency; the galactic-plane excess is worst
+    at 144 MHz and when the Moon sits near the plane, which is the difference
+    between an easy night and an impossible one on 2 m.
+    """
+    f = freq_mhz if freq_mhz and freq_mhz > 0 else 144.0
+    b = abs(moon_galactic_lat_deg(t))
+    cold = 3.0 + 200.0 * (144.0 / f) ** 2.5
+    plane_excess = (1.0 - b / 30.0) if b < 30.0 else 0.0
+    hot = 2000.0 * (144.0 / f) ** 2.5 * plane_excess
+    return cold + hot
+
+
+def eme_libration_spread_hz(freq_mhz):
+    """Libration Doppler spread (Hz): the smearing of an echo by the Moon's
+    apparent wobble. Roughly 2.5 Hz at 144 MHz, scaling linearly, so it is
+    negligible for CW on 2 m and dominant at 10 GHz."""
+    f = freq_mhz if freq_mhz and freq_mhz > 0 else 144.0
+    return 2.5 * (f / 144.0)
+
+
+def eme_path_degradation_db(t):
+    """Extra two-way loss (dB) versus the Moon at reference perigee.
+
+    Zero at perigee, roughly 2 dB at apogee. This is the number that decides
+    which weeks of the month are worth operating.
+    """
+    r = moon_distance_km(t)
+    return 40.0 * math.log10(r / MOON_PERIGEE_REF_KM)
+
+
+def eme_band_analysis(t, lat, lon, solar_flux=None, bands=None):
+    """Per-band EME figures for right now.
+
+    Returns a list of dicts: band, freq_mhz, doppler_hz (self-echo), faraday_deg,
+    sky_temp_k, spread_hz, path_loss_db (two-way, including 6 dB reflection).
+    """
+    out = []
+    for name, mhz in (bands or EME_BANDS):
+        hz = mhz * 1e6
+        out.append({
+            "band": name,
+            "freq_mhz": mhz,
+            "doppler_hz": eme_doppler_hz(hz, lat, lon, t),
+            "faraday_deg": eme_faraday_deg(mhz, solar_flux),
+            "sky_temp_k": eme_sky_temp_k(t, mhz, lat, lon),
+            "spread_hz": eme_libration_spread_hz(mhz),
+            "path_loss_db": eme_path_loss_db(hz, t),
+        })
+    return out
+
+
+def eme_ground_gain(el_deg):
+    """Whether the ground reflection is helping, and why.
+
+    Below ~8 degrees the reflected ray adds to the direct one - worth several dB
+    and the reason EME operators favour moonrise and moonset.
+    """
+    if el_deg is None or el_deg <= 0:
+        return (False, "Moon down")
+    if el_deg < GROUND_GAIN_MAX_EL:
+        return (True, "ground gain ACTIVE (el < %.0f\u00b0)" % GROUND_GAIN_MAX_EL)
+    return (False, "no ground gain (el >= %.0f\u00b0)" % GROUND_GAIN_MAX_EL)
+
+
+def eme_sun_separation_deg(lat, lon, t):
+    """Angle between the Moon and the Sun as seen from the station.
+
+    Inside about 10 degrees the Sun's noise swamps a weak echo, so this is a
+    "do not bother" warning rather than a curiosity.
+    """
+    from .transits import _sun_azel
+    maz, mel = moon_azel(lat, lon, t)
+    saz, sel = _sun_azel(lat, lon, t)
+    d2r = math.pi / 180.0
+    c = (math.sin(mel * d2r) * math.sin(sel * d2r)
+         + math.cos(mel * d2r) * math.cos(sel * d2r)
+         * math.cos((maz - saz) * d2r))
+    return math.degrees(math.acos(max(-1.0, min(1.0, c))))
+
+
+def eme_plan(t0, days=90, hour_utc=12):
+    """Day-by-day EME conditions: declination and path degradation.
+
+    Sampled at a fixed hour each day (noon UTC by default) so the rows compare
+    like with like. A day is flagged good when the Moon is well north
+    (long window from the northern hemisphere) *and* near perigee.
+    """
+    import time as _t
+    base = t0 - (t0 % 86400) + hour_utc * 3600
+    rows = []
+    for d in range(int(days)):
+        tt = base + d * 86400.0
+        dec = moon_dec_deg(tt)
+        degr = eme_path_degradation_db(tt)
+        rows.append({
+            "t": tt,
+            "date": _t.strftime("%Y-%m-%d", _t.gmtime(tt)),
+            "dec_deg": dec,
+            "degradation_db": degr,
+            "distance_km": moon_distance_km(tt),
+            "good": dec > 15.0 and degr < 1.0,
+        })
+    return rows
+
+
+def moon_illumination(t):
+    """Illuminated fraction of the Moon's disc, 0.0 (new) to 1.0 (full).
+
+    From the Sun-Moon elongation as seen from Earth - the same quantity the
+    desktop Sun/Moon screen reports.
+    """
+    x, y, z = _moon_eci_unit(jd_of(t))
+    d = jd_of(t) - 2451545.0
+    g = math.radians((357.529 + 0.98560028 * d) % 360)
+    q = math.radians((280.459 + 0.98564736 * d) % 360)
+    lam = q + math.radians(1.915) * math.sin(g)
+    eps = math.radians(23.439)
+    sx = math.cos(lam)
+    sy = math.cos(eps) * math.sin(lam)
+    sz = math.sin(eps) * math.sin(lam)
+    cos_elong = max(-1.0, min(1.0, x * sx + y * sy + z * sz))
+    return (1.0 - math.cos(math.acos(cos_elong))) / 2.0

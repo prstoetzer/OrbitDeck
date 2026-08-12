@@ -47,11 +47,15 @@ class PlanningScreen(Screen):
         self._tabs = tabs
         tabs.pack(fill="both", expand=True, padx=12, pady=8)
         self._t_work = tabs.add("Work a target")
+        self._t_horizon = tabs.add("Workable horizon")
+        self._t_tsearch = tabs.add("Target search")
         self._t_vis = tabs.add("Visible passes")
         self._t_s2s = tabs.add("Sat \u2194 Sat")
         self._t_rove = tabs.add("Rove")
         self._t_trust = tabs.add("Element trust")
         self._build_work(self._t_work)
+        self._build_horizon(self._t_horizon)
+        self._build_tsearch(self._t_tsearch)
         self._build_vis(self._t_vis)
         self._build_s2s(self._t_s2s)
         self._build_rove(self._t_rove)
@@ -84,10 +88,13 @@ class PlanningScreen(Screen):
         self._find_btn = ttk.Button(bar, text="Find windows",
                                     command=self._render_work)
         self._find_btn.pack(side="left", padx=8)
+        ttk.Button(bar, text="Report\u2026",
+
+                   command=self._report).pack(side="right", padx=4)
         ttk.Button(bar, text="Export CSV\u2026",
                    command=self._export_work).pack(side="right", padx=2)
         cols = ("start", "dur", "margin")
-        heads = ("Start (UTC)", "Duration (min)", "Footprint margin")
+        heads = ("Start", "Duration (min)", "Footprint margin")
         treewrap, self.work_tree = make_scrolled_tree(
             parent, cols, show="headings", height=14)
         for c, h in zip(cols, heads):
@@ -174,6 +181,197 @@ class PlanningScreen(Screen):
             filetypes=[("CSV", "*.csv")])
 
     # ---- visible passes ----
+    # ---- workable horizon (10-day union across all favorites) ----
+    def _build_horizon(self, parent):
+        intro = ttk.Label(
+            parent,
+            text=("Every US state and DXCC entity that will be workable through "
+                  "ANY favorite satellite over the next N days - the union you "
+                  "can chase for WAS / DXCC awards. Grids are optional (slower)."),
+            style="MutedBg.TLabel", wraplength=760, justify="left")
+        intro.pack(anchor="w", padx=10, pady=(8, 4))
+        bar = ttk.Frame(parent, style="TFrame")
+        bar.pack(fill="x", padx=10, pady=2)
+        ttk.Label(bar, text="Days:", style="TLabel").pack(side="left")
+        self._hz_days = tk.IntVar(value=10)
+        for v in (3, 7, 10):
+            ttk.Radiobutton(bar, text="%d" % v, value=v, variable=self._hz_days).pack(
+                side="left")
+        self._hz_grids = tk.BooleanVar(value=False)
+        ttk.Checkbutton(bar, text="Include grids", variable=self._hz_grids).pack(
+            side="left", padx=(12, 0))
+        self._hz_btn = ttk.Button(bar, text="Compute", command=self._run_horizon)
+        self._hz_btn.pack(side="left", padx=12)
+        ttk.Button(bar, text="Export CSV\u2026",
+                   command=self._export_horizon).pack(side="right")
+        self._hz_info = tk.StringVar(value="")
+        ttk.Label(parent, textvariable=self._hz_info, style="Muted.TLabel").pack(
+            anchor="w", padx=10)
+        cols = ("kind", "item")
+        wrap, self._hz_tree = make_scrolled_tree(parent, cols, show="headings",
+                                                 height=13)
+        self._hz_tree.heading("kind", text="Type")
+        self._hz_tree.heading("item", text="Workable")
+        self._hz_tree.column("kind", width=90, anchor="w")
+        self._hz_tree.column("item", width=360, anchor="w")
+        wrap.pack(fill="both", expand=True, padx=10, pady=6)
+        self._hz_rows = []
+
+    def _run_horizon(self):
+        import threading
+        favs = [s for s in self.store.db.sats
+                if s.norad in self.store.favorites]
+        if not favs:
+            self._hz_info.set("No favorite satellites - add some first.")
+            return
+        self._hz_info.set("Scanning %d favorites over %d days\u2026"
+                          % (len(favs), self._hz_days.get()))
+        self._hz_btn.state(["disabled"])
+        days = self._hz_days.get()
+        grids = self._hz_grids.get()
+
+        def work():
+            try:
+                pred = self._new_pred()
+                res = PL.workable_horizon(pred, favs, now_unix(), days=days,
+                                          kinds=("states", "dxcc"),
+                                          include_grids=grids)
+                self._ui(lambda: self._show_horizon(res))
+            except Exception as _exc:
+                self._ui(lambda e=_exc: self._worker_failed(e))
+        threading.Thread(target=work, daemon=True).start()
+
+    def _show_horizon(self, res):
+        self._hz_btn.state(["!disabled"])
+        self._hz_tree.delete(*self._hz_tree.get_children())
+        rows = []
+        for st in res["states"]:
+            rows.append(("state", st))
+        for dx in res["dxcc"]:
+            rows.append(("DXCC", dx))
+        for g in res["grids"]:
+            rows.append(("grid", g))
+        for r in rows:
+            self._hz_tree.insert("", "end", values=r)
+        self._hz_rows = rows
+        self._hz_info.set(
+            "%d states, %d DXCC%s workable across %d favorites (%d passes)."
+            % (len(res["states"]), len(res["dxcc"]),
+               (", %d grids" % len(res["grids"])) if res["grids"] else "",
+               res["sat_count"], res["pass_count"]))
+
+    def _export_horizon(self):
+        if not self._hz_rows:
+            return
+        from .. import exports as EX
+        rows = [(k, i) for k, i in self._hz_rows]
+        self.save_text_dialog(
+            EX.rows_to_csv(["type", "workable"], rows),
+            "workable_horizon.csv", title="Export workable horizon",
+            ext=".csv", filetypes=[("CSV", "*.csv")])
+
+    # ---- target search (one entity across all favorites, time-ordered) ----
+    def _build_tsearch(self, parent):
+        intro = ttk.Label(
+            parent,
+            text=("Pick one US state, DXCC entity, or grid and see every pass "
+                  "over the next N days when it's workable through any favorite "
+                  "- time-ordered across all your birds."),
+            style="MutedBg.TLabel", wraplength=760, justify="left")
+        intro.pack(anchor="w", padx=10, pady=(8, 4))
+        bar = ttk.Frame(parent, style="TFrame")
+        bar.pack(fill="x", padx=10, pady=2)
+        ttk.Label(bar, text="Type:", style="TLabel").pack(side="left")
+        self._ts_kind = tk.StringVar(value="state")
+        for lab, v in (("US state", "state"), ("DXCC", "dxcc"), ("Grid", "grid")):
+            ttk.Radiobutton(bar, text=lab, value=v, variable=self._ts_kind,
+                            command=self._on_ts_kind).pack(side="left")
+        ttk.Label(bar, text="Target:", style="TLabel").pack(side="left",
+                                                            padx=(10, 2))
+        self._ts_val = tk.StringVar(value="California")
+        self._ts_entry = ttk.Entry(bar, textvariable=self._ts_val, width=14)
+        self._ts_entry.pack(side="left")
+        from ...data.dxcc import DXCC
+        self._ts_dxcc_names = sorted({v[0] for v in DXCC.values()})
+        self._ts_dxcc = tk.StringVar(value=self._ts_dxcc_names[0])
+        self._ts_combo = ttk.Combobox(bar, textvariable=self._ts_dxcc,
+                                      values=self._ts_dxcc_names,
+                                      state="readonly", width=22)
+        ttk.Label(bar, text="Days:", style="TLabel").pack(side="left",
+                                                          padx=(10, 2))
+        self._ts_days = tk.IntVar(value=10)
+        for v in (3, 7, 10):
+            ttk.Radiobutton(bar, text="%d" % v, value=v,
+                            variable=self._ts_days).pack(side="left")
+        self._ts_btn = ttk.Button(bar, text="Search", command=self._run_tsearch)
+        self._ts_btn.pack(side="left", padx=12)
+        self._ts_info = tk.StringVar(value="")
+        ttk.Label(parent, textvariable=self._ts_info, style="Muted.TLabel").pack(
+            anchor="w", padx=10)
+        cols = ("start", "sat", "dur", "el")
+        heads = ("Start", "Satellite", "Window (min)", "Max el")
+        wrap, self._ts_tree = make_scrolled_tree(parent, cols, show="headings",
+                                                 height=12)
+        for c, h, w in zip(cols, heads, (160, 150, 110, 80)):
+            self._ts_tree.heading(c, text=h)
+            self._ts_tree.column(c, width=w,
+                                 anchor="w" if c in ("start", "sat") else "center")
+        wrap.pack(fill="both", expand=True, padx=10, pady=6)
+
+    def _on_ts_kind(self):
+        if self._ts_kind.get() == "dxcc":
+            self._ts_entry.pack_forget()
+            self._ts_combo.pack(side="left", before=self._ts_btn)
+        else:
+            self._ts_combo.pack_forget()
+            self._ts_entry.pack(side="left", before=self._ts_btn)
+
+    def _run_tsearch(self):
+        import threading
+        favs = [s for s in self.store.db.sats
+                if s.norad in self.store.favorites]
+        if not favs:
+            self._ts_info.set("No favorite satellites - add some first.")
+            return
+        kind = self._ts_kind.get()
+        value = (self._ts_dxcc.get() if kind == "dxcc"
+                 else self._ts_val.get().strip())
+        if not value:
+            self._ts_info.set("Enter a target.")
+            return
+        self._ts_info.set("Searching %d favorites over %d days\u2026"
+                          % (len(favs), self._ts_days.get()))
+        self._ts_btn.state(["disabled"])
+        days = self._ts_days.get()
+
+        def work():
+            try:
+                pred = self._new_pred()
+                res = PL.target_search(pred, favs, kind, value, now_unix(),
+                                       days=days)
+                self._ui(lambda: self._show_tsearch(res, value))
+            except Exception as _exc:
+                self._ui(lambda e=_exc: self._worker_failed(e))
+        threading.Thread(target=work, daemon=True).start()
+
+    def _show_tsearch(self, res, value):
+        self._ts_btn.state(["!disabled"])
+        self._ts_tree.delete(*self._ts_tree.get_children())
+        for r in res:
+            self._ts_tree.insert("", "end", values=(
+                fmt_utc(r["start"], "%Y-%m-%d %H:%M"),
+                r["sat_name"],
+                "%.1f" % (r["duration_s"] / 60.0),
+                "%.0f\u00b0" % r["max_el_deg"]))
+        self._ts_info.set("%d pass(es) work \u201c%s\u201d over %d days."
+                          % (len(res), value, self._ts_days.get()))
+
+    def _new_pred(self):
+        from ...engine.predict import Predictor
+        pred = Predictor()
+        pred.set_site(self.store.obs)
+        return pred
+
     def _build_vis(self, parent):
         bar = ttk.Frame(parent, style="TFrame")
         bar.pack(fill="x", padx=8, pady=6)
@@ -191,7 +389,7 @@ class PlanningScreen(Screen):
         ttk.Button(bar, text="Export CSV\u2026",
                    command=self._export_vis).pack(side="right", padx=2)
         cols = ("aos", "maxel", "mag", "dur")
-        heads = ("Start (UTC)", "Max El", "Est. mag", "Duration (min)")
+        heads = ("Start", "Max El", "Est. mag", "Duration (min)")
         treewrap, self.vis_tree = make_scrolled_tree(
             parent, cols, show="headings", height=14)
         for c, h in zip(cols, heads):
@@ -279,7 +477,7 @@ class PlanningScreen(Screen):
         ttk.Button(bar, text="Export CSV\u2026",
                    command=self._export_s2s).pack(side="right", padx=2)
         cols = ("start", "end", "dur", "range")
-        heads = ("Start (UTC)", "End (UTC)", "Duration (min)",
+        heads = ("Start", "End", "Duration (min)",
                  "Min range (km)")
         treewrap, self.s2s_tree = make_scrolled_tree(
             parent, cols, show="headings", height=12)
@@ -413,7 +611,7 @@ class PlanningScreen(Screen):
             ttk.Entry(col, textvariable=var, width=width).pack(anchor="w")
 
         _field(entry, "Grid", self._rv_grid, 8)
-        _field(entry, "Date (UTC)", self._rv_date, 12)
+        _field(entry, "Date", self._rv_date, 12)
         _field(entry, "Start", self._rv_start, 7)
         _field(entry, "End", self._rv_end, 7)
         addcol = ttk.Frame(entry, style="TFrame")
@@ -426,7 +624,7 @@ class PlanningScreen(Screen):
         mid = ttk.Frame(parent, style="TFrame")
         mid.pack(fill="x", padx=10, pady=(4, 2))
         scols = ("grid", "date", "start", "end")
-        sheads = ("Grid", "Date (UTC)", "Start", "End")
+        sheads = ("Grid", "Date", "Start", "End")
         stopwrap, self.stops_tree = make_scrolled_tree(
             mid, scols, show="headings", height=4)
         for c, h in zip(scols, sheads):
@@ -461,7 +659,7 @@ class PlanningScreen(Screen):
                         variable=self._rove_scope).pack(side="left")
 
         cols = ("stop", "sat", "aos", "los", "maxel", "states", "dxcc", "grids")
-        heads = ("Stop", "Satellite", "AOS (UTC)", "LOS (UTC)", "Max El",
+        heads = ("Stop", "Satellite", "AOS", "LOS", "Max El",
                  "States", "DXCC", "Grids")
         treewrap, self.rove_tree = make_scrolled_tree(
             parent, cols, show="headings", height=9)
@@ -638,7 +836,7 @@ class PlanningScreen(Screen):
                states, dxcc, ngrids))
 
     def _rove_export_rows(self):
-        headers = ["Stop", "Satellite", "AOS (UTC)", "LOS (UTC)", "Max El",
+        headers = ["Stop", "Satellite", "AOS", "LOS", "Max El",
                    "States", "DXCC", "Grids"]
         rows = []
         for grid, sat_name, r in getattr(self, "_rove_rows", []):
@@ -694,3 +892,17 @@ class PlanningScreen(Screen):
 
     def on_show(self):
         self._render_trust()
+
+    def _report(self):
+        """Print whatever this screen is currently showing."""
+        from ..reports import save_report_dialog
+        tree = self.work_tree
+        cols = [tree.heading(c)["text"] for c in tree["columns"]]
+        rows = [list(tree.item(i)["values"]) for i in tree.get_children()]
+        if not rows:
+            from tkinter import messagebox
+            messagebox.showinfo("Report", "Nothing to print yet.",
+                                parent=self.frame)
+            return
+        save_report_dialog(self, "planning", title="Planning", subtitle="Workable horizon and target search",
+                           sections=[("", "table", (cols, rows))])

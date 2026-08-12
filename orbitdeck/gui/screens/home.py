@@ -67,7 +67,7 @@ class HomeScreen(Screen):
                  fg=COL_MUTED, font=("DejaVu Sans", 9, "bold")).pack(
             anchor="w", padx=16)
         ncols = ("sat", "in", "aos", "maxel", "dur")
-        nheads = ("Satellite", "In", "AOS (UTC)", "Max El", "Duration")
+        nheads = ("Satellite", "In", "AOS", "Max El", "Duration")
         nwid = {"sat": 150, "in": 110, "aos": 150, "maxel": 80, "dur": 90}
         _nwrap = ttk.Frame(self.dash_wrap, style="TFrame")
         _nwrap.pack(fill="both", expand=True, padx=16, pady=(2, 8))
@@ -136,7 +136,7 @@ class HomeScreen(Screen):
         # ---- passes tab ----
         self.pass_wrap = ttk.Frame(self.frame, style="TFrame")
         cols = ("sat", "aos", "maxel", "dur", "count")
-        heads = ("Satellite", "AOS (UTC)", "Max El", "Duration", "Countdown")
+        heads = ("Satellite", "AOS", "Max El", "Duration", "Countdown")
         widths = {"sat": 130, "aos": 150, "maxel": 90, "dur": 100,
                   "count": 150}
         _twrap = ttk.Frame(self.pass_wrap, style="TFrame")

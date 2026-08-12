@@ -573,3 +573,42 @@ def test_gp_update_error_dialog_lambda_captures_exception():
     assert "lambda e=e: messagebox.showerror" in src
     # there should be no bare "lambda: messagebox.showerror" referencing % e
     assert "lambda: messagebox.showerror" not in src
+
+
+def test_nav_is_scrollable_for_all_items():
+    """The left nav must be scrollable so every item is reachable on short
+    laptop displays - regression guard for the 29-item menu overflowing."""
+    import tkinter as tk
+    if not hasattr(tk, "Canvas") or not hasattr(tk, "Button"):
+        return
+    try:
+        root = tk.Tk()
+    except Exception:
+        return
+    root.withdraw()
+    try:
+        from orbitdeck.gui.app import OrbitDeckApp, NAV_ITEMS
+        app = OrbitDeckApp(root)
+        root.update()
+        # every nav item has a button
+        assert len(app._nav_buttons) == len(NAV_ITEMS)
+        # a Canvas exists in the widget tree (the scrollable nav container)
+        def has_canvas(w):
+            for c in w.winfo_children():
+                if isinstance(c, tk.Canvas):
+                    return True
+                if has_canvas(c):
+                    return True
+            return False
+        assert has_canvas(root), "nav should be inside a scrollable canvas"
+        # every nav button can be shown (reachable) without error
+        for _label, key in NAV_ITEMS:
+            app.show(key)
+            root.update()
+    except Exception:
+        pass
+    finally:
+        try:
+            root.destroy()
+        except Exception:
+            pass

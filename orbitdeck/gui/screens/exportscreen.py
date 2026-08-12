@@ -52,7 +52,7 @@ class ExportScreen(Screen):
         ttk.Button(bar, text="JSON\u2026", command=self._exp_json).pack(
             side="right", padx=2)
         cols = ("aos", "maxel", "dur", "los")
-        heads = ("AOS (UTC)", "Max El", "Duration (min)", "LOS (UTC)")
+        heads = ("AOS", "Max El", "Duration (min)", "LOS")
         treewrap, self.tree = make_scrolled_tree(
             parent, cols, show="headings", height=15)
         for c, h in zip(cols, heads):
@@ -141,7 +141,7 @@ class ExportScreen(Screen):
             filetypes=[("Excel", "*.xlsx")])
         if not path:
             return
-        headers = ["AOS (UTC)", "LOS (UTC)", "TCA (UTC)", "Max El (deg)",
+        headers = ["AOS", "LOS", "TCA", "Max El (deg)",
                    "Duration (min)", "AOS az", "LOS az"]
         rows = []
         for p in self._passes:
@@ -169,7 +169,7 @@ class ExportScreen(Screen):
         ttk.Button(bar, text="Export CSV\u2026",
                    command=self._exp_cmp).pack(side="right", padx=2)
         cols = ("sat", "n", "best", "el", "dur")
-        heads = ("Satellite", "Passes", "Best pass (UTC)", "Best max el",
+        heads = ("Satellite", "Passes", "Best pass", "Best max el",
                  "Best dur (min)")
         treewrap, self.cmp_tree = make_scrolled_tree(
             parent, cols, show="headings", height=15)
@@ -438,7 +438,7 @@ class ExportScreen(Screen):
 
         # one-observer stepped
         cols = ("t", "az", "el", "rng", "rr", "sub", "alt", "sun")
-        heads = ("Time (UTC)", "Az", "El", "Range km", "Rate km/s",
+        heads = ("Time", "Az", "El", "Range km", "Rate km/s",
                  "Sub-point", "Alt km", "Sun")
         w1, self._lt_one = make_scrolled_tree(
             page_one, cols, show="headings", height=16)
@@ -449,7 +449,7 @@ class ExportScreen(Screen):
 
         # AOS/LOS quick list
         cols2 = ("aos", "los", "dur", "maxel", "aaz", "laz")
-        heads2 = ("AOS (UTC)", "LOS (UTC)", "Duration", "Max El",
+        heads2 = ("AOS", "LOS", "Duration", "Max El",
                   "AOS Az", "LOS Az")
         w2, self._lt_aos = make_scrolled_tree(
             page_aos, cols2, show="headings", height=16)
@@ -460,7 +460,7 @@ class ExportScreen(Screen):
 
         # two-observer stepped
         cols3 = ("t", "az1", "el1", "r1", "az2", "el2", "r2")
-        heads3 = ("Time (UTC)", "Az\u2081", "El\u2081", "Rng\u2081 km",
+        heads3 = ("Time", "Az\u2081", "El\u2081", "Rng\u2081 km",
                   "Az\u2082", "El\u2082", "Rng\u2082 km")
         w3, self._lt_two = make_scrolled_tree(
             page_two, cols3, show="headings", height=16)

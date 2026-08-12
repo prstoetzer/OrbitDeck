@@ -99,12 +99,41 @@ def center(text, width):
 
 
 class Screen:
+    #: attribute names holding results scoped to one satellite. The app clears
+    #: them when the selection changes, so a screen never shows one bird's data
+    #: under another's name.
+    sat_scoped = ()
+
     """Base class for a content screen. Subclasses implement draw() and may
     implement handle_key(); refreshes happen on a timer in the app loop."""
 
     title = "Screen"
     #: refresh cadence in seconds for live screens (0 = only on key/resize)
     refresh_secs = 0.0
+
+
+    def clear_if_sat_changed(self, norad):
+        """Drop cached per-satellite results when the selection moved on."""
+        if getattr(self, "_shown_norad", "unset") == norad:
+            return False
+        self._shown_norad = norad
+        for name in self.sat_scoped:
+            if not hasattr(self, name):
+                continue
+            cur = getattr(self, name)
+            if callable(cur):
+                raise TypeError(
+                    "%s.sat_scoped names the callable %r; list data "
+                    "attributes only" % (type(self).__name__, name))
+            blank = type(cur)() if isinstance(cur, (list, dict, set, tuple,
+                                                    str)) else None
+            setattr(self, name, blank)
+        self.on_sat_changed()
+        return True
+
+    def on_sat_changed(self):
+        """Hook for screens needing more than clearing attributes."""
+        pass
 
     def __init__(self, app):
         self.app = app

@@ -60,7 +60,7 @@ class OrbitScreen(Screen):
         # a scrollable table surface, used by the equator-crossings list page
         self.tablewrap = ttk.Frame(self.frame, style="TFrame")
         cols = ("idx", "date", "time", "lon")
-        heads = ("#", "Date (UTC)", "Time (UTC)", "Longitude")
+        heads = ("#", "Date", "Time", "Longitude")
         self.xtable = ttk.Treeview(self.tablewrap, columns=cols,
                                    show="headings", height=20)
         widths = {"idx": 50, "date": 130, "time": 110, "lon": 130}
@@ -224,11 +224,19 @@ class OrbitScreen(Screen):
         foot_apo = A.footprint_diameter_km(s.apogee_km)
         foot_per = A.footprint_diameter_km(s.perigee_km)
         age = (now_unix() - s.epoch_unix) / 86400.0
-        decay = A.estimate_decay_days(s.bstar, mm, s.ecc, dens_scale=1.0)
+        # Use the RECALIBRATED model (engine.decay, ported from CardSat
+        # 0.9.68). analysis.estimate_decay_days is the pre-refit formula that
+        # predicts roughly a fifth of the true remaining life; it is kept only
+        # for its mass/area/Cd input form.
+        from ...engine import decay as DK
+        _nd = getattr(s, "ndot", 0.0) or 0.0
+        decay, decay_src = DK.estimate_decay_days(mm, s.ecc, s.bstar, _nd)
         # solar-activity bracket: high density (solar max) -> shortest life;
         # low density (solar min) -> longest. CardSat shows the same range.
-        decay_short = A.estimate_decay_days(s.bstar, mm, s.ecc, dens_scale=2.5)
-        decay_long = A.estimate_decay_days(s.bstar, mm, s.ecc, dens_scale=0.4)
+        decay_short, _ = DK.estimate_decay_days(mm, s.ecc, s.bstar, _nd,
+                                                solar="high")
+        decay_long, _ = DK.estimate_decay_days(mm, s.ecc, s.bstar, _nd,
+                                               solar="low")
 
         k.section("Identity")
         k.row("Name", s.name, COL_TEXT, big=True)
@@ -238,6 +246,23 @@ class OrbitScreen(Screen):
         k.section("Size & shape")
         k.row("Period", "%.2f min" % s.period_min, COL_ACCENT)
         k.row("Semi-major a", "%.1f km" % a)
+        # Velocity is vis-viva from elements already held, and the launch
+        # identity comes from the COSPAR designator - both were in CardSat
+        # and missing here.
+        k.row("Velocity", "%.3f km/s" % A.orbital_velocity_kms(a, a))
+        _va, _vp = A.velocity_extremes_kms(a, s.ecc)
+        k.row("V apo / peri", "%.3f / %.3f km/s" % (_va, _vp))
+        _yrs = A.years_in_orbit(s.intl_des, t)
+        if _yrs is not None:
+            _yr = A.cospar_launch_year(s.intl_des)
+            # The designator carries the launch YEAR only, so this is a
+            # whole-year figure and says so rather than implying a date.
+            k.row("Launched", "%d (approx.)" % _yr)
+            k.row("In orbit", "~%d years" % _yrs)
+        _sibs = A.launch_siblings(self.store.db, s)
+        if _sibs:
+            k.row("Launch siblings", ", ".join(x.name for x in _sibs[:4])
+                  + (" +%d more" % (len(_sibs) - 4) if len(_sibs) > 4 else ""))
         k.row("Apogee alt", "%.0f km" % s.apogee_km)
         k.row("Perigee alt", "%.0f km" % s.perigee_km)
         k.row("Inclination", "%.4f\u00b0" % s.incl)
@@ -250,11 +275,15 @@ class OrbitScreen(Screen):
 
         k.section("Drag & lifetime")
         k.row("B*", "%.6f" % s.bstar)
-        k.row("Decay est.", A.fmt_decay(decay),
+        k.row("Decay est.", DK.fmt_decay(decay),
               COL_WARN if (0 <= decay < 3650) else COL_TEXT)
-        if decay >= 0 and decay < 36500:
-            k.row("Decay range", "%s \u2013 %s (max\u2013min sun)" %
-                  (A.fmt_decay(decay_short), A.fmt_decay(decay_long)),
+        # The solar range is only meaningful on the B* path: anchoring on the
+        # observed n-dot cancels the density normalisation and the solar scale
+        # by construction, so low/high would print the same number twice and
+        # imply a confidence interval that is not there.
+        if 0 <= decay < 36500 and decay_src == DK.SRC_BSTAR:
+            k.row("Decay range", "%s \u2013 %s (max\u2013min sun)"
+                  % (DK.fmt_decay(decay_short), DK.fmt_decay(decay_long)),
                   COL_MUTED)
 
         k.section("Element set")
@@ -283,7 +312,7 @@ class OrbitScreen(Screen):
 
         k.begin()
         k.section("Look angles")
-        k.row("Time (UTC)", fmt_utc(t, "%H:%M:%S"), COL_MUTED)
+        k.row("Time", fmt_utc(t, "%H:%M:%S"), COL_MUTED)
         k.row("Azimuth", "%.1f\u00b0 %s" % (L.az, compass(L.az)),
               COL_ACCENT, big=True)
         k.row("Elevation", "%+.1f\u00b0" % L.el,

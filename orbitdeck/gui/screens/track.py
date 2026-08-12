@@ -215,6 +215,59 @@ class TrackScreen(Screen):
         self.tp_combo.current(self._tp_index)
         self._refresh(now_unix(), force_plot=True)
 
+    def _report_heard(self):
+        """One-key \u201cI heard it\u201d AMSAT report for the tracked satellite.
+
+        CardSat puts this on its tracking screen ('i') because that is the
+        moment you know the answer - mid-pass, with the bird in front of you.
+        Resolves the API name through the catalog matcher, since a catalog name
+        is not an API name.
+        """
+        import threading
+        from tkinter import messagebox
+        from ...engine import amsatstatus as AS
+        from ..store import _http_get, _http_post
+        sat = self.store.selected_sat()
+        if not sat:
+            return
+        call = self.store.config.get("callsign", "") or \
+            self.store.config.get("my_call", "")
+        if not call:
+            messagebox.showinfo("Report", "Set your callsign in Settings "
+                                "before reporting.", parent=self.frame)
+            return
+        if not messagebox.askyesno(
+                "Report to AMSAT",
+                "Report %s as Heard to amsat.org as %s?\n\n"
+                "This is public and attributed." % (sat.name, call),
+                parent=self.frame):
+            return
+        grid = getattr(self.store, "grid", "") or ""
+
+        def work():
+            try:
+                try:
+                    names = AS.resolve_names(
+                        AS.parse_catalog(_http_get(AS.CATALOG_URL, 25)), sat.name)
+                except Exception as exc:
+                    self._ui(lambda e=exc: messagebox.showerror(
+                        "Report", "Could not reach the AMSAT catalog: %s"
+                        % str(e)[:80], parent=self.frame))
+                    return
+                if not names:
+                    self._ui(lambda: messagebox.showinfo(
+                        "Report", "%s has no AMSAT status entry." % sat.name,
+                        parent=self.frame))
+                    return
+                ok, msg = AS.submit_report(
+                    lambda u, b: _http_post(u, b, 25), names[0], "Heard", call,
+                    grid)
+                self._ui(lambda: messagebox.showinfo(
+                    "Report", msg, parent=self.frame))
+            except Exception as _exc:
+                self._ui(lambda e=_exc: self._worker_failed(e))
+        threading.Thread(target=work, daemon=True).start()
+
     def on_show(self):
         s = self.sat()
         if s is not self._sky_sat:

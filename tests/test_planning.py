@@ -42,10 +42,10 @@ def test_workable_dxcc_basic():
     inside = A.make_footprint_test(39.0, -95.0, 420)
     ents = dict(workable_dxcc(inside))
     assert "K" in ents                       # United States
-    # over central Europe, expect DL/F/etc., not the USA
+    # over central Europe, expect Germany (DA) and not the USA
     inside2 = A.make_footprint_test(50.0, 9.0, 420)
     prefixes = [p for p, n in workable_dxcc(inside2)]
-    assert "DL" in prefixes
+    assert "DA" in prefixes                   # Germany (ARRL primary prefix)
     assert "K" not in prefixes
 
 def test_optical_magnitude_model():
@@ -202,10 +202,12 @@ def test_dxcc_target_resolution():
     """The Planning screen resolves a DXCC entity name to its centroid."""
     from orbitdeck.data.dxcc import DXCC
     names = {v[0]: (v[1], v[2]) for v in DXCC.values()}
-    # pick a well-known entity present in the table
-    assert "United States" in names
-    lat, lon = names["United States"]
+    # pick a well-known entity present in the table (ARRL-official naming)
+    assert "United States of America" in names
+    lat, lon = names["United States of America"]
     assert -90 <= lat <= 90 and -180 <= lon <= 180
+    # the expanded roster covers the full 340 current DXCC entities
+    assert len(DXCC) == 340
 
 def test_mutual_favorites_scope_scans_all_favorites():
     """The Mutual Windows screen in 'All favorites' mode scans every favorite,

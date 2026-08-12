@@ -31,6 +31,13 @@ CELESTRAK_GROUPS = [
     ("GPS Operational", "gps-ops"),
     ("Science", "science"),
     ("Geostationary", "geo"),
+    # debris groups - useful loaded as the catalog source and screened against
+    # a favorite in the Conjunctions screen
+    ("Debris: Fengyun-1C", "1999-025"),
+    ("Debris: Iridium-33", "iridium-33-debris"),
+    ("Debris: Cosmos-2251", "cosmos-2251-debris"),
+    ("Debris: Cosmos-1408", "cosmos-1408-debris"),
+    ("Analyst Satellites", "analyst"),
 ]
 SATNOGS_TX_URL = ("https://db.satnogs.org/api/transmitters/"
                   "?format=json&satellite__norad_cat_id=")
@@ -43,6 +50,10 @@ SPACEWX_CACHE = os.path.join(CONFIG_DIR, "spacewx.json")
 TX_CACHE = os.path.join(CONFIG_DIR, "transmitters.json")
 MANUAL_SATS = os.path.join(CONFIG_DIR, "manual_sats.json")
 MANUAL_TX = os.path.join(CONFIG_DIR, "manual_tx.json")
+# "extras": objects added by searching CelesTrak that the primary GP source does
+# not carry. Unlike manual sats these ARE re-fetched from CelesTrak on every GP
+# update so their elements never go stale.
+EXTRAS_SATS = os.path.join(CONFIG_DIR, "extras.json")
 
 
 class Store:
@@ -58,6 +69,11 @@ class Store:
         self.tp_index_by_norad = {}         # norad -> selected transponder idx
         self.gp_source = {"kind": "amsat"}  # amsat | celestrak | custom
         self.prefs = {}                     # free-form UI/app preferences
+        # CelesTrak-search courtesy limiting (shared IPs must not get banned):
+        # >=10 s between searches, identical query within 2 h served from cache,
+        # extras re-fetch at most once / 2 h (timestamp persisted in prefs).
+        self._last_search_t = 0.0
+        self._search_cache = {}             # query -> (unix_t, results)
         self.pred = Predictor()
         self._load_config()
         self._load_catalog()
@@ -98,6 +114,7 @@ class Store:
         self._apply_tx_cache()
         # merge user-entered satellites and transponders (persist across refreshes)
         self._merge_manual()
+        self._merge_extras()
         self._sync_predictor()
 
     # ---- manual (user-entered) satellites and transponders ----
@@ -258,6 +275,200 @@ class Store:
     def select(self, norad):
         self.selected_norad = norad
         self._sync_predictor()
+
+    # ---- CelesTrak "extras" (searched-and-added, auto-updating) ----
+    def _load_extras(self):
+        try:
+            with open(EXTRAS_SATS) as f:
+                data = json.load(f)
+            return data if isinstance(data, list) else []
+        except Exception:
+            return []
+
+    def _save_extras(self, items):
+        try:
+            os.makedirs(CONFIG_DIR, exist_ok=True)
+            with open(EXTRAS_SATS, "w") as f:
+                json.dump(items, f)
+        except Exception:
+            pass
+
+    def _merge_extras(self):
+        """Fold CelesTrak-sourced extra objects into the live catalog.
+
+        Called after every catalog/cache load. Unlike manual sats, extras are
+        refreshed from CelesTrak by refresh_extras(); here we just add their
+        (possibly cached) elements if the primary source doesn't carry them.
+        """
+        from ..engine.satdb import _parse_omm
+        for d in self._load_extras():
+            rec = d.get("omm") or {}
+            try:
+                e = _parse_omm(rec)
+            except Exception:
+                continue
+            if e.norad and self.db.index_of_norad(e.norad) < 0:
+                self.db.sats.append(e)
+
+    def is_extra(self, norad):
+        return any(int(d.get("norad", -1)) == int(norad)
+                   for d in self._load_extras())
+
+    def add_extra_sat(self, hit, make_favorite=True):
+        """Add a CelesTrak search hit as an auto-updating extra + favorite.
+
+        ``hit`` is a dict from satsearch.parse_results (norad, name, omm).
+        Persisted to extras.json and merged into the live catalog immediately;
+        later GP updates re-fetch its elements from CelesTrak.
+        """
+        from ..engine.satdb import _parse_omm
+        norad = int(hit["norad"])
+        items = [d for d in self._load_extras()
+                 if int(d.get("norad", -1)) != norad]
+        items.append({"norad": norad, "name": hit.get("name", "?"),
+                      "omm": hit.get("omm", {})})
+        self._save_extras(items)
+        try:
+            e = _parse_omm(hit.get("omm", {}))
+            idx = self.db.index_of_norad(norad)
+            if idx >= 0:
+                e.transponders = self.db.sats[idx].transponders
+                self.db.sats[idx] = e
+            else:
+                self.db.sats.append(e)
+        except Exception:
+            pass
+        if make_favorite:
+            self.favorites.add(norad)
+            self.save_config()
+        return norad
+
+    def remove_extra_sat(self, norad):
+        """Delete a CelesTrak extra from the persisted store and live catalog."""
+        norad = int(norad)
+        items = [d for d in self._load_extras()
+                 if int(d.get("norad", -1)) != norad]
+        self._save_extras(items)
+        idx = self.db.index_of_norad(norad)
+        if idx >= 0:
+            del self.db.sats[idx]
+        if self.selected_norad == norad:
+            self.selected_norad = (self.db.sats[0].norad
+                                   if self.db.sats else None)
+            self._sync_predictor()
+        self.favorites.discard(norad)
+
+    def search_celestrak(self, query, force=False):
+        """Search the entire CelesTrak catalog by name or NORAD number.
+
+        Courtesy limits: >=10 s between distinct searches, and an identical query
+        within 2 h is served from the in-memory cache. Returns a list of hit
+        dicts (satsearch.parse_results). Raises ValueError with a friendly
+        message on a too-soon or rate-limit condition.
+        """
+        import time as _time
+        from . import satsearch
+        q = (query or "").strip()
+        if not q:
+            return []
+        now = _time.time()
+        cached = self._search_cache.get(q.lower())
+        if cached and not force and (now - cached[0]) < 7200:
+            return cached[1]
+        if not force and (now - self._last_search_t) < 10.0:
+            wait = max(1, int(10.0 - (now - self._last_search_t) + 0.5))
+            raise ValueError("Please wait %d s between CelesTrak searches "
+                             "(their servers are shared)." % wait)
+        url, _kind = satsearch.search_url(q)
+        self._last_search_t = now
+        try:
+
+            txt = _http_get(url, timeout=20)
+
+        except RuntimeError as exc:
+
+            msg = str(exc)
+
+            if "404" in msg:
+
+                # CelesTrak answers 404 for a query that matches
+
+                # nothing, which is an empty result, not a failure.
+
+                self._search_cache[q.lower()] = (now, [])
+
+                return []
+
+            raise
+        # A 404 from a NAME query means CelesTrak has no object matching it -
+        # not a broken URL. Reporting the raw HTTP status made "this satellite
+        # is not in the catalog" look like a bug in OrbitDeck.
+        if satsearch.looks_rate_limited(txt):
+            raise ValueError("CelesTrak is rate-limiting requests \u2014 wait a "
+                             "couple of hours and try again.")
+        results = satsearch.parse_results(txt)
+        self._search_cache[q.lower()] = (now, results)
+        return results
+
+    def refresh_extras(self, progress=None, force=False):
+        """Re-fetch each extra's current elements from CelesTrak.
+
+        Honors a 2 h minimum interval (timestamp persisted in prefs), spaces
+        object fetches by 2 s, and caps at 25 objects per run. Returns the count
+        refreshed. Safe to call from update_gp_online.
+        """
+        import time as _time
+        from . import satsearch
+        extras = self._load_extras()
+        if not extras:
+            return 0
+        now = _time.time()
+        last = (float(self.prefs.get("extras_refreshed_at", 0))
+                if isinstance(self.prefs, dict) else 0.0)
+        if not force and (now - last) < 7200:
+            return 0
+        updated = []
+        n = 0
+        for d in extras[:25]:
+            norad = int(d.get("norad", -1))
+            if norad < 0:
+                updated.append(d)
+                continue
+            if n > 0:
+                _time.sleep(2.0)
+            try:
+                txt = _http_get(satsearch.catnr_url(norad), timeout=20)
+                hits = satsearch.parse_results(txt)
+            except Exception:
+                hits = []
+            if hits:
+                d = {"norad": norad,
+                     "name": hits[0].get("name", d.get("name")),
+                     "omm": hits[0].get("omm", {})}
+                n += 1
+                # update the live catalog entry in place with fresh elements
+                try:
+                    from ..engine.satdb import _parse_omm
+                    e = _parse_omm(d["omm"])
+                    idx = self.db.index_of_norad(norad)
+                    if e.norad and idx >= 0:
+                        e.transponders = self.db.sats[idx].transponders
+                        self.db.sats[idx] = e
+                    elif e.norad:
+                        self.db.sats.append(e)
+                except Exception:
+                    pass
+                if progress:
+                    progress("Refreshed %s from CelesTrak" % d["name"])
+            updated.append(d)
+        updated.extend(extras[25:])
+        self._save_extras(updated)
+        if isinstance(self.prefs, dict):
+            self.prefs["extras_refreshed_at"] = now
+            self.save_config()
+        if n:
+            self._sync_predictor()
+        return n
 
     def ensure_transponders(self, sat, online=False):
         if sat.transponders:
@@ -466,6 +677,14 @@ class Store:
         # re-apply cached + manual transponders and manual satellites
         self._apply_tx_cache()
         self._merge_manual()
+        # refresh CelesTrak "extras" (searched-added objects) so their elements
+        # never go stale, then fold them in. Rate-limited internally (>=2 h),
+        # network failures are swallowed so a GP update still succeeds offline.
+        try:
+            self.refresh_extras(progress=progress)
+        except Exception:
+            pass
+        self._merge_extras()
         if (self.selected_norad is None or
                 self.db.get(self.selected_norad) is None) and self.db.count():
             self.selected_norad = self.db.sats[0].norad
@@ -532,3 +751,8 @@ class Store:
 def _http_get(url, timeout=20):
     from .net import http_get
     return http_get(url, timeout=timeout)
+
+
+def _http_post(url, body, timeout=25):
+    from .net import http_post_json
+    return http_post_json(url, body, timeout=timeout)

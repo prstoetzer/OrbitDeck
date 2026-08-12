@@ -2,7 +2,7 @@
 
 import time
 
-from ..ui import Screen, ScrollList, addstr, hline, cp, ljust
+from ..ui import Screen, ScrollList, addstr, hline, cp, ljust, clip
 from ..ui import (CLR_TITLE, CLR_HEADER, CLR_OK, CLR_WARN, CLR_BAD, CLR_DIM,
                   CLR_ACCENT, CLR_ROW_SEL)
 from .. import fmt
@@ -50,8 +50,11 @@ class PassesScreen(Screen):
         addstr(win, y0, x0 + 11 + len(sat.name) + 2,
                "min el %.0f\u00b0  (e/E to change)" % st.min_el, cp(CLR_DIM))
 
-        head = "%-3s %-13s %-6s %-7s %-6s %5s  %-8s %-8s" % (
-            "#", "DATE", "AOS", "TCA", "LOS", "MAXEL", "AOS-AZ", "LOS-AZ")
+        # Fits 80 columns: the nav leaves ~61, and the previous widths lost
+        # MAXEL and both azimuths off the right edge - the three columns you
+        # actually plan a pass with.
+        head = "%-2s %-9s %-5s %-5s %-5s %4s %-7s %-7s" % (
+            "#", "DATE", "AOS", "TCA", "LOS", "EL", "AOS-AZ", "LOS-AZ")
         addstr(win, y0 + 2, x0, head, cp(CLR_DIM) | _bold())
         hline(win, y0 + 3, x0, min(w, len(head)), "\u2500", cp(CLR_DIM))
 
@@ -66,7 +69,7 @@ class PassesScreen(Screen):
             p = self._passes[i]
             yy = rows_y0 + (i - self.sl.top)
             soon = p.aos - now
-            line = "%-3d %-13s %-6s %-7s %-6s %4.0f\u00b0  %-8s %-8s" % (
+            line = "%-2d %-9s %-5s %-5s %-5s %3.0f\u00b0 %-7s %-7s" % (
                 i + 1, fmt.fmt_date(p.aos), fmt.fmt_hm(p.aos),
                 fmt.fmt_hm(p.tca), fmt.fmt_hm(p.los), p.max_el,
                 _az_compact(p.az_aos), _az_compact(p.az_los))
@@ -79,9 +82,11 @@ class PassesScreen(Screen):
                 attr = cp(CLR_DIM)
             if i == self.sl.sel:
                 attr = cp(CLR_ROW_SEL) | _bold()
-            addstr(win, yy, x0, ljust(line, w - x0), attr)
+            # `w` is already the content width; subtracting x0 again shortened
+            # every row and cut the azimuth columns off.
+            addstr(win, yy, x0, ljust(clip(line, w), w), attr)
             if 0 < soon < 3600 and i != self.sl.sel:
-                addstr(win, yy, x0 + min(w - 10, len(line) + 1),
+                addstr(win, yy, x0 + min(w - 3, len(line) + 1),
                        "in %s" % fmt.fmt_dur(soon), cp(CLR_ACCENT))
 
     def help_keys(self):
@@ -191,42 +196,57 @@ class PassDetailScreen(Screen):
         self._draw_sky(win, x0, y, w - x0, (y0 + h) - y - 1, pred, p)
 
     def _draw_sky(self, win, x0, y0, w, h, pred, p):
+        """Elevation profile for the pass, drawn on the braille sub-cell canvas.
+
+        Previously one block glyph per column (a ~60x10 staircase); the braille
+        surface gives 2x4 dots per cell, so the curve is smooth and the current-
+        time marker lands on the right dot rather than the nearest whole cell.
+        """
         if h < 6 or w < 30:
             return
+        from ..canvas import Canvas, blit, scale
         addstr(win, y0, x0, "Elevation profile", cp(CLR_HEADER) | _bold())
         gy0 = y0 + 1
-        gh = h - 2
+        gh = max(2, h - 2)
         gw = min(w - 8, 60)
-        # sample elevation across the pass
-        n = gw
+        cv = Canvas(gw, gh)
+        n = cv.width
         els = []
         for i in range(n):
             t = p.aos + (p.los - p.aos) * i / max(1, n - 1)
             els.append(pred.azel_at(t)[1])
-        # y axis labels: 0,30,60,90
         for el_lab in (90, 60, 30, 0):
             row = gy0 + int((1 - el_lab / 90.0) * (gh - 1))
             addstr(win, row, x0, "%2d\u00b0" % el_lab, cp(CLR_DIM))
-        # plot
         now = time.time()
+        prev = None
+        now_x = None
         for i, el in enumerate(els):
             if el < 0:
+                prev = None
                 continue
-            row = gy0 + int((1 - min(el, 90) / 90.0) * (gh - 1))
-            col = x0 + 5 + i
-            ch = "\u2588"
+            py = int(scale(min(el, 90.0), 0.0, 90.0, 0, cv.height - 1,
+                           invert=True))
             attr = cp(CLR_OK) if el >= 30 else cp(CLR_WARN)
-            # mark current time position
+            if prev is not None:
+                cv.line(prev[0], prev[1], i, py, attr)
+            else:
+                cv.plot(i, py, attr)
+            prev = (i, py)
             t_i = p.aos + (p.los - p.aos) * i / max(1, n - 1)
-            if abs(t_i - now) < (p.los - p.aos) / (2 * n):
-                attr = cp(CLR_BAD) | _bold()
-                ch = "\u2502"
-            addstr(win, row, col, ch, attr)
-        # baseline
-        base = gy0 + gh - 1
-        hline(win, base, x0 + 5, gw, "\u2500", cp(CLR_DIM))
-        addstr(win, base + 1, x0 + 5, fmt.fmt_hm(p.aos), cp(CLR_DIM))
-        addstr(win, base + 1, x0 + 5 + gw - 5, fmt.fmt_hm(p.los), cp(CLR_DIM))
+            if now_x is None and t_i >= now and now >= p.aos:
+                now_x = i
+        if now_x is not None and now <= p.los:
+            for yy in range(cv.height):
+                cv.plot(now_x, yy, cp(CLR_BAD))
+        blit(win, cv, gy0, x0 + 5)
+        base = gy0 + gh
+        if base < y0 + h:
+            hline(win, base, x0 + 5, gw, "\u2500", cp(CLR_DIM))
+            addstr(win, base + 1, x0 + 5, fmt.fmt_hm(p.aos), cp(CLR_DIM))
+            addstr(win, base + 1, x0 + 5 + gw - 5, fmt.fmt_hm(p.los),
+                   cp(CLR_DIM))
+
 
     def help_keys(self):
         return [("n", "next pass"), ("4", "passes list")]

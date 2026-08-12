@@ -1051,3 +1051,67 @@ def generate_polar_passes_report(path, store, sat, when_unix=None, days=3):
         d["Title"] = "OrbitDeck \u2014 pass sky tracks \u2014 %s" % sat.name
         d["Creator"] = "OrbitDeck"
     return path
+
+
+# ---------------------------------------------------------------------------
+# Generic screen report
+# ---------------------------------------------------------------------------
+def generate_generic_report(path, store, title, subtitle=None, sections=None,
+                            when_unix=None):
+    """A report for any screen that is fundamentally rows of information.
+
+    ``sections`` is a list of (heading, kind, payload):
+      * ("Name", "kv",    [(label, value), ...])
+      * ("Name", "table", (headers, rows))
+      * ("Name", "text",  "a paragraph")
+
+    Most screens are tables or key/value readouts, so one generic path makes
+    them all printable rather than hand-writing 27 near-identical generators.
+    """
+    when_unix = when_unix if when_unix is not None else time.time()
+    _set_page(store)
+    with PdfPages(path) as pdf:
+        pg = _Page(pdf, title)
+        pg.title(title)
+        pg.subtitle(subtitle or _utc(when_unix, "%Y-%m-%d %H:%M:%S UTC"))
+        for heading, kind, payload in (sections or []):
+            if heading:
+                pg.section(heading)
+            if kind == "kv":
+                pg.kv_two_col(list(payload))
+            elif kind == "table":
+                headers, rows = payload
+                n = max(1, len(headers))
+                # spread columns evenly across the printable width
+                col_x = [0.07 + i * (0.86 / n) for i in range(n)]
+                pg.table(list(headers), [list(r) for r in rows], col_x)
+            elif kind == "text":
+                pg.paragraph(str(payload))
+        pg._brand()
+        pdf.savefig(pg.fig)
+        plt.close(pg.fig)
+    return path
+
+
+def save_report_dialog(screen, stem, title, subtitle=None, sections=None):
+    """Ask for a path, write a generic report, and report the outcome.
+
+    One call is all a screen needs to become printable, which is the point:
+    hand-writing a save dialog per screen is how 27 of them ended up with no
+    print at all.
+    """
+    from tkinter import filedialog, messagebox
+    path = filedialog.asksaveasfilename(
+        parent=screen.frame, defaultextension=".pdf",
+        initialfile="orbitdeck-%s.pdf" % stem,
+        filetypes=[("PDF", "*.pdf")], title="Save report")
+    if not path:
+        return None
+    try:
+        generate_generic_report(path, screen.store, title, subtitle, sections)
+    except Exception as exc:
+        messagebox.showerror("Report", "Could not write the report:\n%s"
+                             % str(exc)[:200], parent=screen.frame)
+        return None
+    messagebox.showinfo("Report", "Saved %s" % path, parent=screen.frame)
+    return path

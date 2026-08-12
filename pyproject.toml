@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "orbitdeck"
-version = "0.37.0"
+version = "0.38.0"
 description = "Cross-platform desktop satellite tracking and orbital analysis tool for amateur radio operators"
 readme = "README.md"
 requires-python = ">=3.8"
@@ -75,6 +75,13 @@ include-package-data = true
 [tool.ruff]
 line-length = 100
 target-version = "py38"
+
+[tool.ruff.lint]
+# Pin the rule set explicitly. Ruff's *default* selection has changed
+# between releases (0.16 added import-sorting), which silently turned a
+# clean tree into thousands of findings and broke the release lint step.
+# These are the rules the project has always been clean under.
+select = ["E4", "E7", "E9", "F"]
 
 [tool.ruff.lint.per-file-ignores]
 # Vendored SGP4/SDP4 reference port: keep the intermediate variables that mirror

@@ -369,3 +369,36 @@ def pass_quality_score(max_el_deg, duration_s, sunlit_frac=None,
         parts += weights["sunlit"] * max(0.0, min(1.0, sunlit_frac))
         total_w += weights["sunlit"]
     return round(100.0 * parts / total_w, 1)
+
+
+def link_margin_curve(sat_alt_km, freq_hz, min_el=0.0, max_el=90.0, step=5.0,
+                      sensitivity_dbm=-120.0, **kw):
+    """Received power against elevation for one pass geometry.
+
+    The Tools calculator answers "what is the budget at 1000 km"; the question
+    an antenna decision actually turns on is *how much worse is the horizon than
+    overhead*, which is a curve. Slant range is computed from a spherical Earth
+    at each elevation, so the low-elevation rows carry the extra path that makes
+    or breaks a marginal link.
+
+    Returns [{elevation_deg, slant_km, fspl_db, rx_dbm, margin_db}, ...].
+    """
+    RE = 6371.0
+    r = RE + max(1.0, sat_alt_km)
+    out = []
+    el = min_el
+    while el <= max_el + 1e-9:
+        e = math.radians(el)
+        # slant range to a satellite at radius r seen at elevation e
+        slant = (-RE * math.sin(e)
+                 + math.sqrt((RE * math.sin(e)) ** 2 + r * r - RE * RE))
+        b = link_budget(slant, freq_hz, **kw)
+        out.append({
+            "elevation_deg": el,
+            "slant_km": slant,
+            "fspl_db": b["fspl_db"],
+            "rx_dbm": b["rx_power_dbm"],
+            "margin_db": b["rx_power_dbm"] - sensitivity_dbm,
+        })
+        el += step
+    return out

@@ -179,16 +179,140 @@ def make_vscroll_frame(parent):
 
 
 class Screen:
-    """Base screen. Subclasses build into self.frame and override hooks."""
+    """Base screen. Subclasses build into self.frame and override hooks.
+
+    Screens are constructed once and reused, so any per-satellite result a
+    screen caches survives a satellite change. Left unguarded that is not a
+    cosmetic problem: the screen presents one satellite's data under another
+    satellite's name - AO-73's history shown as AO-7's. Subclasses that cache
+    such results declare them in ``sat_scoped`` and the base class clears them
+    whenever the selection changes.
+    """
+
+    def _worker_failed(self, exc):
+        """Report a background failure instead of leaving a stuck status.
+
+        A worker that raises used to leave the screen saying "Computing..."
+        forever, which reads as a hang rather than an error - and hid a real
+        fault behind a plausible-looking message.
+        """
+        msg = "%s: %s" % (type(exc).__name__, exc)
+        for attr in ("info", "ainfo", "status", "summary", "note"):
+            var = getattr(self, attr, None)
+            if var is not None and hasattr(var, "set"):
+                try:
+                    var.set(msg[:160])
+                    return
+                except Exception:
+                    pass
+
+    def _ui(self, fn):
+        """Hand ``fn`` to the Tk thread from a worker.
+
+        Tk is not thread-safe, and ``root.after()`` called from a worker can be
+        refused - an earlier version wrapped that in a bare ``except`` and so
+        silently DROPPED completed results, leaving screens stuck on
+        "Computing..." with no error. Results now go through a queue that the
+        main loop drains, which is safe from any thread; the callback is
+        discarded only if the window has genuinely gone.
+        """
+        app = getattr(self, "app", None)
+        if app is None:
+            return
+        queue = getattr(app, "_ui_queue", None)
+        if queue is None:
+            return          # app torn down; nothing left to update
+        queue.put(fn)
+
+
+    def _report_sections(self):
+        """(sections, subtitle) describing what is currently on screen."""
+        sections = []
+        for attr in dir(self):
+            if not attr.endswith("tree"):
+                continue
+            tree = getattr(self, attr, None)
+            if tree is None or not hasattr(tree, "get_children"):
+                continue
+            try:
+                cols = [tree.heading(c)["text"] for c in tree["columns"]]
+                rows = [list(tree.item(i)["values"])
+                        for i in tree.get_children()]
+            except Exception:
+                continue
+            if rows:
+                sections.append(("", "table", (cols, rows)))
+        for attr in dir(self):
+            panel = getattr(self, attr, None)
+            pairs = getattr(panel, "printable_pairs", None)
+            if callable(pairs):
+                try:
+                    got = list(pairs())
+                except Exception:
+                    got = []
+                if got:
+                    sections.append(("", "kv", got))
+        return sections
+
+    def _report(self):
+        from ..reports import save_report_dialog
+        sections = self._report_sections()
+        if not sections:
+            from tkinter import messagebox
+            messagebox.showinfo(
+                "Report", "This screen has nothing tabular to print yet.",
+                parent=self.frame)
+            return
+        title = self.REPORT_TITLE or self.__class__.__name__.replace(
+            "Screen", "")
+        save_report_dialog(self, title.lower().replace(" ", "-"),
+                           title=title, sections=sections)
     live = False
+
+    #: attribute names holding results that belong to one satellite. Cleared
+    #: automatically when the selected satellite changes. Give each a default
+    #: in build() so the reset value can be inferred.
+    sat_scoped = ()
 
     def __init__(self, parent, app):
         self.app = app
         self.store = app.store
+        self._shown_norad = None
         self.frame = ttk.Frame(parent, style="TFrame")
         self.build()
 
     def build(self):
+        pass
+
+    def _clear_if_sat_changed(self):
+        """Drop cached per-satellite results when the selection has moved on.
+
+        Returns True if anything was cleared, so a screen can re-fetch.
+        """
+        sat = self.store.selected_sat()
+        norad = getattr(sat, "norad", None)
+        if norad == self._shown_norad:
+            return False
+        self._shown_norad = norad
+        cleared = False
+        for name in self.sat_scoped:
+            if not hasattr(self, name):
+                continue
+            cur = getattr(self, name)
+            if callable(cur):
+                # a method, not cached data - nulling it breaks the screen
+                raise TypeError(
+                    "%s.sat_scoped names the callable %r; list data "
+                    "attributes only" % (type(self).__name__, name))
+            blank = type(cur)() if isinstance(cur, (list, dict, set, tuple,
+                                                    str)) else None
+            setattr(self, name, blank)
+            cleared = True
+        self.on_sat_changed()
+        return cleared
+
+    def on_sat_changed(self):
+        """Hook for screens needing more than clearing attributes."""
         pass
 
     def on_show(self):
@@ -646,6 +770,10 @@ class MplPanel:
 
 
 class KVPanel:
+    # Rows are recorded as they are drawn so any screen using a KVPanel is
+    # printable without the screen having to keep a second copy of its own
+    # readout in sync.
+
     """A grouped key/value readout with aligned columns.
 
     Build content by calling section()/row()/note() between begin() and end().
@@ -669,7 +797,11 @@ class KVPanel:
     def pack(self, **kw):
         self.outer.pack(**kw)
 
+    def printable_pairs(self):
+        return list(getattr(self, "_printable", []))
+
     def begin(self):
+        self._printable = []
         self._order = []
         self._seq = 0
 
@@ -696,6 +828,12 @@ class KVPanel:
         return key
 
     def row(self, label, value, color=None, big=False):
+        # capture for printing (see printable_pairs)
+        try:
+            self._printable = getattr(self, "_printable", [])
+            self._printable.append((str(label), str(value)))
+        except Exception:
+            pass
         key = self._key("row", label)
         self._order.append(key)
         ent = self._cache.get(key)
@@ -781,7 +919,11 @@ def make_screen(key, parent, app):
     from . import (home, track, passes, passdetail, groundtrack,
                    orbit, illum, sunmoon, mutual, tenday, satellites, location,
                    grids, spacewx, oscarsim, analytics, radio, planning,
-                   exportscreen, sites, celestial, learn)
+                   exportscreen, sites, celestial, learn, tools, transits,
+                   conjunction, datafeeds, references, skymap,
+                   orbithistory, eme, graphcalc, zones,
+                   skyglance, ao7, muf, amsatstatus,
+                   propagation)
     mapping = {
         "home": home.HomeScreen,
         "track": track.TrackScreen,
@@ -806,6 +948,21 @@ def make_screen(key, parent, app):
         "sites": sites.SitesScreen,
         "celestial": celestial.CelestialScreen,
         "learn": learn.LearnScreen,
+        "tools": tools.ToolsScreen,
+        "transits": transits.TransitsScreen,
+        "conjunction": conjunction.ConjunctionScreen,
+        "datafeeds": datafeeds.DataFeedsScreen,
+        "references": references.ReferencesScreen,
+        "skymap": skymap.SkyMapScreen,
+        "orbithistory": orbithistory.OrbitHistoryScreen,
+        "eme": eme.EmeScreen,
+        "graphcalc": graphcalc.GraphCalcScreen,
+        "zones": zones.ZonesScreen,
+        "skyglance": skyglance.SkyGlanceScreen,
+        "ao7": ao7.Ao7Screen,
+        "muf": muf.MufScreen,
+        "amsatstatus": amsatstatus.AmsatStatusScreen,
+        "propagation": propagation.PropagationScreen,
     }
     cls = mapping[key]
     return cls(parent, app)

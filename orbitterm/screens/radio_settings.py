@@ -2,7 +2,7 @@
 
 import time
 
-from ..ui import Screen, addstr, hline, cp, ljust
+from ..ui import Screen, addstr, hline, cp, ljust, clip
 from ..ui import (CLR_TITLE, CLR_HEADER, CLR_OK, CLR_WARN, CLR_BAD, CLR_DIM,
                   CLR_ACCENT, CLR_ROW_SEL)
 from .. import fmt
@@ -10,6 +10,54 @@ from orbitdeck.engine.dxdoppler import doppler_dials
 
 
 class RadioScreen(Screen):
+    # The desktop screen carries a link-budget block (EIRP, FSPL, slant range,
+    # propagation delay, estimated received power); the terminal had none.
+    def _draw_link(self, win, y0, x0, h, w):
+        """Link budget for the current slant range and downlink."""
+        import time as _t
+        from orbitdeck.engine import linkbudget as LB
+        st = self.state
+        sat = st.sat
+        if sat is None:
+            return y0
+        pred = st.pred_for(sat)
+        L = pred.look(_t.time())
+        tps = list(getattr(sat, "transponders", []) or [])
+        dl = None
+        if tps:
+            idx = self.tp_idx % len(tps)
+            tp = tps[idx]
+            # downlink_center is a METHOD; downlink is a plain value. Taking
+            # `a or b` picked up the bound method and compared it as a number.
+            dl = getattr(tp, "downlink", None)
+            centre = getattr(tp, "downlink_center", None)
+            if callable(centre):
+                try:
+                    dl = centre() or dl
+                except Exception:
+                    pass
+        if not dl:
+            dl = 145.8e6
+        b = LB.link_budget(max(1.0, L.range_km), dl)
+        addstr(win, y0, x0, "LINK BUDGET", cp(CLR_HEADER) | _bold())
+        rows = [
+            ("Slant range", "%.0f km" % L.range_km),
+            ("Free-space path loss", "%.1f dB" % b["fspl_db"]),
+            ("Your EIRP", "%.1f dBm" % b["eirp_dbm"]),
+            ("Propagation delay", "%.2f ms" % b["delay_ms"]),
+            ("Est. received power", "%.1f dBm" % b["rx_power_dbm"]),
+        ]
+        y = y0 + 1
+        for lab, val in rows:
+            if y >= y0 + h:
+                break
+            addstr(win, y, x0, ljust(lab, 22), cp(CLR_DIM))
+            addstr(win, y, x0 + 23, clip(val, max(1, w - 23)))
+            y += 1
+        addstr(win, y, x0, "estimate for \u201cis this workable\u201d, not a "
+               "calibrated figure", cp(CLR_DIM))
+        return y + 1
+
     title = "Radio"
     refresh_secs = 1.0
 
@@ -28,6 +76,9 @@ class RadioScreen(Screen):
         return getattr(sat, "transponders", []) or []
 
     def draw(self, win, y0, x0, h, w):
+        if getattr(self, "show_link", False):
+            self._draw_link(win, y0, x0, h, w)
+            return
         st = self.state
         sat = st.sat
         now = time.time()
@@ -139,9 +190,13 @@ class RadioScreen(Screen):
             addstr(win, row, x0 + 8 + i, "\u2588", attr)
 
     def help_keys(self):
-        return [("t", "cycle transponder"), ("[ ]", "prev/next sat")]
+        return [("t", "transponder"), ("l", "link budget"),
+                ("[ ]", "prev/next sat")]
 
     def handle_key(self, ch):
+        if ch in (ord("l"), ord("L")):
+            self.show_link = not getattr(self, "show_link", False)
+            return True
         if ch in (ord("t"), ord("T")):
             self.tp_idx += 1
             return True
@@ -156,7 +211,13 @@ class SettingsScreen(Screen):
     title = "Settings"
     refresh_secs = 0.0
 
-    FIELDS = ["lat", "lon", "alt", "name", "min_el"]
+    # Everything OrbitTerm needs is settable here, so the terminal app is
+    # usable on a headless box with no desktop install: station, operator and
+    # the credentials the network screens require.
+    FIELDS = ["lat", "lon", "alt", "grid", "name", "min_el",
+              "callsign", "qrz_user", "qrz_pass",
+              "spacetrack_user", "spacetrack_pass"]
+    SECRET = {"qrz_pass", "spacetrack_pass"}
 
     def __init__(self, app):
         super().__init__(app)
@@ -169,23 +230,34 @@ class SettingsScreen(Screen):
 
     def _value(self, f):
         st = self.state
-        return {
-            "lat": "%.4f" % st.obs.lat,
-            "lon": "%.4f" % st.obs.lon,
-            "alt": "%.0f" % st.obs.alt_m,
-            "name": st.store.obs_name,
-            "min_el": "%.0f" % st.min_el,
-        }[f]
+        if f in ("lat", "lon", "alt", "name", "min_el", "grid"):
+            return {
+                "lat": "%.4f" % st.obs.lat,
+                "lon": "%.4f" % st.obs.lon,
+                "alt": "%.0f" % st.obs.alt_m,
+                "grid": st.grid(),
+                "name": st.store.obs_name,
+                "min_el": "%.0f" % st.min_el,
+            }[f]
+        raw = str(st.store.config.get(f, "") or "")
+        if f in self.SECRET and raw:
+            return "*" * min(12, len(raw))     # never echo a stored password
+        return raw
 
     def _label(self, f):
         return {"lat": "Latitude (\u00b0N)", "lon": "Longitude (\u00b0E)",
-                "alt": "Altitude (m)", "name": "Station name",
-                "min_el": "Min elevation (\u00b0)"}[f]
+                "alt": "Altitude (m)", "grid": "Maidenhead grid",
+                "name": "Station name", "min_el": "Min elevation (\u00b0)",
+                "callsign": "Callsign", "qrz_user": "QRZ user",
+                "qrz_pass": "QRZ password",
+                "spacetrack_user": "Space-Track user",
+                "spacetrack_pass": "Space-Track pass"}[f]
 
     def draw(self, win, y0, x0, h, w):
         st = self.state
         addstr(win, y0, x0, "Settings", cp(CLR_TITLE) | _bold())
-        addstr(win, y0, x0 + 11, "shared with OrbitDeck (~/.orbitdeck/config.json)",
+        addstr(win, y0, x0 + 11,
+               "~/.orbitdeck/config.json  (shared with OrbitDeck if installed)",
                cp(CLR_DIM))
         addstr(win, y0 + 1, x0, "Maidenhead grid: ", cp(CLR_HEADER))
         addstr(win, y0 + 1, x0 + 17, st.grid(), cp(CLR_ACCENT) | _bold())
@@ -249,7 +321,10 @@ class SettingsScreen(Screen):
             return True
         if ch in (curses.KEY_ENTER, 10, 13):
             self.editing = True
-            self.buf = self._value(self.FIELDS[self.sel])
+            f = self.FIELDS[self.sel]
+            # start a password edit empty rather than from the asterisks, which
+            # would otherwise be saved back as the literal password
+            self.buf = "" if f in self.SECRET else self._value(f)
             return True
         if ch in (ord("r"), ord("R")):
             self.app.do_refresh_catalog()
@@ -271,6 +346,19 @@ class SettingsScreen(Screen):
                 st.set_site(st.obs.lat, st.obs.lon, st.obs.alt_m, name=v)
             elif f == "min_el":
                 st.set_min_el(float(v))
+            elif f == "grid":
+                # resolve the grid to a lat/lon, then go through the normal
+                # site setter so predictors and caches are invalidated
+                from orbitdeck.engine.predict import grid_to_latlon
+                from orbitdeck.engine.activations import valid_grid
+                if not valid_grid(v):
+                    raise ValueError("not a Maidenhead locator")
+                glat, glon = grid_to_latlon(v)
+                st.set_site(glat, glon, st.obs.alt_m)
+            else:
+                # credentials and callsign live in the shared config
+                st.store.config[f] = v
+                st.store.save_config()
             st.flash("Saved %s" % self._label(f))
         except ValueError:
             st.flash("Invalid value")

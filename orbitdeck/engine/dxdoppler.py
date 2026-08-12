@@ -167,3 +167,49 @@ def dx_doppler_table(start, end, sat, me, dx, tp, pb_offset,
         rows.append((t,) + dials)
         t += step_s
     return rows
+
+
+def solve_pb_for_dial(t_ref, sat, me, dx, tp, target_hz, anchor,
+                      mode=FIXED_DL, iters=24, tol_hz=0.5):
+    """Passband offset that puts the ANCHORED dial on ``target_hz``.
+
+    Setting the operating point to mid-passband and calling it "seeded" is not
+    seeding: the anchored dial then sits wherever the transponder centre
+    happens to fall, not on the frequency the operator said they would use.
+
+    There is no closed form - the dial and the passband move together through
+    the Doppler ratio - so this measures the actual derivative and takes Newton
+    steps. **Measuring it matters**: on an inverting transponder the uplink dial
+    moves the OPPOSITE way to the passband, so an earlier version that assumed a
+    1:1 positive response pushed the offset the wrong direction and settled
+    ~12 kHz out on the uplink leg. The derivative is measured per call, so
+    inversion, the ~0.4% Doppler ratio and either leg are all handled the same
+    way.
+
+    Returns 0 if the dial does not respond to the passband at all (an FM or
+    single-channel transponder), which the caller should treat as "cannot be
+    anchored" rather than as a solved offset.
+    """
+    idx = {ME_RX: 0, ME_TX: 1, DX_RX: 2, DX_TX: 3}[anchor]
+
+    def dial(pb):
+        return dx_doppler(t_ref, t_ref, sat, me, dx, tp, int(pb),
+                          mode=mode, anchor=anchor)[idx]
+
+    base = dial(0)
+    probe = 1000.0
+    slope = (dial(probe) - base) / probe
+    if abs(slope) < 1e-6:
+        return 0                      # dial does not follow the passband
+    pb = (target_hz - base) / slope
+    for _ in range(iters):
+        err = target_hz - dial(pb)
+        if abs(err) <= tol_hz:
+            break
+        # re-measure locally: the response is not perfectly linear across a
+        # wide passband
+        local = (dial(pb + probe) - dial(pb)) / probe
+        if abs(local) < 1e-6:
+            break
+        pb += err / local
+    return int(round(pb))

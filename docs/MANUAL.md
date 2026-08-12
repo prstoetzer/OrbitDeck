@@ -119,7 +119,7 @@ The window has three parts:
   descending three-beep at LOS) so you can tell them apart by ear. A **yellow
   banner** appears here when the loaded catalog is
   demo or stale data; it also carries an Update GP button.
-- **Navigation menu** (left) — all 23 screens, described below.
+- **Navigation menu** (left) — all 38 screens, described below.
 - **Content area** (right) — the active screen.
 
 Most screens act on the **currently selected satellite**, shown in a header

@@ -16,7 +16,15 @@ from ...data.dxcc import workable_dxcc
 
 
 class GridsScreen(Screen):
+    sat_scoped = ("_last",)
     live = True
+
+    def __init__(self, *a, **kw):
+        # set before build(): _fill() can run during construction, and the
+        # filter widget is created part-way through build()
+        self._last = None
+        self.filter = None
+        super().__init__(*a, **kw)
 
     def build(self):
         self.sat_header("Workable \u2014 what's inside the footprint")
@@ -35,8 +43,25 @@ class GridsScreen(Screen):
         ttk.Radiobutton(bar, text="Across next pass", value="pass",
                         variable=self.mode, command=self._recompute).pack(
             side="left", padx=6)
+        ttk.Button(bar, text="Report\u2026",
+
+                   command=self._report).pack(side="right", padx=4)
         ttk.Button(bar, text="Export CSV\u2026",
                    command=self._export).pack(side="right", padx=2)
+
+        # Prefix filter. A footprint can hold ~1700 grid squares, so the list
+        # is unusable without one - CardSat's grid screen has f / c for exactly
+        # this.
+        fb = ttk.Frame(self.frame, style="TFrame")
+        fb.pack(fill="x", padx=16, pady=(0, 2))
+        ttk.Label(fb, text="Filter (prefix):", style="TLabel").pack(side="left")
+        self.filter = tk.StringVar(value="")
+        ent = ttk.Entry(fb, textvariable=self.filter, width=10)
+        ent.pack(side="left", padx=4)
+        ent.bind("<KeyRelease>", lambda _e: self._apply_filter())
+        ttk.Button(fb, text="Clear", width=7,
+                   command=lambda: (self.filter.set(""),
+                                    self._apply_filter())).pack(side="left")
 
         self.count_var = tk.StringVar(value="")
         tk.Label(self.frame, textvariable=self.count_var, bg=COL_PANEL,
@@ -111,7 +136,22 @@ class GridsScreen(Screen):
             title="Export workable list", ext=".csv",
             filetypes=[("CSV", "*.csv")])
 
+    def _apply_filter(self):
+        """Re-render the last result through the prefix filter.
+
+        A footprint can hold ~1700 grid squares; without a filter the list is
+        unusable, which is why CardSat's grid screen has one (f / c).
+        """
+        if self._last is not None:
+            self._fill(self._last[0], self._last[1])
+
     def _fill(self, items, kind="grids"):
+        self._last = (items, kind)
+        pref = (self.filter.get() if self.filter else "").strip().upper()
+        if pref:
+            items = [it for it in items
+                     if str(it[0] if isinstance(it, (tuple, list)) else it)
+                     .upper().startswith(pref)]
         for i in self.tree.get_children():
             self.tree.delete(i)
         # rebuild columns to current ncols
@@ -121,7 +161,10 @@ class GridsScreen(Screen):
         for c in cols:
             self.tree.column(c, width=width, anchor="w")
         if not items:
-            self.tree.insert("", "end", values=("(none under footprint)",))
+            self.tree.insert("", "end", values=(
+                "(no match for filter)" if (self.filter and
+                                            self.filter.get().strip())
+                else "(none under footprint)",))
             return
         row = []
         for it in items:
@@ -157,3 +200,17 @@ class GridsScreen(Screen):
         res = sorted(union)
         self._pass_cache[kind] = res
         return res
+
+    def _report(self):
+        """Print whatever this screen is currently showing."""
+        from ..reports import save_report_dialog
+        tree = self.tree
+        cols = [tree.heading(c)["text"] for c in tree["columns"]]
+        rows = [list(tree.item(i)["values"]) for i in tree.get_children()]
+        if not rows:
+            from tkinter import messagebox
+            messagebox.showinfo("Report", "Nothing to print yet.",
+                                parent=self.frame)
+            return
+        save_report_dialog(self, "grids", title="Workable", subtitle="Grids, states and DXCC under the footprint",
+                           sections=[("", "table", (cols, rows))])

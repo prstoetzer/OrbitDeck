@@ -185,7 +185,7 @@ class OscarSimScreen(Screen):
 
         self._readout = tk.StringVar(value="")
         ttk.Label(ctrl, textvariable=self._readout, style="Muted.TLabel",
-                  justify="left").pack(anchor="w", padx=10, pady=(4, 6))
+                  justify="left", wraplength=560).pack(anchor="w", padx=10, pady=(4, 6))
 
         # --- compact "next EQX" listing so users don't need the EQX page.
         # Ascending nodes for northern stations, descending for southern.

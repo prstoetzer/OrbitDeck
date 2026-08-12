@@ -66,6 +66,9 @@ class SatellitesScreen(Screen):
 
         btns = ttk.Frame(parent, style="TFrame")
         btns.pack(fill="x", padx=4, pady=(0, 8))
+        ttk.Button(btns, text="Report\u2026",
+
+                   command=self._report).pack(side="right", padx=4)
         ttk.Button(btns, text="Select (double-click)",
                    command=self._select).pack(side="left")
         ttk.Button(btns, text="Toggle favorite (space)",
@@ -76,6 +79,8 @@ class SatellitesScreen(Screen):
                    command=self._edit_manual_sat).pack(side="left")
         ttk.Button(btns, text="Delete manual",
                    command=self._delete_manual_sat).pack(side="left", padx=8)
+        ttk.Button(btns, text="Search CelesTrak\u2026",
+                   command=self._search_celestrak_dialog).pack(side="left")
         self.info = tk.StringVar(value="")
         ttk.Label(btns, textvariable=self.info, style="Muted.TLabel").pack(
             side="left", padx=12)
@@ -99,7 +104,7 @@ class SatellitesScreen(Screen):
             Field("name", "Name", sat.name if sat else "", "e.g. MYSAT"),
             Field("norad", "NORAD ID", str(sat.norad) if sat else "",
                   "catalog number", int),
-            Field("epoch", "Epoch (UTC)",
+            Field("epoch", "Epoch",
                   epoch_str(sat.epoch_unix) if sat else now,
                   "YYYY-MM-DD HH:MM:SS", parse_epoch),
             Field("incl", "Inclination", str(sat.incl) if sat else "",
@@ -195,6 +200,95 @@ class SatellitesScreen(Screen):
         self._reload()
         self.info.set("Deleted manual satellite %s (NORAD %d)." %
                       (name, norad))
+
+    def _search_celestrak_dialog(self):
+        """Search the entire CelesTrak catalog and add a hit as an auto-updating
+        favorite. Results are fetched off-thread so the UI never blocks."""
+        import threading
+        from tkinter import messagebox
+        win = tk.Toplevel(self.frame)
+        win.title("Search CelesTrak catalog")
+        win.configure(bg="#0d1117")
+        win.geometry("560x440")
+        win.transient(self.frame.winfo_toplevel())
+
+        bar = ttk.Frame(win, style="TFrame")
+        bar.pack(fill="x", padx=10, pady=10)
+        ttk.Label(bar, text="Name or NORAD #:", style="TLabel").pack(side="left")
+        qvar = tk.StringVar()
+        ent = ttk.Entry(bar, textvariable=qvar, width=26)
+        ent.pack(side="left", padx=6)
+        ent.focus_set()
+        status = tk.StringVar(
+            value="Searches the whole public catalog, not just AMSAT.")
+        cols = ("name", "norad", "epoch")
+        wrap, tree = make_scrolled_tree(win, cols, show="headings", height=12)
+        for c, h, w in (("name", "Name", 260), ("norad", "NORAD", 90),
+                        ("epoch", "Epoch", 170)):
+            tree.heading(c, text=h)
+            tree.column(c, width=w, anchor="w" if c != "norad" else "center")
+        wrap.pack(fill="both", expand=True, padx=10, pady=(0, 6))
+        ttk.Label(win, textvariable=status, style="Muted.TLabel").pack(
+            anchor="w", padx=10)
+        hits = {}
+
+        def do_search():
+            q = qvar.get().strip()
+            if not q:
+                return
+            status.set("Searching CelesTrak\u2026")
+
+            def work():
+                try:
+                    try:
+                        res = self.store.search_celestrak(q)
+                        self._ui(lambda: show(res))
+                    except Exception as e:
+                        self.app.root.after(
+                            0, lambda e=e: status.set(str(e)))
+                except Exception as _exc:
+                    self._ui(lambda e=_exc: self._worker_failed(e))
+            threading.Thread(target=work, daemon=True).start()
+
+        def show(res):
+            tree.delete(*tree.get_children())
+            hits.clear()
+            for h in res:
+                iid = tree.insert("", "end", values=(
+                    h["name"], h["norad"], (h.get("epoch") or "")[:19]))
+                hits[iid] = h
+            if res:
+                status.set("%d result(s). Select one and Add as favorite."
+                           % len(res))
+            else:
+                status.set("No matches in the CelesTrak catalog for that query.")
+
+        def add_selected():
+            sel = tree.selection()
+            if not sel:
+                status.set("Select a result first.")
+                return
+            h = hits.get(sel[0])
+            if not h:
+                return
+            self.store.add_extra_sat(h, make_favorite=True)
+            self._reload()
+            messagebox.showinfo(
+                "Added",
+                "Added %s (NORAD %d) as an auto-updating favorite.\n\n"
+                "Its elements will refresh from CelesTrak on each catalog "
+                "update." % (h["name"], h["norad"]), parent=win)
+            self.info.set("Added %s from CelesTrak." % h["name"])
+
+        btns = ttk.Frame(win, style="TFrame")
+        btns.pack(fill="x", padx=10, pady=8)
+        ttk.Button(btns, text="Search", command=do_search).pack(side="left")
+        ttk.Button(btns, text="Add as favorite",
+                   command=add_selected).pack(side="left", padx=8)
+        ttk.Button(btns, text="Close",
+                   command=win.destroy).pack(side="right")
+        ent.bind("<Return>", lambda _e: do_search())
+        tree.bind("<Double-Button-1>", lambda _e: add_selected())
 
     def _reload(self):
         for i in self.tree.get_children():
@@ -466,3 +560,17 @@ class SatellitesScreen(Screen):
             EX.rows_to_csv(headers, rows), "whats_up.csv",
             title="Export what's-up list", ext=".csv",
             filetypes=[("CSV", "*.csv")])
+
+    def _report(self):
+        """Print whatever this screen is currently showing."""
+        from ..reports import save_report_dialog
+        tree = self.tree
+        cols = [tree.heading(c)["text"] for c in tree["columns"]]
+        rows = [list(tree.item(i)["values"]) for i in tree.get_children()]
+        if not rows:
+            from tkinter import messagebox
+            messagebox.showinfo("Report", "Nothing to print yet.",
+                                parent=self.frame)
+            return
+        save_report_dialog(self, "satellites", title="Satellite catalog", subtitle="Loaded satellites",
+                           sections=[("", "table", (cols, rows))])

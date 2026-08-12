@@ -53,6 +53,9 @@ class CelestialScreen(Screen):
     def _build_bodies(self, parent):
         left = ttk.Frame(parent, style="TFrame")
         left.pack(side="left", fill="y", padx=(8, 4), pady=6)
+        ttk.Button(left, text="Report\u2026",
+
+                   command=self._report).pack(side="right", padx=4)
         ttk.Button(left, text="Export CSV\u2026",
                    command=self._export_bodies).pack(anchor="w", pady=(0, 4))
         cols = ("body", "az", "el")
@@ -178,7 +181,7 @@ class CelestialScreen(Screen):
         self.eme_kv = KVPanel(parent, label_width=22)
         self.eme_kv.pack(fill="x", padx=8, pady=6)
         cols = ("start", "end", "dur")
-        heads = ("Window start (UTC)", "End (UTC)", "Duration (min)")
+        heads = ("Window start", "End", "Duration (min)")
         treewrap, self.eme_tree = make_scrolled_tree(
             parent, cols, show="headings", height=8)
         for c, h in zip(cols, heads):
@@ -263,3 +266,17 @@ class CelestialScreen(Screen):
             self._render_bodies()
         except Exception:
             pass
+
+    def _report(self):
+        """Print whatever this screen is currently showing."""
+        from ..reports import save_report_dialog
+        tree = self.btree
+        cols = [tree.heading(c)["text"] for c in tree["columns"]]
+        rows = [list(tree.item(i)["values"]) for i in tree.get_children()]
+        if not rows:
+            from tkinter import messagebox
+            messagebox.showinfo("Report", "Nothing to print yet.",
+                                parent=self.frame)
+            return
+        save_report_dialog(self, "celestial", title="Celestial radio sources", subtitle="Radio-source az/el for alignment",
+                           sections=[("", "table", (cols, rows))])

@@ -56,7 +56,7 @@ class MutualScreen(Screen):
         ttk.Button(bar2, text="Export CSV\u2026",
                    command=self._export_csv).pack(side="left")
         cols = ("sat", "start", "end", "dur", "myel", "dxel")
-        heads = ("Satellite", "Start (UTC)", "End", "Duration", "My max el",
+        heads = ("Satellite", "Start", "End", "Duration", "My max el",
                  "DX max el")
         treewrap, self.tree = make_scrolled_tree(
             self.frame, cols, show="headings", height=16)

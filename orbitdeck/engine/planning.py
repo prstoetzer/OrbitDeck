@@ -191,3 +191,186 @@ def horizon_mask_apply(pred, p, mask_func, step_s=10.0):
     if eff_aos is None:
         return None
     return (eff_aos, eff_los)
+
+
+# ---------------------------------------------------------------------------
+# Workable horizon + target search (union across all favorites over N days)
+# ---------------------------------------------------------------------------
+def _sample_pass_footprint(pred, p, kind, step_s, want_grids):
+    """Return the set of workable items of ``kind`` accumulated over one pass by
+    sampling the sub-satellite footprint. ``kind`` is 'states', 'dxcc' or
+    'grids'. Uses the analysis footprint helpers so results match the Workable
+    screen exactly."""
+    from . import analysis as A
+    from ..data.us_states import workable_states
+    from ..data.dxcc import workable_dxcc
+    items = set()
+    dur = p.los - p.aos
+    steps = max(6, int(dur / step_s))
+    for i in range(steps + 1):
+        tt = p.aos + dur * i / steps
+        lat, lon, alt = pred.subpoint_at(tt)
+        if kind == "grids":
+            items.update(A.workable_grids(lat, lon, alt))
+        else:
+            inside = A.make_footprint_test(lat, lon, alt)
+            if kind == "states":
+                items.update(workable_states(inside))
+            else:
+                items.update(nm for _pfx, nm in workable_dxcc(inside))
+    return items
+
+
+def workable_horizon(pred, favorites, frm, days=10, kinds=("states", "dxcc"),
+                     min_el=5.0, step_s=60.0, include_grids=False,
+                     max_sats=25):
+    """Ten-day union of every workable US state / DXCC entity (and optionally
+    grid) across ALL favorite satellites.
+
+    ``favorites`` is an iterable of SatEntry. ``pred`` is a Predictor reused for
+    each satellite. Returns a dict:
+        {'states': sorted[...], 'dxcc': sorted[...], 'grids': sorted[...],
+         'per_sat': {norad: {kind: count}}, 'sat_count': n, 'pass_count': n}
+    Only ``kinds`` requested are computed; grids are opt-in (they are numerous
+    and slower). Mirrors CardSat's Workable horizon.
+    """
+    want = set(kinds)
+    if include_grids:
+        want.add("grids")
+    union = {k: set() for k in ("states", "dxcc", "grids")}
+    per_sat = {}
+    end = frm + days * 86400.0
+    n_pass = 0
+    n_sat = 0
+    for s in list(favorites)[:max_sats]:
+        try:
+            if not pred.set_sat(s):
+                continue
+        except Exception:
+            continue
+        n_sat += 1
+        passes = pred.predict_passes(frm, min_el, 200, end)
+        counts = {}
+        for p in passes:
+            n_pass += 1
+            for kind in want:
+                got = _sample_pass_footprint(pred, p, kind, step_s,
+                                             include_grids)
+                union[kind].update(got)
+        for kind in want:
+            counts[kind] = 0
+        per_sat[getattr(s, "norad", 0)] = counts
+    return {
+        "states": sorted(union["states"]),
+        "dxcc": sorted(union["dxcc"]),
+        "grids": sorted(union["grids"]),
+        "per_sat": per_sat,
+        "sat_count": n_sat,
+        "pass_count": n_pass,
+    }
+
+
+def target_search(pred, favorites, target_kind, target_value, frm, days=10,
+                  min_el=5.0, step_s=30.0, max_sats=25, max_results=60):
+    """Every pass over ``days`` where a specific US state / DXCC entity / grid is
+    workable, time-ordered across ALL favorite satellites.
+
+    ``target_kind`` is 'state', 'dxcc' or 'grid'; ``target_value`` is the state
+    name/abbrev, DXCC entity name, or grid square to match. Returns a list of
+    dicts sorted by start time:
+        {sat_name, norad, start, end, duration_s, max_el_deg}
+    Mirrors CardSat's Target search.
+    """
+    from . import analysis as A
+    from ..data.us_states import workable_states, state_abbrev
+    from ..data.dxcc import workable_dxcc
+
+    tv = target_value.strip()
+    tv_up = tv.upper()
+    tv_state = state_abbrev(tv) if target_kind == "state" else None
+
+    def hits(lat, lon, alt):
+        if target_kind == "grid":
+            return tv_up in {g.upper() for g in A.workable_grids(lat, lon, alt)}
+        inside = A.make_footprint_test(lat, lon, alt)
+        if target_kind == "state":
+            return tv_state is not None and tv_state in workable_states(inside)
+        names = {nm for _pfx, nm in workable_dxcc(inside)}
+        return any(tv.lower() in nm.lower() for nm in names)
+
+    end = frm + days * 86400.0
+    results = []
+    for s in list(favorites)[:max_sats]:
+        try:
+            if not pred.set_sat(s):
+                continue
+        except Exception:
+            continue
+        for p in pred.predict_passes(frm, min_el, 200, end):
+            dur = p.los - p.aos
+            steps = max(6, int(dur / step_s))
+            win_start = None
+            win_end = None
+            max_el = 0.0
+            for i in range(steps + 1):
+                tt = p.aos + dur * i / steps
+                lat, lon, alt = pred.subpoint_at(tt)
+                if hits(lat, lon, alt):
+                    if win_start is None:
+                        win_start = tt
+                    win_end = tt
+                    try:
+                        _az, el = pred.azel_at(tt)
+                        max_el = max(max_el, el)
+                    except Exception:
+                        pass
+            if win_start is not None:
+                results.append({
+                    "sat_name": getattr(s, "name", "?"),
+                    "norad": getattr(s, "norad", 0),
+                    "start": win_start,
+                    "end": win_end,
+                    "duration_s": win_end - win_start,
+                    "max_el_deg": round(max_el, 1),
+                })
+    results.sort(key=lambda r: r["start"])
+    return results[:max_results]
+
+
+
+def workable_on_pass(pred, sat, site, aos, los, kinds=("grids", "states",
+                                                       "dxcc"), step_s=30.0):
+    """What is reachable through one specific pass.
+
+    CardSat offers this per-pass from its Passes screen (g / w / e), which is
+    the question an operator actually asks before a pass: not "what can this
+    satellite ever work" but "what is under the footprint during THIS pass".
+    Samples the footprint across the pass and unions the results.
+
+    Returns {"grids": [...], "states": [...], "dxcc": [...], "samples": n}.
+    """
+    from . import analysis as _an
+    from ..data.us_states import workable_states
+    from ..data.dxcc import workable_dxcc
+    out = {"grids": set(), "states": set(), "dxcc": set(), "samples": 0}
+    if not pred.set_sat(sat):
+        return {k: [] if k != "samples" else 0 for k in out}
+    t = aos
+    while t <= los:
+        try:
+            lat, lon, alt = pred.subpoint_at(t)
+        except Exception:
+            t += step_s
+            continue
+        out["samples"] += 1
+        if "grids" in kinds:
+            out["grids"].update(_an.workable_grids(lat, lon, alt))
+        if "states" in kinds or "dxcc" in kinds:
+            inside = _an.make_footprint_test(lat, lon, alt)
+            if "states" in kinds:
+                out["states"].update(workable_states(inside))
+            if "dxcc" in kinds:
+                out["dxcc"].update(p for p, _n in workable_dxcc(inside))
+        t += step_s
+    return {"grids": sorted(out["grids"]), "states": sorted(out["states"]),
+            "dxcc": sorted(out["dxcc"]), "samples": out["samples"]}

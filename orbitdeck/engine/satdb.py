@@ -360,3 +360,29 @@ def _parse_omm(o: dict) -> SatEntry:
     e.rev_at_epoch = int(_f(o, 'REV_AT_EPOCH'))
     e.elset_num = int(_f(o, 'ELEMENT_SET_NO'))
     return e
+
+
+def passband_plan(tp, steps=10):
+    """Downlink/uplink dial pairs across a linear transponder's passband.
+
+    Returns a list of (percent, downlink_hz, uplink_hz) tuples from 0..100% of
+    the passband. For an inverting transponder the uplink runs opposite the
+    downlink. For a non-linear (single-channel) transmitter, returns a single
+    row at its downlink/uplink. Mirrors CardSat's transponder planner.
+    """
+    bw = tp.bandwidth()
+    if not tp.is_linear or bw == 0:
+        return [(0, tp.downlink, tp.uplink)]
+    out = []
+    for k in range(steps + 1):
+        frac = k / steps
+        dl = tp.downlink + int(round(bw * frac))
+        if tp.uplink:
+            if tp.invert:
+                ul = tp.uplink + int(round(bw * (1.0 - frac)))
+            else:
+                ul = tp.uplink + int(round(bw * frac))
+        else:
+            ul = 0
+        out.append((int(round(frac * 100)), dl, ul))
+    return out

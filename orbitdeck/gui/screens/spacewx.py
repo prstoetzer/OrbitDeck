@@ -1,13 +1,11 @@
 """spacewx.py (screen) - solar/geomagnetic indices for propagation planning."""
 
 import threading
-import datetime as dt
 import tkinter as tk
 from tkinter import ttk
 
-from . import (Screen, KVPanel, COL_TEXT, COL_MUTED, COL_ACCENT,
-               COL_ACCENT2, COL_WARN, now_unix)
-from .. import spacewx as WX
+from . import (Screen, KVPanel, COL_TEXT, COL_MUTED, COL_ACCENT2,
+               COL_WARN)
 
 
 def _color_for(level):
@@ -27,13 +25,20 @@ class SpaceWxScreen(Screen):
         self.header("Space Weather \u2014 solar & geomagnetic indices")
         bar = ttk.Frame(self.frame, style="TFrame")
         bar.pack(fill="x", padx=16, pady=(0, 4))
+        ttk.Button(bar, text="Report\u2026",
+
+                   command=self._report).pack(side="right", padx=4)
         ttk.Button(bar, text="Refresh",
                    command=self._refresh).pack(side="left")
         self.status = tk.StringVar(value="")
         ttk.Label(bar, textvariable=self.status, style="TLabel").pack(
             side="left", padx=12)
 
-        self.kv = KVPanel(self.frame, label_width=16)
+        self.outlook_var = tk.StringVar(value="")
+        self.kv = KVPanel(self.frame, label_width=20)
+        ttk.Label(self.frame, textvariable=self.outlook_var,
+                  style="Muted.TLabel", wraplength=900).pack(
+            anchor="w", padx=16, pady=(4, 8))
         self.kv.pack(fill="both", expand=True, padx=16, pady=8)
         self._data = None
 
@@ -49,62 +54,39 @@ class SpaceWxScreen(Screen):
 
         def work():
             try:
-                data = self.store.update_spacewx()
-                self._data = data
-                self.app.root.after(0, lambda: (self._render(),
-                                                self.status.set("")))
-            except Exception as e:
-                self.app.root.after(
-                    0, lambda e=e: self.status.set("fetch failed: %s" % e))
+                try:
+                    data = self.store.update_spacewx()
+                    self._data = data
+                    self._ui(lambda: (self._render(),
+                                                    self.status.set("")))
+                except Exception as e:
+                    self.app.root.after(
+                        0, lambda e=e: self.status.set("fetch failed: %s" % e))
+            except Exception as _exc:
+                self._ui(lambda e=_exc: self._worker_failed(e))
         threading.Thread(target=work, daemon=True).start()
 
     def _render(self):
-        k = self.kv
-        k.begin()
-        d = self._data
+        """Interpreted rows plus a plain-language outlook.
+
+        Raw indices alone leave the operator to remember what Kp 6 means; the
+        labels, aurora likelihood and outlook are what make the screen useful,
+        and they come from the shared engine module so the TUI and the report
+        agree with this screen.
+        """
+        from ...engine import spacewx_interp as SI
+        d = self._data or {}
+        self.kv.begin()
         if not d:
-            k.section("Space weather")
-            k.note("No data yet. Click Refresh (needs internet). Indices come "
-                   "from NOAA SWPC; the last result is cached for offline use.")
-            k.end()
+            self.kv.row("No data yet", "press Update", COL_WARN)
+            self.kv.end()
+            self.outlook_var.set("")
             return
+        colours = {0: COL_MUTED, 1: COL_TEXT, 2: COL_ACCENT2,
+                   3: COL_WARN, 4: COL_WARN}
+        for label, value, sev in SI.rows(d):
+            self.kv.row(label, value, colours.get(sev, COL_TEXT))
+        self.kv.end()
+        self.outlook_var.set("Operating outlook:  "
+                             + SI.outlook(d.get("flux"), d.get("kp")))
 
-        flux = d.get("flux")
-        kp = d.get("kp")
-        a = d.get("a_index")
-        fl_txt, fl_lvl = WX.flux_label(flux)
-        kp_txt, kp_lvl = WX.kp_label(kp)
-        a_txt, a_lvl = WX.a_label(a)
-
-        k.section("Solar activity")
-        k.row("F10.7 flux",
-              ("%.0f sfu" % flux) if flux is not None else "\u2014",
-              COL_ACCENT, big=True)
-        k.row("Level", fl_txt, _color_for(fl_lvl))
-
-        k.section("Geomagnetic field")
-        k.row("Kp index",
-              ("%.1f" % kp) if kp is not None else "\u2014",
-              _color_for(kp_lvl), big=True)
-        k.row("Condition", kp_txt, _color_for(kp_lvl))
-        k.row("A index",
-              ("%.0f" % a) if a is not None else "\u2014")
-        k.row("A condition", a_txt, _color_for(a_lvl))
-
-        k.section("Operating outlook")
-        k.note(WX.outlook(flux, kp), COL_TEXT)
-
-        ts = d.get("ts")
-        if ts:
-            age = (now_unix() - ts) / 3600.0
-            when = dt.datetime.fromtimestamp(
-                ts, dt.timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
-            k.row("Data age", "%s  (%.1f h ago)" % (when, age),
-                  COL_MUTED)
-        k.note("Planning cue, not a forecast: F10.7 and Kp are observed values "
-               "and the outlook is a simple heuristic. A high Kp (storm) is the "
-               "main thing to watch \u2014 it warns of auroral flutter on VHF "
-               "and disturbed high-latitude HF.")
-        k.note("Space weather data from NOAA SWPC (services.swpc.noaa.gov).",
-               COL_MUTED)
-        k.end()

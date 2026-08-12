@@ -18,6 +18,10 @@ import json
 import time
 
 F107_URL = "https://services.swpc.noaa.gov/json/f107_cm_flux.json"
+# Observed monthly indices, for the sunspot number (the MUF model wants SSN,
+# not flux) and a 90-day flux mean.
+SSN_URL = ("https://services.swpc.noaa.gov/json/solar-cycle/"
+           "observed-solar-cycle-indices.json")
 # Kp products feed: rows of [time_tag, Kp, a_running, station_count] with a
 # header row first. Kp values are strings.
 KP_URL = "https://services.swpc.noaa.gov/products/noaa-planetary-k-index.json"
@@ -46,18 +50,55 @@ def _kp_to_ap(kp):
     return table[best]
 
 
+def _newest(records, value_key, time_key="time_tag"):
+    """The record with the latest timestamp, chosen by SORTING.
+
+    SWPC's feeds do not agree on direction: f107_cm_flux.json is newest-FIRST
+    while planetary_k_index_1m.json is oldest-first. Taking [-1] gave a flux
+    40 days stale (201 sfu when the day's value was 95). Sort on the timestamp
+    and the ordering stops mattering.
+    """
+    vals = [r for r in records
+            if r.get(value_key) not in (None, "") and r.get(time_key)]
+    if not vals:
+        return None
+    return max(vals, key=lambda r: str(r[time_key]))
+
+
 def fetch(timeout=20):
     """Fetch current space-weather indices. Returns a dict with keys:
-    flux, kp, a_index, ts (unix fetched), plus None for any that failed."""
-    out = {"flux": None, "kp": None, "a_index": None, "ts": time.time()}
+    flux, ssn, flux_90d, kp, a_index, ts (unix fetched), plus None for any
+    that failed."""
+    out = {"flux": None, "ssn": None, "flux_90d": None,
+           "kp": None, "a_index": None, "ts": time.time()}
 
     # --- F10.7 flux ---
     try:
         data = json.loads(_http_get(F107_URL, timeout=timeout))
-        # list of {"time_tag":..., "flux":...}; take the most recent numeric
-        vals = [d for d in data if d.get("flux") not in (None, "")]
-        if vals:
-            out["flux"] = float(vals[-1]["flux"])
+        rec = _newest(data, "flux")
+        if rec:
+            out["flux"] = float(rec["flux"])
+            out["flux_time"] = rec.get("time_tag")
+            if rec.get("ninety_day_mean") not in (None, ""):
+                out["flux_90d"] = float(rec["ninety_day_mean"])
+    except Exception:
+        pass
+
+    # --- sunspot number (monthly observed) ---
+    # The MUF model is driven by SSN, not flux, so fetch it rather than making
+    # the user type a number they would have to look up elsewhere.
+    try:
+        data = json.loads(_http_get(SSN_URL, timeout=timeout))
+        rec = _newest(data, "ssn", time_key="time-tag")
+        if rec:
+            val = float(rec["ssn"])
+            if val >= 0:                       # -1 marks an unsmoothed gap
+                out["ssn"] = val
+                out["ssn_month"] = rec.get("time-tag")
+            if out["flux_90d"] is None and rec.get("f10.7") not in (None, ""):
+                f = float(rec["f10.7"])
+                if f > 0:
+                    out["flux_90d"] = f
     except Exception:
         pass
 
@@ -71,7 +112,9 @@ def fetch(timeout=20):
                 or d.get("estimated_kp") is not None
                 or d.get("kp") is not None]
         if vals:
-            last = vals[-1]
+            # sorted, not [-1]: see _newest() - the SWPC feeds disagree on
+            # direction and this one happens to be oldest-first today
+            last = max(vals, key=lambda r: str(r.get("time_tag", "")))
             raw = (last.get("kp_index")
                    if last.get("kp_index") is not None
                    else last.get("estimated_kp")

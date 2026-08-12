@@ -13,7 +13,10 @@ def compass(az):
 def fmt_clock(unix, with_date=False):
     if not unix:
         return "--:--"
-    lt = time.localtime(unix)
+    # Everything in OrbitTerm is UTC: the header says UTC, pass tables say UTC,
+    # and satellite work is done in UTC. localtime() silently produced local
+    # clock times under UTC labels for anyone not sitting on UTC+0.
+    lt = time.gmtime(unix)
     if with_date:
         return time.strftime("%a %d %b %H:%M:%S", lt)
     return time.strftime("%H:%M:%S", lt)
@@ -22,11 +25,11 @@ def fmt_clock(unix, with_date=False):
 def fmt_hm(unix):
     if not unix:
         return "--:--"
-    return time.strftime("%H:%M", time.localtime(unix))
+    return time.strftime("%H:%M", time.gmtime(unix))
 
 
 def fmt_date(unix):
-    return time.strftime("%a %d %b", time.localtime(unix))
+    return time.strftime("%a %d %b", time.gmtime(unix))
 
 
 def fmt_dur(secs):

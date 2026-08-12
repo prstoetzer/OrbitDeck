@@ -162,7 +162,7 @@ class SitesScreen(Screen):
                    command=self._report_compare).pack(side="right", padx=2)
 
         cols = ("site", "n", "next", "nextel", "bestel")
-        heads = ("Site", "Passes", "Next AOS (UTC)", "Next max el",
+        heads = ("Site", "Passes", "Next AOS", "Next max el",
                  "Best max el")
         treewrap, self.ctree = make_scrolled_tree(
             parent, cols, show="headings", height=12)

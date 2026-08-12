@@ -91,14 +91,22 @@ class SatellitesScreen(Screen):
             alt = s.apogee_km
             line = "%-1s %-18s %-7d %5.1f\u00b0 %5.1fm %6.0fkm" % (
                 fav, clip(s.name, 18), s.norad, s.incl, s.period_min, alt)
+            # Reserve the last two columns for the active-satellite marker and
+            # highlight only up to there. ljust(..., w - x0) assumed w was the
+            # screen width when it is already the content width, so the row ran
+            # under the marker and the period/altitude were overwritten.
+            marker = (s.norad == st.selected_norad)
+            avail = max(1, w - (2 if marker else 0))
             if i == self.sl.sel:
-                addstr(win, yy, x0, ljust(line + "  " + stat, w - x0),
+                addstr(win, yy, x0, ljust(clip(line + "  " + stat, avail),
+                                          avail),
                        cp(CLR_ROW_SEL) | _bold())
             else:
-                addstr(win, yy, x0, line)
-                addstr(win, yy, x0 + len(line) + 2, stat, sattr)
-            if s.norad == st.selected_norad:
-                addstr(win, yy, x0 + w - 3, "\u25c0", cp(CLR_ACCENT) | _bold())
+                addstr(win, yy, x0, clip(line, avail))
+                if len(line) + 2 + len(stat) <= avail:
+                    addstr(win, yy, x0 + len(line) + 2, stat, sattr)
+            if marker:
+                addstr(win, yy, x0 + w - 2, "\u25c0", cp(CLR_ACCENT) | _bold())
 
     def help_keys(self):
         if self.filtering:
@@ -223,22 +231,55 @@ class RadarScreen(Screen):
                 mk, clip(s.name, 15), fmt.fmt_az(az), el, sel), attr)
             ly += 1
 
+        # Sub-satellite point of the ACTIVE satellite - CardSat's radar shows
+        # where the bird actually is, not just where to point.
+        if ly < y0 + h - 1 and st.sat is not None:
+            try:
+                p2 = st.pred_for(st.sat)
+                slat, slon, salt = p2.subpoint_at(now)
+                ly += 1
+                avail = max(8, x0 + w - lx)
+                addstr(win, ly, lx, clip("%s over" % clip(st.sat.name, 10),
+                                         avail), cp(CLR_ACCENT))
+                if ly + 1 < y0 + h - 1:
+                    # Two lines: the lat/lon pair plus a name does not fit the
+                    # radar's right-hand column, and clipping lost the
+                    # longitude - the half that says where it actually is.
+                    addstr(win, ly + 1, lx, clip(
+                        fmt.fmt_latlon(slat, slon), avail), cp(CLR_ACCENT))
+                if ly + 2 < y0 + h - 1:
+                    addstr(win, ly + 2, lx, clip("alt %.0f km" % salt, avail),
+                           cp(CLR_DIM))
+            except Exception:
+                pass
+
     def _draw_grid(self, win, cx, cy, radius):
-        # elevation rings at 0 (rim), 30, 60
-        for ring_el, ch in [(0, "\u00b7"), (30, "\u00b7"), (60, "\u00b7")]:
-            rr = (1 - ring_el / 90.0) * radius
-            steps = max(24, int(rr * 8))
-            for k in range(steps):
-                a = 2 * math.pi * k / steps
-                px = cx + int(round(rr * math.sin(a) * 2))
-                py = cy - int(round(rr * math.cos(a)))
-                addstr(win, py, px, ch, cp(CLR_DIM))
-        # cardinal labels
-        addstr(win, cy - radius - 1, cx, "N", cp(CLR_HEADER) | _bold())
-        addstr(win, cy + radius + 1, cx, "S", cp(CLR_HEADER) | _bold())
-        addstr(win, cy, cx + radius * 2 + 1, "E", cp(CLR_HEADER) | _bold())
-        addstr(win, cy, cx - radius * 2 - 1, "W", cp(CLR_HEADER) | _bold())
-        addstr(win, cy, cx, "+", cp(CLR_ACCENT) | _bold())
+        """Polar grid drawn on the braille canvas.
+
+        Character-cell rings were visibly polygonal at terminal sizes; braille
+        gives 2x4 dots per cell so the 30/60-degree elevation rings and the
+        cardinal spokes come out round.
+        """
+        from ..canvas import Canvas, blit
+        cols = radius * 2 + 1
+        rows = max(2, radius + 1)
+        cv = Canvas(cols, rows)
+        ccx, ccy = cv.width // 2, cv.height // 2
+        rr = min(ccx, ccy) - 1
+        if rr < 2:
+            return
+        for frac in (1.0, 2.0 / 3.0, 1.0 / 3.0):      # el 0, 30, 60
+            cv.circle(ccx, ccy, max(1, int(rr * frac)), cp(CLR_DIM))
+        for ang in (0, 90, 180, 270):
+            a = math.radians(ang)
+            cv.line(ccx, ccy, ccx + rr * math.sin(a), ccy - rr * math.cos(a),
+                    cp(CLR_DIM))
+        blit(win, cv, cy - rows // 2, cx - cols // 2)
+        for lab, ang in (("N", 0), ("E", 90), ("S", 180), ("W", 270)):
+            a = math.radians(ang)
+            px = cx + int(round((radius + 1) * math.sin(a) * 2))
+            py = cy - int(round((radius + 1) * math.cos(a)))
+            addstr(win, py, px, lab, cp(CLR_ACCENT))
 
     def help_keys(self):
         return [("a-z", "= sat in list")]

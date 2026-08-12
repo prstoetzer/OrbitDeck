@@ -9,6 +9,7 @@ from . import (Screen, COL_PANEL, COL_ACCENT, COL_ACCENT2,
 
 
 class PassesScreen(Screen):
+    sat_scoped = ("_passes",)
     def build(self):
         self.sat_header("Next Passes")
         bar = ttk.Frame(self.frame, style="TFrame")
@@ -23,11 +24,13 @@ class PassesScreen(Screen):
         self.minel_lbl = tk.StringVar(value="")
         ttk.Label(bar, textvariable=self.minel_lbl,
                   style="Muted.TLabel").pack(side="left", padx=(10, 0))
+        ttk.Button(bar, text="Workable on this pass\u2026",
+                   command=self._workable_on_pass).pack(side="left", padx=6)
         ttk.Button(bar, text="Print sky tracks (3 days)\u2026",
                    command=self._print_polar).pack(side="right")
 
         cols = ("day", "aos", "maxel", "dur", "los", "dir", "qual")
-        heads = ("Day", "AOS (UTC)", "Max El", "Duration", "LOS", "Track",
+        heads = ("Day", "AOS", "Max El", "Duration", "LOS", "Track",
                  "Quality")
         widths = {"day": 90, "aos": 90, "maxel": 90, "dur": 90, "los": 80,
                   "dir": 130, "qual": 90}
@@ -124,6 +127,52 @@ class PassesScreen(Screen):
             self.app.show("passdetail")
             scr = self.app.current
             scr.set_pass(self._passes[idx])
+
+    def _workable_on_pass(self):
+        """Grids / states / DXCC reachable during the selected pass.
+
+        The Workable screen answers "what is under the footprint now"; this
+        answers "what can I work on THIS pass", which is the question before a
+        pass rather than during one.
+        """
+        from tkinter import messagebox
+        import threading
+        sel = self.tree.selection()
+        if not sel:
+            messagebox.showinfo("Workable on pass", "Select a pass first.",
+                                parent=self.frame)
+            return
+        idx = self.tree.index(sel[0])
+        if idx >= len(self._passes):
+            return
+        p = self._passes[idx]
+        sat = self.store.selected_sat()
+        if not sat:
+            return
+
+        def work():
+            try:
+                from ...engine.predict import Predictor
+                from ...engine import planning as PL
+                pred = Predictor()
+                pred.set_site(self.store.obs)
+                res = PL.workable_on_pass(pred, sat, self.store.obs, p.aos, p.los)
+                self._ui(lambda: self._show_workable(res, p, sat))
+            except Exception as _exc:
+                self._ui(lambda e=_exc: self._worker_failed(e))
+        threading.Thread(target=work, daemon=True).start()
+
+    def _show_workable(self, res, p, sat):
+        from tkinter import messagebox
+        messagebox.showinfo(
+            "Workable on this pass",
+            "%s \u2014 pass at %s\n\n"
+            "%d grid squares\n%d US states: %s\n%d DXCC entities: %s"
+            % (sat.name, fmt_utc(p.aos, "%Y-%m-%d %H:%M"),
+               len(res["grids"]),
+               len(res["states"]), ", ".join(res["states"][:20]),
+               len(res["dxcc"]), ", ".join(res["dxcc"][:20])),
+            parent=self.frame)
 
     def _print_polar(self):
         s = self.sat()

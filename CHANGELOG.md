@@ -1,18 +1,89 @@
 # Changelog
 
-## [0.37.0]
+## [0.38.0]
+
+A large release focused on reaching feature parity with CardSat 0.9.75 across
+both front-ends, plus a substantial correctness pass on the orbital and
+propagation models.
 
 ### Added
-- **OrbitTerm**, a terminal (curses) companion UI for headless boxes and SSH
-  sessions. It reuses the OrbitDeck engine and the shared `~/.orbitdeck` config
-  and AMSAT catalog cache, so its numbers match the desktop GUI. Screens: Home
-  dashboard, Satellites picker, live Track, Next Passes, Pass Detail (with an
-  ASCII elevation profile), Sky Radar (ASCII polar plot), Ground Track (ASCII
-  world map), Pass Progression (one 24-hour timeline per day, shaded by max
-  elevation), Illumination (sunlit/eclipse raster plus an umbral-eclipse
-  ephemeris), Orbital Analysis, Radio/Doppler (with a live shift curve across
-  the next pass), and Settings. Pure standard library — no new dependencies.
-  Launch with `orbitterm` or `python -m orbitterm`.
+
+**New screens**
+- **Propagation outlook** (both front-ends) — headline day/night MUF, per-band
+  open/fair/weak/shut from 80 m to 6 m, geomagnetic state, aurora-VHF
+  likelihood, D-layer absorption, meteor-scatter showers and sporadic-E season.
+- **OSCARLOCATOR simulator** (OrbitTerm) — the paper instrument on the braille
+  canvas, in north-polar and QTH-centred projections, live or manual.
+
+**Orbital History** — four views (value, rate, analysis, table) with time-axis
+zoom and pan, plus rate analysis that reports whether the rate of change has
+itself changed, detects manoeuvre jumps, and splits eras on the *time* axis so a
+sparse early archive is not swamped by a dense modern one. OrbitTerm fetches the
+Space-Track archive itself.
+
+**Activations** — the full CardSat workflow: mutual-window search, both stations'
+sky-track polars, and a DX Doppler table seeded from the activation's own
+satellite, transponder and stated frequency. Plus a notes viewer, a computed
+"my max elevation" column, and a date column.
+
+**EME** — per-band analysis (self-echo Doppler, Faraday rotation, sky
+temperature, libration spread, two-way path loss) with path degradation, ground
+gain and Sun separation, and a 90-day planner.
+
+**Space weather** — sunspot number and 90-day flux mean, band-condition labels,
+aurora likelihood, a plain-language operating outlook and a data-age line. The
+MUF screen seeds its sunspot number from it.
+
+**MUF** — a shaded world map alongside the region table, and DXCC lookup by
+prefix or entity name.
+
+**Tools** grew to 49 calculators, including scientific/programmer/unit
+converters, a character-and-byte lookup (ASCII, Morse, ITA2 letters/figures
+shift, BCD), DXCC lookup, link margin vs elevation, state-vector sanity checks
+and a cubesat thermal model. **References** grew to 14 tables, adding ITA2,
+Morse, orbit types and amateur-satellite history.
+
+**Everything is printable.** A generic report generator plus a default report on
+the base screen class means every screen can produce a PDF.
+
+**OrbitTerm is standalone.** Station, grid, callsign and QRZ/Space-Track
+credentials are all settable from the terminal app; it no longer imports the
+desktop GUI package to make a web request.
+
+### Changed
+- **OrbitTerm navigation is a scrollable menu.** The 1–9 + 0 shortcuts reached
+  only ten of the screens; TAB now opens a scrolling list with a cursor,
+  PageUp/PageDown/Home/End and type-ahead by first letter.
+- **OrbitTerm is normalised to 80×24** and every screen and page is swept for
+  overflow and truncation.
+- **Graphics use the right glyphs for the job**: braille for line art (tracks,
+  rings, plots), half-blocks for filled rasters, plain text for labels.
+- **All OrbitTerm times are UTC**, matching its labels.
+
+### Fixed
+- **Decay estimates were roughly a fifth of the true remaining life.** Ported
+  CardSat 0.9.68's model, recalibrated against 244 real re-entries and anchored
+  on the observed mean-motion derivative where available. ISS now reads ~2.7
+  years rather than 308 days.
+- **Solar flux was up to six weeks stale** — NOAA's F10.7 feed is ordered
+  newest-first and the code took the last record. Both feeds now select by
+  timestamp, since they disagree on direction.
+- **AMSAT status showed zeros** — the API returns one record per
+  (satellite, report value) with different field names than assumed.
+- **AO-7 mode fitting queried names that 404** — the API's names carry the
+  transponder mode. Satellite-to-API-name matching is now a full ladder
+  including an alias table, since `CAS-3H` is `LILACSAT-2` with nothing in the
+  strings to connect them.
+- **Activations reported "unusable date/time" for every entry** — the date is in
+  the entry title and the content is HTML-escaped.
+- **The Fresnel-zone radius was halved** by applying the midpoint factor twice,
+  which errs toward calling an obstructed path clear.
+- **The DX Doppler passband solver pushed the wrong way on inverting
+  transponders**, settling ~12 kHz off on the uplink leg; it now measures the
+  response instead of assuming it.
+- **CelesTrak 404s on a name search** read as errors rather than "no such
+  satellite".
+- Numerous layout fixes: no text is clipped or overflows in either front-end.
 
 ## [0.36.10]
 

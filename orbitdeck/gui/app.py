@@ -41,24 +41,39 @@ NAV_ITEMS = [
     ("Sky Radar", "radar"),
     # passes
     ("Next Passes", "passes"),
+    ("Sky at a Glance", "skyglance"),
     ("Pass Detail", "passdetail"),
     ("Ground Track", "groundtrack"),
     ("Pass Progression", "tenday"),
     # analysis
     ("Orbital Analysis", "orbit"),
+    ("Orbital History", "orbithistory"),
     ("Illumination", "illum"),
+    ("Orbital Zones", "zones"),
+    ("AO-7 Mode", "ao7"),
     ("Mutual Windows", "mutual"),
+    ("Sun/Moon Transits", "transits"),
+    ("Sky Map", "skymap"),
+    ("Conjunctions", "conjunction"),
     ("Workable", "grids"),
     # operating tools
     ("Radio", "radio"),
     ("Planning", "planning"),
+    ("Tools", "tools"),
+    ("Graphing Calc", "graphcalc"),
+    ("Activations / QRZ", "datafeeds"),
+    ("AMSAT Status", "amsatstatus"),
     ("OSCARLOCATOR Sim", "oscarsim"),
     ("Learn", "learn"),
+    ("References", "references"),
     ("Exports", "exports"),
     # sky & space environment
     ("Sun / Moon", "sunmoon"),
     ("Celestial", "celestial"),
+    ("EME", "eme"),
     ("Space Wx", "spacewx"),
+    ("MUF / HF Prop", "muf"),
+    ("Propagation", "propagation"),
     # catalog & configuration
     ("Satellites", "satellites"),
     ("Sites", "sites"),
@@ -85,6 +100,13 @@ class OrbitDeckApp:
         self._init_style()
         self._build_layout()
         self._bind_shortcuts()
+        # Start the worker-result pump on the MAIN thread. Starting it lazily
+        # from _ui() meant the first call could come from a worker, where
+        # after() may be refused - and the pump would never run.
+        import queue as _q
+        self._ui_queue = _q.Queue()
+        self._start_ui_pump()
+
         self.show("home")
         self._tick()
         self.root.after(400, self._first_run_check)
@@ -145,10 +167,10 @@ class OrbitDeckApp:
                      borderwidth=0, focusthickness=0, padding=6)
         st.map("TButton", background=[("active", COL_GRID)])
         st.configure("Nav.TButton", background=COL_BG, foreground=COL_TEXT,
-                     anchor="w", padding=(14, 9), font=FONT)
+                     anchor="w", padding=(14, 5), font=FONT)
         st.map("Nav.TButton", background=[("active", COL_PANEL)])
         st.configure("NavSel.TButton", background=COL_ACCENT, foreground="#ffffff",
-                     anchor="w", padding=(14, 9), font=FONT)
+                     anchor="w", padding=(14, 5), font=FONT)
         st.configure("Treeview", background=COL_PANEL, fieldbackground=COL_PANEL,
                      foreground=COL_TEXT, borderwidth=0, rowheight=24,
                      font=FONT_MONO)
@@ -314,9 +336,15 @@ class OrbitDeckApp:
         nav = ttk.Frame(body, style="Panel.TFrame", width=180)
         nav.pack(side="left", fill="y")
         nav.pack_propagate(False)
+        # The nav holds 29 items - taller than a laptop screen at default
+        # resolution - so it scrolls vertically. Without this the bottom entries
+        # (Satellites, Sites, Settings) are unreachable on short displays.
+        from .screens import make_vscroll_frame
+        nav_scroll, nav_inner = make_vscroll_frame(nav)
+        nav_scroll.pack(fill="both", expand=True)
         self._nav_buttons = {}
         for label, key in NAV_ITEMS:
-            b = ttk.Button(nav, text=label, style="Nav.TButton",
+            b = ttk.Button(nav_inner, text=label, style="Nav.TButton",
                            command=lambda k=key: self.show(k))
             b.pack(side="top", fill="x")
             self._nav_buttons[key] = b
@@ -335,6 +363,31 @@ class OrbitDeckApp:
             side="right", padx=10, pady=4)
 
     # ---- navigation ----
+    def _start_ui_pump(self):
+        """Drain callbacks posted by worker threads, on the Tk thread.
+
+        Polling a queue is the thread-safe way to get a result from a worker
+        into Tk; calling ``after()`` from the worker itself can be refused.
+        """
+        def pump():
+            queue = getattr(self, "_ui_queue", None)
+            if queue is not None:
+                while True:
+                    try:
+                        fn = queue.get_nowait()
+                    except Exception:
+                        break
+                    try:
+                        fn()
+                    except Exception:
+                        pass
+            try:
+                if self.root.winfo_exists():
+                    self.root.after(60, pump)
+            except Exception:
+                pass
+        self.root.after(60, pump)
+
     def show(self, key):
         if self.current is not None:
             self.current.on_hide()
@@ -347,6 +400,13 @@ class OrbitDeckApp:
             self._screen_cache[key] = scr
         self.current = scr
         self.current_key = key
+        # Screens are cached and reused, so clear anything scoped to the old
+        # satellite before the screen draws - otherwise it shows one bird's
+        # data under another's name.
+        try:
+            scr._clear_if_sat_changed()
+        except Exception:
+            pass
         scr.frame.pack(fill="both", expand=True)
         # keep the "selected satellite" badge current on screens that show one
         if hasattr(scr, "refresh_sat_header"):
