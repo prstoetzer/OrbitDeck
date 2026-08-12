@@ -1,3 +1,16 @@
+orbitdeck (0.38.1-1) unstable; urgency=medium
+
+  * The desktop (PyInstaller) bundles now ship an OrbitTerm binary beside
+    OrbitDeck, so the download contains both front-ends.
+  * Add standalone single-file OrbitTerm executables for Windows, macOS
+    (Apple Silicon and Intel), Linux x86_64 and 64-bit Raspberry Pi OS,
+    built automatically on a release tag. This .deb already provides the
+    "orbitterm" command; the standalone build is for people who want it
+    without a Python install.
+  * Document launching OrbitTerm from inside the Flatpak sandbox.
+
+ -- Paul Stoetzer, N8HM <n8hm@arrl.net>  Wed, 12 Aug 2026 00:00:00 +0000
+
 orbitdeck (0.38.0-1) unstable; urgency=medium
 
   * Add OrbitTerm, a curses terminal UI for headless/SSH use. It reuses the

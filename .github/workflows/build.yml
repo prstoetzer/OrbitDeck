@@ -196,7 +196,23 @@ jobs:
       - name: Verify build output (Windows)
         if: runner.os == 'Windows'
         shell: bash
-        run: test -f "dist/OrbitDeck/OrbitDeck.exe" || (echo "::error::PyInstaller did not produce dist/OrbitDeck/OrbitDeck.exe" && exit 1)
+        run: |
+          test -f "dist/OrbitDeck/OrbitDeck.exe" || (echo "::error::PyInstaller did not produce dist/OrbitDeck/OrbitDeck.exe" && exit 1)
+          # The desktop bundle ships OrbitTerm alongside the GUI; if the second
+          # entry point silently stops building, the download quietly loses the
+          # terminal UI again.
+          test -f "dist/OrbitDeck/OrbitTerm.exe" || (echo "::error::desktop bundle is missing OrbitTerm.exe" && exit 1)
+
+      - name: Verify OrbitTerm is in the bundle (macOS/Linux)
+        if: runner.os != 'Windows'
+        run: |
+          BUNDLE=dist/OrbitDeck
+          [ -d "dist/OrbitDeck.app" ] && BUNDLE="dist/OrbitDeck.app/Contents/MacOS"
+          test -f "$BUNDLE/OrbitTerm" || {
+            echo "::error::desktop bundle is missing the OrbitTerm binary"
+            ls -la "$BUNDLE" || true
+            exit 1
+          }
 
       # --- Package ---
       # Windows runners' Git Bash has no `zip`, so use PowerShell's
@@ -217,6 +233,132 @@ jobs:
         run: |
           cd dist
           zip -r ../${{ matrix.artifact }}.zip OrbitDeck
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: ${{ matrix.artifact }}.zip
+
+      - name: Attach to release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ${{ matrix.artifact }}.zip
+
+  # ---------------------------------------------------------------------------
+  # OrbitTerm: a separate, much smaller standalone build.
+  #
+  # It is its own job rather than a step in the matrix above because it shares
+  # almost none of that build's needs: no cartopy (so no conda on Windows), no
+  # matplotlib, no tkinter. Importing every OrbitTerm screen pulls in none of
+  # them, which is why this comes out around 9 MB against the desktop bundle's
+  # couple of hundred. One file, console mode: scp it to a headless box and run
+  # it, which is the entire point of OrbitTerm.
+  # ---------------------------------------------------------------------------
+  orbitterm:
+    name: OrbitTerm (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            artifact: OrbitTerm-windows
+            exe: dist/OrbitTerm.exe
+          - os: macos-latest          # Apple Silicon
+            artifact: OrbitTerm-macos-arm64
+            exe: dist/OrbitTerm
+          - os: macos-13              # Intel Macs
+            artifact: OrbitTerm-macos-x86_64
+            exe: dist/OrbitTerm
+          - os: ubuntu-22.04          # oldest supported glibc for portability
+            artifact: OrbitTerm-linux-x86_64
+            exe: dist/OrbitTerm
+          - os: ubuntu-22.04-arm      # arm64 Linux / 64-bit Raspberry Pi OS
+            artifact: OrbitTerm-raspberrypi-arm64
+            exe: dist/OrbitTerm
+
+    defaults:
+      run:
+        shell: bash
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          # Only what OrbitTerm actually needs: the propagator, HTTPS roots and
+          # PyInstaller itself.
+          pip install pyinstaller sgp4 certifi
+
+      - name: Install curses (Windows)
+        if: runner.os == 'Windows'
+        # The Windows console has no curses in the stdlib.
+        run: pip install windows-curses
+
+      - name: Build
+        run: pyinstaller orbitterm.spec --noconfirm
+
+      - name: Verify the binary exists
+        run: |
+          test -f "${{ matrix.exe }}" || {
+            echo "::error::PyInstaller did not produce ${{ matrix.exe }}"
+            exit 1
+          }
+          ls -la "${{ matrix.exe }}"
+
+      - name: Smoke-test (POSIX)
+        if: runner.os != 'Windows'
+        # Drive it through a pty and quit: a curses program needs a terminal,
+        # so a plain `--version`-style check would prove nothing.
+        run: |
+          chmod +x "${{ matrix.exe }}"
+          python - <<'PY'
+          import os, pty, select, time, sys
+          pid, fd = pty.fork()
+          if pid == 0:
+              os.environ.update(TERM="xterm-256color", LINES="24", COLUMNS="80")
+              os.execv("${{ matrix.exe }}", ["${{ matrix.exe }}"])
+          buf = b""
+          end = time.time() + 60
+          while time.time() < end:
+              r, _, _ = select.select([fd], [], [], 0.5)
+              if r:
+                  try:
+                      chunk = os.read(fd, 65536)
+                  except OSError:
+                      break
+                  if not chunk:
+                      break
+                  buf += chunk
+              if b"OrbitTerm" in buf:
+                  break
+          try:
+              os.write(fd, b"q")
+          except OSError:
+              pass
+          os.kill(pid, 9)
+          if b"OrbitTerm" not in buf:
+              sys.exit("OrbitTerm did not render a screen")
+          print("rendered OK")
+          PY
+
+      - name: Package (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: Compress-Archive -Path dist/OrbitTerm.exe -DestinationPath ${{ matrix.artifact }}.zip
+
+      - name: Package (POSIX)
+        if: runner.os != 'Windows'
+        run: |
+          cd dist
+          zip -j ../${{ matrix.artifact }}.zip OrbitTerm
 
       - name: Upload build artifact
         uses: actions/upload-artifact@v4

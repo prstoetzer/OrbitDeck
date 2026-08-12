@@ -12,6 +12,15 @@ OrbitDeck's own.
 
 ## Running
 
+**In the desktop download.** The OrbitDeck bundle for your platform contains an
+`OrbitTerm` binary beside `OrbitDeck` — run it directly, no second download.
+
+**Standalone download.** Every release also carries a single-file `OrbitTerm`
+executable for Windows, macOS (Apple Silicon and Intel), Linux x86_64 and 64-bit
+Raspberry Pi OS. It needs no Python install — about 9 MB, since the terminal UI
+uses none of the desktop app's matplotlib/tkinter/cartopy stack. On Windows the
+build bundles `windows-curses`, which the console needs.
+
 ```sh
 orbitterm          # if installed via pip
 # or, from a source checkout:

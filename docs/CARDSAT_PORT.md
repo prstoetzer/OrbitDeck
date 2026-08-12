@@ -1678,3 +1678,57 @@ a `wraplength` once it did.
 **60 screenshots** are now current: 38 desktop screens plus 17 OrbitTerm screens
 rendered from real 80x24 curses output. Every image reference in the READMEs and
 manual resolves.
+
+## 0.38.1 — standalone OrbitTerm for every platform
+
+OrbitTerm was already in every Linux package (deb via pybuild, rpm explicitly,
+Arch via the wheel, AppImage via `AppRun ... term`, Flatpak inside the sandbox)
+and in the pip wheel. What it was **not** in was the PyInstaller standalone
+downloads, which build only the GUI - so anyone grabbing a release binary for
+Windows, macOS or a Pi got no terminal UI.
+
+`orbitterm.spec` builds it separately. That is a deliberate choice rather than
+adding a second binary to the desktop bundle: importing every OrbitTerm screen
+pulls in **no** matplotlib, tkinter, numpy, cartopy, PIL or openpyxl - verified,
+not assumed - so excluding them yields **8.6 MB** against the desktop bundle's
+couple of hundred. One file, console mode, because a terminal app should be
+something you `scp` to a headless box and run.
+
+Built for five targets on a release tag: Windows, macOS arm64 **and x86_64**
+(Intel Macs get no desktop bundle today, but a 9 MB terminal build costs
+nothing), Linux x86_64 and Pi arm64. Windows pulls `windows-curses`, which its
+console needs.
+
+The workflow smoke-tests each binary through a **pty** and fails the build if no
+screen renders - a `--version` check would prove nothing for a curses program.
+Verified locally: the binary runs detached from the source tree and renders its
+header and catalog.
+
+Flatpak now documents `flatpak run --command=orbitterm ...`; OrbitTerm was
+always installed there but only the desktop command was exported.
+
+A packaging matrix in `PACKAGING.md` records which artifact carries what, since
+"is OrbitTerm in this download?" had five different answers.
+
+**Both front-ends now ship in the desktop bundle as well.** Asked whether
+OrbitTerm was in the main builds, I checked rather than answered from the spec
+alone - built the desktop bundle and searched every file including inside the
+archives. It was **not** there: the spec never mentioned `orbitterm` and the GUI
+never imports it, so PyInstaller had no path to discover it.
+
+`orbitdeck.spec` now runs a second `Analysis` on `runterm.py` and `MERGE`s the
+two, so shared dependencies are stored once. The bundle goes from **343 MB to
+350 MB** - about 7 MB for a whole second application, because the Python
+runtime, engine and data were already in there. Verified by copying the built
+bundle elsewhere and running both binaries: OrbitTerm renders its header and
+catalog, the GUI launches with no import errors.
+
+The workflow now fails the build if `OrbitTerm` is missing from the bundle on
+any platform. Without that check the second entry point could silently stop
+building and the download would quietly lose the terminal UI again - which is
+exactly the state 0.38.0 shipped in.
+
+**One thing to watch:** the blanket 0.38.0 -> 0.38.1 version bump rewrote the
+*existing* changelog entries in the RPM spec and `debian/changelog`, so 0.38.0's
+history briefly claimed to be 0.38.1. Repaired, and worth remembering that a
+global version replace is not safe in files that carry version history.

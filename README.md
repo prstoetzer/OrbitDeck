@@ -281,6 +281,14 @@ the OSCARLOCATOR simulator. Graphics use the terminal's own glyphs: braille
 sub-cells for line art (tracks, rings, plots) and half-blocks for filled
 rasters.
 
+The desktop download ships **both**: an `OrbitTerm` binary sits beside
+`OrbitDeck` in the same folder, so there is nothing extra to fetch.
+
+There is also a **standalone OrbitTerm download** for Windows, macOS (Apple
+Silicon and Intel), Linux x86_64 and 64-bit Raspberry Pi OS on the
+[Releases page](https://github.com/prstoetzer/OrbitDeck/releases) — a single
+~9 MB file with no Python install needed. Copy it to a headless box and run it.
+
 OrbitTerm is **standalone** — station, grid, callsign and QRZ/Space-Track
 credentials are all settable from Settings, so it needs no desktop install. It
 is laid out for a standard **80x24** terminal and scales up from there. All

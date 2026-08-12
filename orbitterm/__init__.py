@@ -6,4 +6,4 @@ analysis) and the same ~/.orbitdeck config and AMSAT catalog cache, so its
 numbers match the GUI. Pure standard library (curses) - no extra dependencies.
 """
 
-__version__ = "0.38.0"
+__version__ = "0.38.1"

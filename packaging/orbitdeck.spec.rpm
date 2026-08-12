@@ -2,13 +2,13 @@
 #
 # Build:
 #     # from the repo root, create a release tarball matching Source0, e.g.
-#     #   git archive --format=tar.gz --prefix=OrbitDeck-0.38.0/ \
-#     #       -o ~/rpmbuild/SOURCES/orbitdeck-0.38.0.tar.gz v0.38.0
+#     #   git archive --format=tar.gz --prefix=OrbitDeck-0.38.1/ \
+#     #       -o ~/rpmbuild/SOURCES/orbitdeck-0.38.1.tar.gz v0.38.1
 #     rpmbuild -ba packaging/orbitdeck.spec
 #
 # Keep Version in sync with orbitdeck/__init__.py.
 Name:           orbitdeck
-Version:        0.38.0
+Version:        0.38.1
 Release:        1%{?dist}
 Summary:        Desktop satellite tracking and orbital analysis for amateur radio
 
@@ -69,7 +69,13 @@ install -Dm644 packaging/io.github.prstoetzer.OrbitDeck.metainfo.xml \
 %{_metainfodir}/io.github.prstoetzer.OrbitDeck.metainfo.xml
 
 %changelog
-* Wed Aug 12 2026 Paul Stoetzer, N8HM - 0.38.0-1
+* Wed Aug 12 2026 Paul Stoetzer, N8HM - 0.38.1-1
+- Desktop bundles now ship an OrbitTerm binary beside OrbitDeck
+- Standalone single-file OrbitTerm builds for Windows, macOS (arm64 and x86_64),
+  Linux x86_64 and 64-bit Raspberry Pi OS, built on a release tag
+- Document launching OrbitTerm from inside the Flatpak sandbox
+
+* Thu Jun 26 2026 Paul Stoetzer, N8HM - 0.38.0-1
 - Add OrbitTerm, a curses terminal UI for headless/SSH use
 
 * Wed Jun 25 2026 Paul Stoetzer, N8HM - 0.36.10-1

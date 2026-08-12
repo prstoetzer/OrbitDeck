@@ -121,7 +121,41 @@ a = Analysis(
     noarchive=False,
 )
 
+# --- OrbitTerm, in the same bundle -------------------------------------------
+# The desktop download carries Python, the engine and the data anyway, so adding
+# the terminal UI costs a couple of hundred KB on a ~340 MB bundle. Without this
+# the desktop downloads were GUI-only and someone who wanted both had to fetch a
+# second archive. (A separate, much smaller standalone OrbitTerm build also
+# exists - see orbitterm.spec - for headless boxes that should not pull 340 MB.)
+term = Analysis(
+    ["runterm.py"],
+    pathex=[],
+    binaries=vendored_binaries,
+    datas=asset_datas + certifi_datas,
+    hiddenimports=[
+        "certifi", "ssl",
+        "sgp4", "sgp4.api", "sgp4.propagation",
+        "curses", "curses.ascii",
+    ] + (["_curses"] if sys.platform == "win32" else []),
+    hookspath=[],
+    hooksconfig={},
+    runtime_hooks=[],
+    excludes=[
+        "PyQt5", "PyQt6", "PySide2", "PySide6", "wx",
+        "pytest", "IPython", "notebook",
+    ],
+    win_no_prefer_redirects=False,
+    win_private_assemblies=False,
+    cipher=block_cipher,
+    noarchive=False,
+)
+
+# MERGE tells PyInstaller the two programs share this bundle, so the common
+# dependencies are stored once rather than duplicated.
+MERGE((a, "OrbitDeck", "OrbitDeck"), (term, "OrbitTerm", "OrbitTerm"))
+
 pyz = PYZ(a.pure, a.zipped_data, cipher=block_cipher)
+term_pyz = PYZ(term.pure, term.zipped_data, cipher=block_cipher)
 
 exe = EXE(
     pyz,
@@ -141,8 +175,29 @@ exe = EXE(
     icon=exe_icon,
 )
 
+term_exe = EXE(
+    term_pyz,
+    term.scripts,
+    [],
+    exclude_binaries=True,
+    name="OrbitTerm",
+    debug=False,
+    bootloader_ignore_signals=False,
+    strip=False,
+    upx=False,
+    console=True,            # curses program: it needs a console
+    disable_windowed_traceback=False,
+    target_arch=None,
+    codesign_identity=None,
+    entitlements_file=None,
+)
+
 coll = COLLECT(
     exe,
+    term_exe,
+    term.binaries,
+    term.zipfiles,
+    term.datas,
     a.binaries,
     a.zipfiles,
     a.datas,
@@ -161,6 +216,6 @@ if sys.platform == "darwin":
         bundle_identifier="org.orbitdeck.app",
         info_plist={
             "NSHighResolutionCapable": True,
-            "CFBundleShortVersionString": "0.38.0",
+            "CFBundleShortVersionString": "0.38.1",
         },
     )

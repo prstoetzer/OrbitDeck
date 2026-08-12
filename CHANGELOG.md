@@ -1,5 +1,29 @@
 # Changelog
 
+## [0.38.1]
+
+### Added
+- **OrbitTerm now ships in the desktop bundles too.** The Windows, macOS, Linux
+  and Raspberry Pi downloads contain an `OrbitTerm` binary beside `OrbitDeck` in
+  the same folder. It costs about 7 MB on a ~350 MB bundle, since the Python
+  runtime, engine and data are already there — so there is no reason to make
+  someone fetch a second archive.
+- **Standalone OrbitTerm builds for every platform.** The terminal UI now ships
+  as its own single-file executable for Windows, macOS (Apple Silicon and
+  Intel), Linux x86_64 and 64-bit Raspberry Pi OS, built automatically on a
+  release tag alongside the desktop bundles.
+
+  It is a separate build rather than part of the desktop bundle because it needs
+  almost none of the same machinery: importing every OrbitTerm screen pulls in
+  no matplotlib, tkinter, numpy or cartopy. The result is about **9 MB** against
+  the desktop bundle's couple of hundred. One file, console mode - copy it to a
+  headless box and run it.
+
+### Changed
+- The Flatpak manifest documents how to launch OrbitTerm from inside the
+  sandbox (`flatpak run --command=orbitterm ...`). It was always installed, but
+  only the desktop command was exported, so it was undiscoverable.
+
 ## [0.38.0]
 
 A large release focused on reaching feature parity with CardSat 0.9.75 across
