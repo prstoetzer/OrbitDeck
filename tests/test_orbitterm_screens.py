@@ -917,3 +917,187 @@ def test_tools_wraps_long_unbroken_values():
     assert _wrap("short", 20) == ["short"]
     assert _wrap("two words here", 9) == ["two words", "here"]
     assert _wrap("", 10) == [""]
+
+
+def test_mutual_windows_grid_is_editable():
+    """Reported: the DX grid was fixed at FN31 with no key to change it."""
+    from orbitterm.screens.analysis3 import MutualScreen
+    s = MutualScreen(_fake_app())
+    assert s.grid == "FN31"
+    s.handle_key(ord("e"))
+    assert s.editing
+    for ch in "JO65":
+        s.handle_key(ord(ch))
+    s.handle_key(10)
+    assert s.grid == "JO65" and not s.editing
+    # a malformed locator is rejected and the previous grid kept
+    s.handle_key(ord("e"))
+    for ch in "ZZZZ":
+        s.handle_key(ord(ch))
+    s.handle_key(10)
+    assert s.grid == "JO65"
+    # scanning still works - extending the handler must not cost the old keys
+    import inspect
+    assert "_scan" in inspect.getsource(MutualScreen.handle_key)
+
+
+def test_satellites_screen_can_search_celestrak():
+    """OrbitTerm could not add a satellite that was missing from the local
+    catalog, which meant opening the desktop app just to get an object."""
+    from orbitterm.screens.catalog import SatellitesScreen
+    app = _fake_app()
+    s = SatellitesScreen(app)
+    app.state.store.search_celestrak = lambda q, force=False: [
+        {"name": "AO-73", "norad": 39444, "intl_des": "2013-066AE",
+         "group": "amateur"}]
+    s.handle_key(ord("s"))
+    assert s.searching
+    for ch in "AO-73":
+        s.handle_key(ord(ch))
+    assert s.sbuf == "AO-73"          # typing must reach the field, not the list
+    s.handle_key(10)
+    assert len(s.hits) == 1 and not s.searching
+    before = app.state.store.db.count()
+    s.handle_key(10)                   # ENTER adds the selected hit
+    assert app.state.store.db.count() == before + 1
+    assert "added" in s.msg.lower()
+
+
+def test_orbital_history_dates_carry_the_year():
+    """An element archive spans years, so 'Sun 13 Dec' is ambiguous."""
+    from orbitterm.fmt import fmt_ymd, fmt_ymd_hm
+    assert fmt_ymd(1450000000) == "2015-12-13"
+    assert fmt_ymd_hm(1450000000).startswith("2015-12-13 ")
+    assert fmt_ymd(0) == "--"
+    import inspect
+    from orbitterm.screens import graphics
+    src = inspect.getsource(graphics.OrbitHistoryScreen)
+    assert "fmt_ymd" in src
+    # the old year-slicing must be gone
+    assert "[:10]" not in src
+
+
+def test_tui_has_a_qrz_screen():
+    """The desktop had QRZ lookup and the terminal had no counterpart."""
+    import orbitterm.app as A
+    assert "qrz" in [k for k, _c in A.NAV]
+    from orbitterm.screens.analysis4 import QrzScreen
+    app = _fake_app()
+    s = QrzScreen(app)
+    app.state.store.config.pop("qrz_user", None)
+    app.state.store.config.pop("qrz_pass", None)
+    s.handle_key(ord("e"))
+    for ch in "W1AW":
+        s.handle_key(ord(ch))
+    s.handle_key(10)
+    assert "credentials" in s.status          # refuses without them
+    app.state.store.config["qrz_user"] = "u"
+    app.state.store.config["qrz_pass"] = "p"
+    from orbitdeck.gui import datafeeds as DF
+    orig = DF.qrz_lookup
+    DF.qrz_lookup = lambda g, u, p, c, session_key=None: (
+        {"call": "W1AW", "name_fmt": "ARRL HQ", "grid": "FN31pr"}, "KEY", None)
+    try:
+        s.handle_key(ord("e"))
+        for ch in "W1AW":
+            s.handle_key(ord(ch))
+        s.handle_key(10)
+    finally:
+        DF.qrz_lookup = orig
+    assert s.result and s.result["call"] == "W1AW"
+    assert s._key == "KEY"                    # session cached, not re-logged in
+
+
+def test_tui_activation_detail_matches_the_desktop():
+    """The desktop's seeding fixes were never mirrored into the terminal."""
+    import inspect
+    from orbitterm.screens.analysis4 import ActivationsScreen as S
+    assert "notes" in S.VIEWS
+    src = inspect.getsource(S)
+    assert "match_transponder" in src         # seed from the stated frequency
+    assert "solve_pb_for_dial" in src         # hold the anchored dial there
+    assert '"desc"' in src                    # not .description, which is None
+    assert "_tp_touched" in src               # a manual pick is not overridden
+
+
+def test_palette_is_legible_and_semantic():
+    """Colour has to carry meaning consistently, and be readable.
+
+    Three faults: CLR_DIM was BLUE - the least legible colour on a dark
+    background and the most-used pair by far; CLR_HEADER was the same yellow as
+    CLR_WARN, so a column heading and a warning looked identical; and red was
+    used for direction (receding, eclipse) rather than for problems.
+    """
+    import curses
+    import orbitterm.ui as U
+    src = open("orbitterm/ui.py").read()
+    assert "init_pair(CLR_DIM, curses.COLOR_WHITE" in src
+    assert "init_pair(CLR_HEADER, curses.COLOR_WHITE" in src
+    assert "init_pair(CLR_WARN, curses.COLOR_YELLOW" in src
+    assert "init_pair(CLR_BAD, curses.COLOR_RED" in src
+    # intent travels with the pair, so call sites cannot forget it
+    assert "_PAIR_ATTR" in src
+    _ = curses, U
+
+    import pathlib
+    # red is reserved for genuine problems
+    for f in pathlib.Path("orbitterm/screens").glob("*.py"):
+        text = f.read_text()
+        assert "cp(CLR_BAD) if L.range_rate > 0" not in text, f
+        assert "cp(CLR_BAD) if rr > 0" not in text, f
+        assert "else cp(CLR_BAD) | _bold())" not in text, f
+
+
+def test_no_text_is_clipped_flush_at_the_pane_edge():
+    """Text cut exactly at the pane edge has no ellipsis to warn you, so a
+    truncated value reads as a complete one ('sat below horiz')."""
+    import os
+    import re
+    import curses
+    import pytest as _pt
+    if not os.environ.get("TERM"):
+        _pt.skip("no TERM")
+
+    def body(scr):
+        import orbitterm.app as A
+        import orbitterm.ui as U
+        U.init_colors()
+        app = A.App(scr)
+        app.state.store.favorites = {s.norad
+                                     for s in app.state.store.db.sats[:4]}
+        h, _w = scr.getmaxyx()
+        bad = []
+        for key, _cls in A.NAV:
+            app.goto(key)
+            s = app.screens[key]
+            try:
+                s.on_enter()
+            except Exception:
+                pass
+            scr.erase()
+            try:
+                app._draw()
+            except Exception:
+                continue
+            scr.refresh()
+            for y in range(h):
+                line = scr.instr(y, 0).decode("utf-8", "replace")[19:]
+                if len(line) != 61 or not line.strip():
+                    continue
+                if set(line.strip()) <= set("\u2500\u2550 "):
+                    continue
+                tail = line.rstrip()[-16:]
+                if tail.endswith("\u2026"):
+                    continue
+                # a header row of column names may legitimately fill the pane
+                if tail.isupper():
+                    continue
+                if re.search(r"[a-z]$", tail):
+                    bad.append("%s: ...%s" % (key, tail))
+        return bad
+
+    try:
+        bad = curses.wrapper(body)
+    except Exception:
+        _pt.skip("curses unavailable")
+    assert not bad, bad[:6]

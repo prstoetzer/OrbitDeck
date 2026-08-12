@@ -34,21 +34,36 @@ def init_colors():
     curses.init_pair(CLR_TITLE, curses.COLOR_CYAN, bg)
     curses.init_pair(CLR_NAV, curses.COLOR_WHITE, bg)
     curses.init_pair(CLR_NAV_SEL, curses.COLOR_BLACK, curses.COLOR_CYAN)
-    curses.init_pair(CLR_HEADER, curses.COLOR_YELLOW, bg)
+    # Header was yellow, the same as CLR_WARN, so a column heading and a
+    # warning were indistinguishable. White + bold (applied in cp()) reads as
+    # structure rather than alarm.
+    curses.init_pair(CLR_HEADER, curses.COLOR_WHITE, bg)
     curses.init_pair(CLR_OK, curses.COLOR_GREEN, bg)
     curses.init_pair(CLR_WARN, curses.COLOR_YELLOW, bg)
     curses.init_pair(CLR_BAD, curses.COLOR_RED, bg)
-    curses.init_pair(CLR_DIM, curses.COLOR_BLUE, bg)
+    # DIM was blue - the least legible colour on a dark background, and by far
+    # the most-used pair (labels, units, help text). White dimmed with A_DIM
+    # keeps it recessive without being hard to read.
+    curses.init_pair(CLR_DIM, curses.COLOR_WHITE, bg)
     curses.init_pair(CLR_ACCENT, curses.COLOR_MAGENTA, bg)
     curses.init_pair(CLR_STATUS, curses.COLOR_BLACK, curses.COLOR_WHITE)
+    _PAIR_ATTR[CLR_DIM] = curses.A_DIM
+    _PAIR_ATTR[CLR_HEADER] = curses.A_BOLD
     curses.init_pair(CLR_ROW_SEL, curses.COLOR_BLACK, curses.COLOR_YELLOW)
     curses.init_pair(CLR_VIS, curses.COLOR_BLACK, curses.COLOR_GREEN)
 
 
+# Attributes carried with a colour pair, so intent lives in one place rather
+# than every call site remembering to add A_DIM or A_BOLD.
+_PAIR_ATTR = {}
+
+
 def cp(pair):
     if not curses.has_colors():
-        return 0
-    return curses.color_pair(pair)
+        # Without colour, structure still has to read: bold headers, dim
+        # labels. A monochrome terminal is not a broken one.
+        return _PAIR_ATTR.get(pair, 0)
+    return curses.color_pair(pair) | _PAIR_ATTR.get(pair, 0)
 
 
 def addstr(win, y, x, text, attr=0):

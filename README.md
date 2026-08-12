@@ -263,7 +263,7 @@ target/rove planning (`engine.planning`), Sun/Moon/planet/EME geometry
 
 ## OrbitTerm — the terminal UI
 
-For headless boxes and SSH sessions there's **OrbitTerm**, a curses companion
+For headless boxes and SSH sessions there's **OrbitTerm**, a curses application
 that runs in any terminal with no GUI and no extra dependencies. It reuses this
 same engine and the shared `~/.orbitdeck` config and catalog cache, so its
 numbers match the desktop app.

@@ -21,6 +21,14 @@ class SatellitesScreen(Screen):
         self._page = 20
         self._cache = None
         self._cache_key = None
+        # CelesTrak search: the desktop app could add a satellite that is not
+        # in the local catalog and OrbitTerm could not, which meant opening the
+        # desktop app just to get an object.
+        self.searching = False
+        self.sbuf = ""
+        self.hits = []
+        self.hit_sel = 0
+        self.msg = ""
 
     def on_enter(self):
         self._cache = None
@@ -50,6 +58,10 @@ class SatellitesScreen(Screen):
         return out
 
     def draw(self, win, y0, x0, h, w):
+        if self.searching or self.hits or self.msg:
+            self._draw_search(win, y0, x0, h, w)
+            if self.searching or self.hits:
+                return
         st = self.state
         sats = self._filtered()
         addstr(win, y0, x0, "Satellites", cp(CLR_TITLE) | _bold())
@@ -109,12 +121,123 @@ class SatellitesScreen(Screen):
                 addstr(win, yy, x0 + w - 2, "\u25c0", cp(CLR_ACCENT) | _bold())
 
     def help_keys(self):
+        if self.searching:
+            return [("ENTER", "search"), ("ESC", "cancel")]
+        if self.hits:
+            return [("ENTER", "add"), ("up/dn", "pick"), ("ESC", "close")]
         if self.filtering:
             return [("type", "filter"), ("\u21b5", "apply"), ("esc", "cancel")]
+        # "/" filters the LOCAL list; "s" searches CelesTrak's whole catalog.
+        # Labelling "/" as "search" made those look like the same action.
         return [("\u2191\u2193", "move"), ("\u21b5", "select"),
-                ("/", "search"), ("f", "favorite")]
+                ("/", "filter"), ("s", "CelesTrak"), ("f", "favorite")]
+
+    def _draw_search(self, win, y0, x0, h, w):
+        """The CelesTrak search prompt and its results."""
+        if self.searching:
+            addstr(win, y0, x0, clip(
+                "CelesTrak search: %s_" % self.sbuf, w), cp(CLR_ACCENT))
+            addstr(win, y0 + 1, x0, clip(self.msg, w), cp(CLR_DIM))
+            return
+        if self.hits:
+            addstr(win, y0, x0, clip(
+                "CelesTrak results for \u201c%s\u201d" % self.sbuf, w),
+                cp(CLR_TITLE))
+            addstr(win, y0 + 1, x0, clip(self.msg, w), cp(CLR_DIM))
+            addstr(win, y0 + 3, x0, clip("%-24s %8s %-12s %s" % (
+                "NAME", "NORAD", "DESIG", "SOURCE"), w), cp(CLR_HEADER))
+            for i, hit in enumerate(self.hits):
+                y = y0 + 4 + i
+                if y >= y0 + h - 1:
+                    break
+                attr = cp(CLR_ROW_SEL) | _bold() if i == self.hit_sel else 0
+                addstr(win, y, x0, clip("%-24s %8s %-12s %s" % (
+                    str(hit.get("name", ""))[:24], hit.get("norad", ""),
+                    str(hit.get("intl_des", "") or "")[:12],
+                    str(hit.get("group", "") or "")[:14]), w), attr)
+            return
+        addstr(win, y0 + h - 1, x0, clip(self.msg, w), cp(CLR_DIM))
+
+    def _do_search(self):
+        """Search CelesTrak's whole catalog, as the desktop app does."""
+        q = self.sbuf.strip()
+        self.searching = False
+        if not q:
+            self.msg = ""
+            return
+        self.msg = "searching CelesTrak for %s\u2026" % q
+        try:
+            self.hits = self.state.store.search_celestrak(q) or []
+        except ValueError as exc:
+            self.hits = []
+            self.msg = str(exc)[:70]        # rate limit / too soon
+            return
+        except Exception as exc:
+            self.hits = []
+            self.msg = "search failed: %s" % str(exc)[:60]
+            return
+        self.hit_sel = 0
+        self.msg = ("%d match(es) \u2014 up/down, ENTER adds" % len(self.hits)
+                    if self.hits else
+                    "no CelesTrak object matches \u201c%s\u201d" % q)
+
+    def _add_hit(self):
+        """Add the selected search result to the catalog and favorite it."""
+        if not self.hits:
+            return
+        hit = self.hits[self.hit_sel % len(self.hits)]
+        store = self.state.store
+        norad = hit.get("norad")
+        existing = store.db.get(norad) if norad else None
+        if existing is not None:
+            store.favorites.add(existing.norad)
+            store.save_config()
+            self.msg = "%s (NORAD %d) was already in the catalog \u2014 starred" % (
+                existing.name, existing.norad)
+        else:
+            try:
+                store.add_extra_sat(hit, make_favorite=True)
+                self.msg = "added %s (NORAD %s)" % (hit.get("name"), norad)
+            except Exception as exc:
+                self.msg = "could not add: %s" % str(exc)[:60]
+                return
+        self.hits = []
+        self._cache = None
 
     def handle_key(self, ch):
+        import curses
+        if self.searching:
+            if ch in (ord("\n"), curses.KEY_ENTER):
+                self._do_search()
+            elif ch == 27:
+                self.searching = False
+                self.hits = []
+            elif ch in (curses.KEY_BACKSPACE, 127, 8):
+                self.sbuf = self.sbuf[:-1]
+            elif 32 <= ch < 127:
+                self.sbuf += chr(ch)
+            return True
+        if self.hits:
+            # results are showing: pick one to add, or dismiss
+            if ch in (curses.KEY_DOWN, ord("j")):
+                self.hit_sel = (self.hit_sel + 1) % len(self.hits)
+                return True
+            if ch in (curses.KEY_UP, ord("k")):
+                self.hit_sel = (self.hit_sel - 1) % len(self.hits)
+                return True
+            if ch in (ord("\n"), curses.KEY_ENTER, ord("a")):
+                self._add_hit()
+                return True
+            if ch == 27:
+                self.hits = []
+                self.msg = ""
+                return True
+        if ch in (ord("s"), ord("S")):
+            self.searching = True
+            self.sbuf = ""
+            self.hits = []
+            self.msg = "type a name or NORAD number, ENTER to search"
+            return True
         import curses
         if self.filtering:
             if ch in (27,):  # esc
@@ -261,8 +384,13 @@ class RadarScreen(Screen):
         cardinal spokes come out round.
         """
         from ..canvas import Canvas, blit
-        cols = radius * 2 + 1
-        rows = max(2, radius + 1)
+        # The grid must span the same area the SATELLITE MARKERS use, or the
+        # rings mean nothing. A marker at the horizon sits at +/-2*radius cells
+        # and +/-radius rows, i.e. 4*radius dots either way (2 dots per cell
+        # across, 4 per row down). The canvas was half that, so every object
+        # below about 60 degrees fell outside the drawn horizon ring.
+        cols = radius * 4 + 1
+        rows = max(2, radius * 2 + 1)
         cv = Canvas(cols, rows)
         ccx, ccy = cv.width // 2, cv.height // 2
         rr = min(ccx, ccy) - 1

@@ -32,6 +32,27 @@ def fmt_date(unix):
     return time.strftime("%a %d %b", time.gmtime(unix))
 
 
+def fmt_ymd(unix):
+    """Absolute date as YYYY-MM-DD.
+
+    Use this wherever the data can span more than a year - an element archive,
+    a decay estimate, a launch date. ``fmt_date`` deliberately omits the year
+    because pass tables only ever cover the next few days, but slicing it to
+    get a date turned "Sun 13 Dec 2015" into "Sun 13 Dec" on a 2015-2026
+    archive, which is genuinely ambiguous.
+    """
+    if not unix:
+        return "--"
+    return time.strftime("%Y-%m-%d", time.gmtime(unix))
+
+
+def fmt_ymd_hm(unix):
+    """Absolute date and time, for the same reason as :func:`fmt_ymd`."""
+    if not unix:
+        return "--"
+    return time.strftime("%Y-%m-%d %H:%M", time.gmtime(unix))
+
+
 def fmt_dur(secs):
     secs = int(max(0, secs))
     m, s = divmod(secs, 60)

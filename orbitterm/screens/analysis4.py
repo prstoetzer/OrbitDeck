@@ -149,6 +149,9 @@ class ActivationsScreen(Screen):
         self.tp_sel = 0
         self.mode_sel = 0
         self.anchor_sel = 1
+        # once the operator picks, stop overriding them with the seed
+        self._tp_touched = False
+        self._mode_touched = False
 
     def _fetch(self):
         self.status = "fetching hams.at feed..."
@@ -183,7 +186,7 @@ class ActivationsScreen(Screen):
                 a["start"][:18], a["callsign"][:9], a["sat"][:10],
                 a["grid"][:6], a["max_el"][:5], a["mode"][:8]), w), attr)
 
-    VIEWS = ["list", "windows", "doppler"]
+    VIEWS = ["list", "windows", "doppler", "notes"]
 
     def _cycle_view(self):
         if not self.detail:
@@ -191,6 +194,44 @@ class ActivationsScreen(Screen):
             return
         i = (self.VIEWS.index(self.view) + 1) % len(self.VIEWS)
         self.view = self.VIEWS[i]
+
+    def _draw_notes(self, win, y0, x0, h, w):
+        """The activation's own record, including the operator's comment.
+
+        The feed carries what the activator is doing and any conditions, and
+        there was no way to read it in the terminal.
+        """
+        act, _info = self.detail
+        # _draw_detail has already written the "CALL on SAT from GRID" header
+        # at y0; writing another there produced "Activation detailFN31".
+        y = y0 + 2
+        for label, key in (("Satellite", "sat"), ("Callsign", "callsign"),
+                           ("Grid", "grid"), ("Date", "date"),
+                           ("Start", "start"), ("End", "end"),
+                           ("Mode", "mode"), ("Frequency", "freq"),
+                           ("Max elevation", "max_el")):
+            val = act.get(key)
+            if not val or y >= y0 + h:
+                continue
+            _kv(win, y, x0, w, label, str(val))
+            y += 1
+        comment = (act.get("comment") or "").strip()
+        if comment and y + 1 < y0 + h:
+            y += 1
+            addstr(win, y, x0, "NOTES", cp(CLR_HEADER))
+            y += 1
+            line = ""
+            for word in comment.split():
+                if len(line) + 1 + len(word) > w - 1:
+                    addstr(win, y, x0, line)
+                    y += 1
+                    line = word
+                    if y >= y0 + h:
+                        break
+                else:
+                    line = (line + " " + word).strip()
+            if line and y < y0 + h:
+                addstr(win, y, x0, clip(line, w))
 
     def _draw_detail(self, win, y0, x0, h, w):
         """Mutual windows, then the DX Doppler table for the chosen one."""
@@ -201,6 +242,8 @@ class ActivationsScreen(Screen):
             info.get("grid", "?")), w), cp(CLR_TITLE))
         addstr(win, y0 + 1, x0, clip(self.status, w), cp(CLR_DIM))
         wins = info.get("windows") or []
+        if self.view == "notes":
+            return self._draw_notes(win, y0, x0, h, w)
         if self.view == "windows" or not wins:
             addstr(win, y0 + 3, x0, clip("%-20s %-10s %-9s %8s %8s" % (
                 "START", "END", "DURATION", "MY EL", "DX EL"), w),
@@ -226,24 +269,62 @@ class ActivationsScreen(Screen):
                 "No transponder data for %s \u2014 update the transponder "
                 "database." % getattr(sat, "name", "?"), w), cp(CLR_WARN))
             return
+        # Seed from the activation's own stated frequency, as the desktop
+        # detail view does: match it to a transponder LEG and hold the anchored
+        # dial there. These fixes were made desktop-side and never mirrored.
+        from orbitdeck.engine import activations as ACT
+        seed_idx, seed_leg, seed_hz = ACT.match_transponder(sat, act)
+        if seed_idx is not None and not self._tp_touched:
+            self.tp_sel = seed_idx
         tp = tps[self.tp_sel % len(tps)]
+        linear = False
+        try:
+            linear = bool(getattr(tp, "is_linear", False)) and \
+                tp.bandwidth() > 0
+        except Exception:
+            linear = False
+        if seed_leg and not self._mode_touched:
+            # A single-channel transponder has no passband to hold a dial in,
+            # so a "fixed" mode there would be theatre - stay in true rule.
+            if linear:
+                self.mode_sel = 1 if seed_leg == "downlink" else 2
+                self.anchor_sel = 2 if seed_leg == "downlink" else 3
+            else:
+                self.mode_sel = 0
         mode = [DXD.TRUE_RULE, DXD.FIXED_DL, DXD.FIXED_UL][self.mode_sel % 3]
         anchor = [DXD.ME_RX, DXD.ME_TX, DXD.DX_RX,
                   DXD.DX_TX][self.anchor_sel % 4]
         pb = 0
-        try:
-            if getattr(tp, "is_linear", False) and tp.bandwidth() > 0:
-                pb = int(tp.bandwidth() / 2)
-        except Exception:
-            pb = 0
+        seeded = False
+        if linear and seed_hz and mode in (DXD.FIXED_DL, DXD.FIXED_UL):
+            try:
+                pb = DXD.solve_pb_for_dial(wm["start"], sat,
+                                           self.state.store.obs, info["dx"],
+                                           tp, seed_hz, anchor, mode)
+                seeded = True
+            except Exception:
+                pb = 0
+        if not seeded:
+            try:
+                if linear:
+                    pb = int(tp.bandwidth() / 2)
+            except Exception:
+                pb = 0
         addstr(win, y0 + 2, x0, clip(
             "%s | %s | anchor %s  (m mode, n anchor, p transponder)" % (
-                (getattr(tp, "description", None) or "tp")[:26],
+                # the attribute is .desc - .description does not exist, which
+                # showed "tp" for every transponder
+                (getattr(tp, "desc", None) or getattr(tp, "name", None)
+                 or "transponder")[:24],
                 ["true rule", "fixed DL", "fixed UL"][self.mode_sel % 3],
                 ["me RX", "me TX", "DX RX", "DX TX"][self.anchor_sel % 4]), w),
             cp(CLR_ACCENT))
-        addstr(win, y0 + 3, x0, clip("%-10s %14s %14s %14s %14s" % (
-            "UTC", "MY RX", "MY TX", "DX RX", "DX TX"), w), cp(CLR_HEADER))
+        # Four dials plus a clock will not fit 80 columns at 14 wide each.
+        # MHz values need 8 significant chars ("437.8089"); the unit goes in
+        # the header instead of on every row.
+        addstr(win, y0 + 3, x0, clip("%-9s %11s %11s %11s %11s" % (
+            "UTC", "MY RX MHz", "MY TX MHz", "DX RX MHz", "DX TX MHz"), w),
+            cp(CLR_HEADER))
         try:
             rows = DXD.dx_doppler_table(wm["start"], wm["end"], sat,
                                         self.state.store.obs, info["dx"],
@@ -256,7 +337,7 @@ class ActivationsScreen(Screen):
             if y0 + 4 + i >= y0 + h:
                 break
             addstr(win, y0 + 4 + i, x0, clip(
-                "%-10s %10.4f MHz %10.4f MHz %10.4f MHz %10.4f MHz" % (
+                "%-9s %11.4f %11.4f %11.4f %11.4f" % (
                     fmt_clock(t), mrx / 1e6, mtx / 1e6, drx / 1e6,
                     dtx / 1e6), w))
 
@@ -319,12 +400,18 @@ class ActivationsScreen(Screen):
             wins = (self.detail[1].get("windows") or [])
             if ch == ord("m"):
                 self.mode_sel = (self.mode_sel + 1) % 3
+                self._mode_touched = True
                 return True
             if ch == ord("n"):
                 self.anchor_sel = (self.anchor_sel + 1) % 4
+                self._mode_touched = True
                 return True
             if ch == ord("p"):
                 self.tp_sel += 1
+                self._tp_touched = True
+                return True
+            if ch in (ord("i"), ord("N")):
+                self.view = "notes"
                 return True
             if ch == 27:
                 self.view = "list"
@@ -621,3 +708,121 @@ class PropagationScreen(Screen):
 
     def help_keys(self):
         return [("(rules of thumb from flux and Kp)", "")]
+
+
+class QrzScreen(Screen):
+    """QRZ callsign lookup — the desktop screen had no terminal counterpart.
+
+    Credentials come from Settings, so this needs no desktop install. The
+    session key is cached for the run: QRZ expires keys, and re-logging in on
+    every lookup would burn the account's query allowance.
+    """
+
+    title = "QRZ Lookup"
+    refresh_secs = 0.0
+
+    def __init__(self, app):
+        super().__init__(app)
+        self.editing = False
+        self.buf = ""
+        self.call = ""
+        self.result = None
+        self.status = "e enter a callsign"
+        self._key = ""
+
+    def _lookup(self, call):
+        from orbitdeck.gui import datafeeds as DF
+        from orbitdeck.netio import http_get
+        cfg = self.state.store.config
+        user = cfg.get("qrz_user", "")
+        pw = cfg.get("qrz_pass", "")
+        if not user or not pw:
+            self.status = "set QRZ credentials in Settings first"
+            return
+        self.status = "looking up %s\u2026" % call
+        try:
+            res, key, err = DF.qrz_lookup(
+                lambda url, timeout=15: http_get(url, timeout),
+                user, pw, call, session_key=self._key)
+        except Exception as exc:
+            self.result = None
+            self.status = "lookup failed: %s" % str(exc)[:60]
+            return
+        if key:
+            self._key = key
+        if err or not res:
+            self.result = None
+            self.status = err or "no QRZ record for %s" % call
+            return
+        self.result = res
+        self.call = call
+        self.status = "%s \u2014 %s" % (call, res.get("name_fmt")
+                                       or res.get("name") or "")
+
+    def draw(self, win, y0, x0, h, w):
+        addstr(win, y0, x0, "QRZ callsign lookup", cp(CLR_TITLE))
+        addstr(win, y0 + 1, x0, clip(
+            ("callsign: %s_" % self.buf) if self.editing else self.status, w),
+            cp(CLR_ACCENT) if self.editing else cp(CLR_DIM))
+        if not self.result:
+            return
+        r = self.result
+        y = y0 + 3
+        for label, key in (("Callsign", "call"), ("Name", "name_fmt"),
+                           ("Class", "class"), ("Grid", "grid"),
+                           ("Address", "addr"), ("State", "state"),
+                           ("ZIP", "zip"), ("Country", "country")):
+            val = r.get(key) or ""
+            if not val:
+                continue
+            if y >= y0 + h:
+                break
+            _kv(win, y, x0, w, label, str(val))
+            y += 1
+        grid = r.get("grid")
+        if grid and y + 1 < y0 + h:
+            # Distance and bearing from your station: the reason an operator
+            # looks a call up mid-pass.
+            try:
+                from orbitdeck.engine.muf import great_circle
+                from orbitdeck.engine.predict import grid_to_latlon
+                lat, lon = grid_to_latlon(grid)
+                o = self.state.store.obs
+                dist, brg = great_circle(o.lat, o.lon, lat, lon)
+                y += 1
+                _kv(win, y, x0, w, "From you",
+                    "%.0f km  bearing %03.0f\u00b0" % (dist, brg))
+            except Exception:
+                pass
+
+    def handle_key(self, ch):
+        if self.editing:
+            if ch in (ord("\n"), curses.KEY_ENTER):
+                cand = self.buf.strip().upper()
+                self.editing = False
+                if cand:
+                    self._lookup(cand)
+                return True
+            if ch == 27:
+                self.editing = False
+                return True
+            if ch in (curses.KEY_BACKSPACE, 127, 8):
+                self.buf = self.buf[:-1]
+                return True
+            if 32 <= ch < 127:
+                self.buf += chr(ch)
+                return True
+            return True
+        if ch in (ord("e"), ord("E")):
+            self.editing = True
+            self.buf = ""
+            return True
+        if ch == ord("r") and self.call:
+            self._lookup(self.call)
+            return True
+        return False
+
+    def help_keys(self):
+        if self.editing:
+            return [("ENTER", "look up"), ("ESC", "cancel")]
+        return [("e", "callsign"), ("r", "repeat")]

@@ -1,5 +1,73 @@
 # Changelog
 
+## [0.38.2]
+
+OrbitTerm parity and legibility.
+
+### Added
+- **QRZ lookup in OrbitTerm.** Callsign lookup using the credentials in
+  Settings, showing name, class, grid, address and country, plus distance and
+  bearing from your station. The session key is cached for the run rather than
+  re-logging in on every lookup.
+- **Activation notes and frequency seeding in OrbitTerm.** The detail view
+  gains a notes page (the activator's own comment) and now seeds the Doppler
+  table from the activation's stated frequency, matching it to a transponder
+  leg — the fixes made desktop-side in 0.38.0 that were never mirrored.
+- **CelesTrak search in OrbitTerm** (`s` on Satellites). Search the whole
+  CelesTrak catalog by name or NORAD number and add a result to your catalog.
+  Previously a satellite missing locally meant opening the desktop app.
+- **The Mutual Windows DX grid is editable** (`e`). It was fixed at FN31 with
+  no way to change it.
+
+### Changed
+- **The world map is no longer stretched.** An equirectangular projection needs
+  a 2:1 area; the map filled the pane instead, stretching every continent about
+  30% vertically. It now fits the widest 2:1 box and centres it — measured at
+  2.04:1 after the fix.
+- **Real coastlines.** The map drew the outline of a coarse land/sea rectangle
+  mask, which can only ever produce rectangles, and did. It now draws the same
+  bundled coastline vectors the desktop map uses — which is what braille is
+  good at.
+- **Dates that can span years now show the year.** Orbital History reported
+  "Sun 13 Dec" for a peak rate and for its axis endpoints on an archive running
+  from 2015 to 2026. `fmt_ymd` / `fmt_ymd_hm` are for anything not confined to
+  the next few days.
+- OrbitTerm no longer describes itself as a "companion" to the desktop app: it
+  ships standalone, in every package and as its own single-file download.
+- On the Satellites screen `/` is now labelled **filter** (it filters the local
+  list) and `s` is **CelesTrak** — labelling `/` "search" made two different
+  actions look like one.
+
+### Changed
+- **Palette legibility.** `CLR_DIM` was blue — the least legible colour on a
+  dark background, and by far the most-used pair (labels, units, help text).
+  It is now white dimmed with `A_DIM`. `CLR_HEADER` was the same yellow as
+  `CLR_WARN`, so a column heading and a warning looked identical; headers are
+  now white and bold. Both attributes travel with the colour pair, so they also
+  apply on a monochrome terminal.
+- **Red now means a problem, not a direction.** A receding satellite, an
+  eclipse and the negative half of a Doppler curve were all drawn in red as if
+  they were faults. Red is reserved for genuine warnings (imminent decay, the
+  now-marker); direction reads as green/accent.
+
+### Fixed
+- Text clipped flush at the pane edge had no ellipsis to warn you, so
+  "sat below horizon" read as the complete value "sat below horiz". Three such
+  strings shortened to fit.
+- **Sky Radar objects were plotted at twice the grid radius.** A marker at the
+  horizon belongs 4x`radius` dots from centre; the ring canvas was half that,
+  so anything below about 60 degrees was drawn outside the horizon ring
+  entirely. The globe and OSCARLOCATOR discs measured exactly 1.00:1 and were
+  already correct.
+- The terminal's Doppler table showed "tp" for every transponder (it read
+  `.description`, which does not exist; the attribute is `.desc`) and opened
+  mid-passband rather than on the stated frequency — the same two faults fixed
+  on the desktop in 0.38.0.
+- The Doppler table's four dial columns did not fit 80 columns; the unit moved
+  to the header.
+- Two tests compared live footprint counts that drift as the satellite moves,
+  so they were flaky by construction.
+
 ## [0.38.1]
 
 ### Added

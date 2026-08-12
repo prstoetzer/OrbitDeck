@@ -39,7 +39,12 @@ def test_workable_on_pass_engine():
 
 
 def test_tui_workable_prefix_filter():
-    """~1700 grids under a footprint is unusable without a filter (CardSat f/c)."""
+    """~1700 grids under a footprint is unusable without a filter (CardSat f/c).
+
+    Asserted as PROPERTIES rather than counts: the satellite moves between
+    calls, so any two live snapshots differ and a prefix taken from one may not
+    exist in the next. Counting made this flaky by construction.
+    """
     import os
     os.environ["ORBITDECK_TEST"] = "1"
     from orbitterm.state import AppState
@@ -49,22 +54,27 @@ def test_tui_workable_prefix_filter():
         def __init__(self, st):
             self.state = st
     st = AppState()
-    # pin the site: another test may have moved the QTH, which changes which
-    # grids are under the footprint and so which prefix exists
     st.set_site(39.93, -74.89, 20.0)
     s = WorkableScreen(_App(st))
-    every = s._items()
-    assert every
-    pre = every[0][:2]
-    s.filter = pre
-    sub = s._items()
-    assert sub and set(sub) <= set(every)
-    assert all(i.upper().startswith(pre.upper()) for i in sub)
+
+    # nothing matches this, whatever is underfoot
     s.filter = "ZZZZ"
     assert s._items() == []
-    # 'c' clears
+
+    # a real prefix returns only matching items - checked against the same
+    # call that produced the result, never across two snapshots
+    s.filter = ""
+    every = s._items()
+    assert every
+    s.filter = every[0][:2]
+    for item in s._items():
+        assert item.upper().startswith(s.filter.upper())
+
+    # 'c' clears the filter and the unfiltered list is non-empty again
     s.handle_key(ord("c"))
-    assert s.filter == "" and len(s._items()) == len(every)
+    assert s.filter == ""
+    assert s._items()
+
 
 
 def test_tui_workable_filter_editing_keys():

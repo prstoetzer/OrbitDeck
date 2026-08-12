@@ -378,36 +378,38 @@ class GroundTrackScreen(Screen):
         # instead of one shaded block - roughly 8x the map detail in the same
         # space. Land is sampled per dot rather than per cell.
         from ..canvas import Canvas, blit
-        cv = Canvas(mw, mh)
+        # An equirectangular map needs a 2:1 area (360 deg of longitude against
+        # 180 of latitude). Braille dots are square - 2 per cell across, 4 down,
+        # against a roughly 1:2 cell - but the PANE is not 2:1, so filling it
+        # stretched every continent about 30% vertically. Fit the widest 2:1
+        # box that fits and centre it instead.
+        _dw, _dh = mw * 2, mh * 4
+        if _dw < 2 * _dh:
+            _dh = _dw // 2
+        else:
+            _dw = _dh * 2
+        cv = Canvas(max(1, _dw // 2), max(1, _dh // 4))
+        _pad_y = max(0, (mh - cv.height // 4) // 2)
 
         def to_px(lat, lon):
             px = (lon + 180) / 360.0 * (cv.width - 1)
             py = (90 - lat) / 180.0 * (cv.height - 1)
             return px, py
 
-        # Coastline OUTLINE, not filled land. Braille is line art: filling an
-        # area sets every dot in the cell, which renders as a solid block and
-        # buries the ground track and footprint underneath it. Plotting only the
-        # land/sea boundary keeps the map readable and is what the extra
-        # resolution is actually good for.
-        land = [[_is_land(90 - (dy + 0.5) / cv.height * 180,
-                          -180 + (dx + 0.5) / cv.width * 360)
-                 for dx in range(cv.width)] for dy in range(cv.height)]
-        for dy in range(cv.height):
-            for dx in range(cv.width):
-                if not land[dy][dx]:
-                    continue
-                edge = False
-                for ndx, ndy in ((1, 0), (-1, 0), (0, 1), (0, -1)):
-                    nx, ny = dx + ndx, dy + ndy
-                    if not (0 <= nx < cv.width and 0 <= ny < cv.height):
-                        edge = True
-                        break
-                    if not land[ny][nx]:
-                        edge = True
-                        break
-                if edge:
-                    cv.plot(dx, dy, cp(CLR_DIM))
+        # Draw the bundled coastline POLYLINES, the same vector data the
+        # desktop map uses. The previous version outlined a coarse land/sea
+        # rectangle mask, which necessarily produced boxes rather than
+        # coastlines - outlining a grid of rectangles can only ever give you
+        # rectangles. Braille is line art, and a polyline is exactly that.
+        from orbitdeck.data.worldmap_data import COASTLINES
+        for poly in COASTLINES:
+            prev = None
+            for lon, lat in poly:
+                pt = to_px(lat, lon)
+                if prev is not None and abs(pt[0] - prev[0]) < cv.width * 0.5:
+                    cv.line(prev[0], prev[1], pt[0], pt[1], cp(CLR_DIM))
+                prev = pt
+
         # equator and prime meridian
         eq_y = int((90 - 0) / 180.0 * (cv.height - 1))
         for dx in range(0, cv.width, 2):
@@ -451,19 +453,23 @@ class GroundTrackScreen(Screen):
             for ddy in (-1, 0, 1):
                 cv.plot(sx + ddx, sy + ddy, cp(CLR_OK))
 
-        blit(win, cv, my0, x0)
+        blit(win, cv, my0 + _pad_y, x0)
 
         # Sat and observer stay as text glyphs on top of the braille map: they
         # are labels you need to pick out at a glance, not line art, and a
         # character cell can hold either braille or a marker, not both.
         def to_cell(lat, lon):
-            rx = int((lon + 180) / 360.0 * (mw - 1))
-            ry = int((90 - lat) / 180.0 * (mh - 1))
-            return max(0, min(mw - 1, rx)), max(0, min(mh - 1, ry))
+            # Same 2:1 box the map was drawn into, or the markers land off it.
+            cols = cv.width // 2
+            rows = cv.height // 4
+            rx = int((lon + 180) / 360.0 * (cols - 1))
+            ry = int((90 - lat) / 180.0 * (rows - 1)) + _pad_y
+            return (max(0, min(cols - 1, rx)),
+                    max(0, min(mh - 1, ry)))
 
         rx, ry = to_cell(L.sub_lat, L.sub_lon)
         addstr(win, my0 + ry, x0 + rx, "\u25c9",
-               cp(CLR_OK) | _bold() if L.sunlit else cp(CLR_BAD) | _bold())
+               cp(CLR_OK) | _bold() if L.sunlit else cp(CLR_DIM) | _bold())
         orx, ory = to_cell(st.obs.lat, st.obs.lon)
         addstr(win, my0 + ory, x0 + orx, "\u25b2", cp(CLR_ACCENT) | _bold())
 

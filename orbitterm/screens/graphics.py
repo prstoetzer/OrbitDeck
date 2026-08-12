@@ -19,7 +19,7 @@ import time
 from ..ui import Screen, addstr, cp, clip
 from ..ui import (CLR_TITLE, CLR_HEADER, CLR_DIM, CLR_OK, CLR_WARN,
                   CLR_ACCENT, CLR_ROW_SEL)
-from ..fmt import fmt_clock
+from ..fmt import fmt_clock, fmt_ymd
 from ..canvas import Canvas, blit, scale
 
 from orbitdeck.engine.predict import Predictor
@@ -423,8 +423,10 @@ class OrbitHistoryScreen(Screen):
                cp(CLR_DIM))
         if y0 + 3 + rows < y0 + h:
             addstr(win, y0 + 3 + rows, x0 + 9,
-                   clip("%s   ...   %s" % (fmt_clock(tmin, True),
-                                           fmt_clock(tmax, True)), w - 9),
+                   # The archive can span a decade, so the axis endpoints need
+                   # the year - "Sun 13 Dec" alone does not say which one.
+                   clip("%s   ...   %s" % (fmt_ymd(tmin), fmt_ymd(tmax)),
+                        w - 9),
                    cp(CLR_DIM))
 
     def _draw_analysis(self, win, y0, x0, h, w, col, label, unit):
@@ -443,7 +445,7 @@ class OrbitHistoryScreen(Screen):
                 ("Acceleration", "%.4g %s/yr" % (a["accel_per_year"], per)),
                 ("Median |rate|", "%.4g %s" % (a["median_abs"], per)),
                 ("Peak |rate|", "%.4g %s on %s" % (
-                    a["peak_rate"], per, fmt_clock(a["peak_time"], True)[:10])),
+                    a["peak_rate"], per, fmt_ymd(a["peak_time"]))),
                 ("Jumps (>5x med)", "%d" % a["n_jumps"]),
                 ("Intervals", "%d" % a["n"])]
         y = y0 + 3
@@ -462,7 +464,7 @@ class OrbitHistoryScreen(Screen):
                 if y >= y0 + h:
                     break
                 addstr(win, y, x0, clip("  %s   %+.4g %s" % (
-                    fmt_clock(t, True)[:10], r, per), w), cp(CLR_WARN))
+                    fmt_ymd(t), r, per), w), cp(CLR_WARN))
                 y += 1
 
     def _draw_table(self, win, y0, x0, h, w, col, label, unit):

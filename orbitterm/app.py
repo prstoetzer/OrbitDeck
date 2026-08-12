@@ -30,7 +30,8 @@ from .screens.analysis3 import (MutualScreen, TransitsScreen,
                                 SpaceWxScreen, SitesScreen)
 from .screens.analysis4 import (PlanningScreen, ActivationsScreen,
                                 AmsatStatusScreen, CelestialScreen,
-                                ExportsScreen, PropagationScreen)
+                                ExportsScreen, PropagationScreen,
+                                QrzScreen)
 from .screens.graphics import (SkyGlanceScreen, GraphCalcScreen,
                                SkyMapScreen, OrbitHistoryScreen)
 from .screens.globe import GlobeScreen
@@ -71,6 +72,7 @@ NAV = [
     ("spacewx", SpaceWxScreen),
     ("celestial", CelestialScreen),
     ("activations", ActivationsScreen),
+    ("qrz", QrzScreen),
     ("amsatstatus", AmsatStatusScreen),
     ("sites", SitesScreen),
     ("exports", ExportsScreen),

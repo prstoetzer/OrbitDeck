@@ -39,6 +39,8 @@ class MutualScreen(Screen):
         super().__init__(app)
         self.grid = "FN31"
         self.windows = []
+        self.editing = False
+        self.buf = ""
         self.list = ScrollList()
         self.status = "press g to scan"
 
@@ -64,7 +66,9 @@ class MutualScreen(Screen):
     def draw(self, win, y0, x0, h, w):
         sat = self.state.sat
         addstr(win, y0, x0, clip("%s \u2194 %s" % (
-            sat.name if sat else "-", self.grid), w), cp(CLR_TITLE))
+            sat.name if sat else "-",
+            ("%s_" % self.buf) if self.editing else self.grid), w),
+            cp(CLR_ACCENT) if self.editing else cp(CLR_TITLE))
         addstr(win, y0 + 1, x0, self.status, cp(CLR_DIM))
         addstr(win, y0 + 3, x0, clip("%-20s %-10s %8s %8s" % (
             "START", "DURATION", "MY EL", "DX EL"), w), cp(CLR_HEADER))
@@ -84,6 +88,30 @@ class MutualScreen(Screen):
                 getattr(mw, "dx_max_el", 0.0)), w), attr)
 
     def handle_key(self, ch):
+        # 'e' edits a value here as it does on EME, Orbital History and Tools.
+        # The DX grid was fixed at FN31 with no way to change it.
+        if self.editing:
+            if ch in (ord("\n"), curses.KEY_ENTER):
+                cand = self.buf.strip().upper()
+                from orbitdeck.engine.activations import valid_grid
+                if valid_grid(cand):
+                    self.grid = cand
+                    self.windows = []
+                    self.status = "grid %s \u2014 press g to scan" % cand
+                else:
+                    self.status = "%s is not a Maidenhead locator" % cand
+                self.editing = False
+            elif ch == 27:
+                self.editing = False
+            elif ch in (curses.KEY_BACKSPACE, 127, 8):
+                self.buf = self.buf[:-1]
+            elif 32 <= ch < 127:
+                self.buf += chr(ch)
+            return True
+        if ch in (ord("e"), ord("E")):
+            self.editing = True
+            self.buf = ""
+            return True
         if ch == ord("g"):
             self._scan()
             return True
@@ -96,7 +124,10 @@ class MutualScreen(Screen):
         return False
 
     def help_keys(self):
-        return [("g", "scan"), ("up/dn", "scroll")]
+        if self.editing:
+            return [("ENTER", "apply grid"), ("ESC", "cancel")]
+        return [("e", "DX grid"), ("g", "scan"), ("up/dn", "scroll")]
+
 
 
 class TransitsScreen(Screen):

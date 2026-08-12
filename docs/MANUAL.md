@@ -1051,7 +1051,8 @@ Deleting that directory resets OrbitDeck to a first-run state.
 
 ## 8. OrbitTerm — the terminal UI
 
-**OrbitTerm** is a companion application that brings the core of OrbitDeck to a
+**OrbitTerm** is a standalone terminal application that brings the core of
+OrbitDeck to a
 plain terminal. It is built for **headless boxes and SSH sessions** — a Raspberry
 Pi at the antenna, a remote shack PC, a server with no display — where the
 windowed GUI can't run. It uses only the Python standard library (`curses`), so

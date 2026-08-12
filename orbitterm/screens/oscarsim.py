@@ -208,7 +208,8 @@ class OscarSimScreen(Screen):
             ly += 1
         ly += 1
         if self.live:
-            addstr(win, ly, lx, "following the real orbit", cp(CLR_OK))
+            addstr(win, ly, lx, clip("follows the real orbit",
+                                     max(1, x0 + w - lx)), cp(CLR_OK))
         else:
             addstr(win, ly, lx, "left/right rotate EQX", cp(CLR_DIM))
             ly += 1

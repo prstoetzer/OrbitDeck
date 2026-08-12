@@ -3,7 +3,7 @@
 import time
 
 from ..ui import Screen, addstr, cp, clip, ljust
-from ..ui import (CLR_TITLE, CLR_HEADER, CLR_OK, CLR_WARN, CLR_BAD, CLR_DIM,
+from ..ui import (CLR_TITLE, CLR_HEADER, CLR_OK, CLR_WARN, CLR_DIM,
                   CLR_ACCENT, CLR_VIS)
 from .. import fmt
 
@@ -17,7 +17,7 @@ class HomeScreen(Screen):
         sat = st.sat
         now = time.time()
         addstr(win, y0, x0, "OrbitTerm", cp(CLR_TITLE) | _bold())
-        addstr(win, y0, x0 + 11, "\u2014 terminal companion to OrbitDeck",
+        addstr(win, y0, x0 + 11, "\u2014 satellite tracking in your terminal",
                cp(CLR_DIM))
         y = y0 + 2
         # station
@@ -181,7 +181,8 @@ class TrackScreen(Screen):
             cp(CLR_OK) if L.visible else cp(CLR_DIM))
         row("Range", "%.0f km" % L.range_km)
         row("Range rate", fmt.fmt_rate(L.range_rate),
-            cp(CLR_BAD) if L.range_rate > 0 else cp(CLR_OK))
+            # receding is not a fault - green approaching, plain receding
+            cp(CLR_OK) if L.range_rate < 0 else 0)
         row("Sub-point", fmt.fmt_latlon(L.sub_lat, L.sub_lon))
         row("Altitude", "%.0f km" % L.alt_km)
         row("Sunlit", "yes" if L.sunlit else "no (eclipse)",
@@ -197,12 +198,15 @@ class TrackScreen(Screen):
         vis_chance = L.visible and L.sunlit and L.sun_el < -6.0
         addstr(win, y, col2, "Visible?", cp(CLR_HEADER) | _bold())
         if vis_chance:
-            addstr(win, y, col2 + 11, "YES \u2014 naked-eye possible",
+            addstr(win, y, col2 + 11, clip("YES \u2014 naked eye",
+                                           max(1, w - (col2 - x0) - 11)),
                    cp(CLR_OK) | _bold())
         else:
-            why = "sat in shadow" if not L.sunlit else (
-                "sat below horizon" if not L.visible else "sky too bright")
-            addstr(win, y, col2 + 11, why, cp(CLR_DIM))
+            # These were clipped mid-word at 80 columns ("sat below horiz").
+            why = "in shadow" if not L.sunlit else (
+                "below horizon" if not L.visible else "sky too bright")
+            addstr(win, y, col2 + 11,
+                   clip(why, max(1, w - (col2 - x0) - 11)), cp(CLR_DIM))
         y += 2
 
         # current pass progress, or next pass

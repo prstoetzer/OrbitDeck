@@ -307,14 +307,62 @@ def test_retrofitted_screens_still_draw():
 
 
 # ---- ground track / illumination retrofits ----
-def test_groundtrack_draws_coastline_outline_not_fill():
-    """Braille suits line art: filling land sets every dot and buries the
-    track, so the map must plot only the land/sea boundary."""
+def test_groundtrack_draws_real_coastline_polylines_at_2to1():
+    """Braille suits line art, so the map draws the bundled coastline VECTORS.
+
+    Outlining a coarse land/sea rectangle mask - the previous approach - can
+    only ever produce rectangles, and it did. And an equirectangular map needs
+    a 2:1 area; filling the pane stretched every continent about 30%.
+    """
     import inspect
     from orbitterm.screens import analysis_screens
     src = inspect.getsource(analysis_screens.GroundTrackScreen.draw)
     assert "Canvas" in src and "blit" in src
-    assert "edge" in src           # boundary detection, not a filled raster
+    assert "COASTLINES" in src          # real vectors, not a mask outline
+    assert "_dw" in src and "_dh" in src  # the 2:1 fit
+
+
+def test_groundtrack_map_is_not_stretched():
+    """Measure the rendered map: it must come out about 2:1 in real terms,
+    remembering a terminal cell is roughly twice as tall as it is wide."""
+    import os
+    import curses
+    import pytest as _pt
+    if not os.environ.get("TERM"):
+        _pt.skip("no TERM")
+
+    def body(scr):
+        import orbitterm.app as A
+        import orbitterm.ui as U
+        U.init_colors()
+        app = A.App(scr)
+        app.goto("groundtrack")
+        s = app.screens["groundtrack"]
+        try:
+            s.on_enter()
+        except Exception:
+            pass
+        scr.erase()
+        app._draw()
+        scr.refresh()
+        h, _w = scr.getmaxyx()
+        return [scr.instr(y, 0).decode("utf-8", "replace")[19:]
+                for y in range(h)]
+
+    try:
+        rows = curses.wrapper(body)
+    except Exception:
+        _pt.skip("curses unavailable")
+    pts = [(y, x) for y, ln in enumerate(rows) for x, ch in enumerate(ln)
+           if "\u2800" <= ch <= "\u28ff"]
+    if not pts:
+        _pt.skip("nothing rendered")
+    ys = [p[0] for p in pts]
+    xs = [p[1] for p in pts]
+    cells = max(xs) - min(xs) + 1
+    lines = max(ys) - min(ys) + 1
+    aspect = cells / (lines * 2.0)      # cells are ~1:2
+    assert 1.6 < aspect < 2.4, "map aspect %.2f is not ~2:1" % aspect
 
 
 def test_illumination_uses_canvas():
@@ -427,3 +475,79 @@ def test_oscarsim_draws_in_curses():
         assert curses.wrapper(body) is True
     except Exception:
         _pt.skip("curses unavailable")
+
+
+def test_radar_grid_matches_where_objects_are_plotted():
+    """The rings are meaningless if objects do not land on them.
+
+    A marker at the horizon sits at +/-2*radius cells and +/-radius rows, i.e.
+    4*radius dots either way (2 dots per cell across, 4 per row down). The grid
+    canvas was half that, so anything below about 60 degrees fell outside the
+    drawn horizon ring.
+    """
+    import inspect
+    from orbitterm.screens import catalog
+    src = inspect.getsource(catalog.RadarScreen._draw_grid)
+    assert "radius * 4 + 1" in src
+    assert "radius * 2 + 1" in src
+    # the maths, independently of the source
+    for radius in (6, 8, 12):
+        marker_dots = radius * 4          # horizon marker, in dots
+        cols, rows = radius * 4 + 1, radius * 2 + 1
+        ccx, ccy = (cols * 2) // 2, (rows * 4) // 2
+        grid_dots = min(ccx, ccy) - 1
+        assert abs(grid_dots - marker_dots) <= 2, (radius, grid_dots,
+                                                   marker_dots)
+
+
+def test_polar_and_globe_displays_are_round():
+    """Braille dots are square (2 across, 4 down against a ~1:2 cell), so a
+    disc must come out 1:1 in real terms."""
+    import os
+    import curses
+    import pytest as _pt
+    if not os.environ.get("TERM"):
+        _pt.skip("no TERM")
+
+    def body(scr):
+        import orbitterm.app as A
+        import orbitterm.ui as U
+        U.init_colors()
+        app = A.App(scr)
+        h, _w = scr.getmaxyx()
+        out = {}
+        for key in ("globe", "oscarsim"):
+            app.goto(key)
+            s = app.screens[key]
+            try:
+                s.on_enter()
+            except Exception:
+                pass
+            scr.erase()
+            app._draw()
+            scr.refresh()
+            out[key] = [scr.instr(y, 0).decode("utf-8", "replace")[19:]
+                        for y in range(h)]
+        return out
+
+    try:
+        shots = curses.wrapper(body)
+    except Exception:
+        _pt.skip("curses unavailable")
+    for key, rows in shots.items():
+        pts = [(y, x) for y, ln in enumerate(rows)
+               for x, ch in enumerate(ln) if "\u2800" <= ch <= "\u28ff"]
+        if not pts:
+            continue
+        w = max(p[1] for p in pts) - min(p[1] for p in pts) + 1
+        hgt = max(p[0] for p in pts) - min(p[0] for p in pts) + 1
+        aspect = w / (hgt * 2.0)
+        assert 0.8 < aspect < 1.25, "%s aspect %.2f" % (key, aspect)
+
+
+def test_orbitterm_is_not_branded_as_a_companion():
+    """It ships standalone now."""
+    import pathlib
+    for f in ("orbitterm/__init__.py", "orbitterm/README.md",
+              "orbitterm/screens/live.py"):
+        assert "companion" not in pathlib.Path(f).read_text().lower(), f

@@ -1732,3 +1732,125 @@ exactly the state 0.38.0 shipped in.
 *existing* changelog entries in the RPM spec and `debian/changelog`, so 0.38.0's
 history briefly claimed to be 0.38.1. Repaired, and worth remembering that a
 global version replace is not safe in files that carry version history.
+
+## 0.38.2 — OrbitTerm audit
+
+**Settable values.** Audited every screen's `__init__` for literals never
+reassigned anywhere else. Two were genuinely stuck: the **Mutual Windows DX
+grid** (fixed at FN31) and the Planning target. The grid is now editable with
+`e`, matching EME, Orbital History and Tools; a malformed locator is rejected
+and the previous grid kept. Conjunctions' "other object" looked fixed but is
+already cyclable.
+
+**CelesTrak search.** OrbitTerm could not add a satellite missing from the local
+catalog, so you had to open the desktop app for it. `s` on the Satellites screen
+now searches CelesTrak by name or NORAD, lists the hits, and adds the selected
+one — re-checking by NORAD first so an object already held under another name is
+starred rather than duplicated.
+
+A subtlety worth recording: the search block had to go at the **top** of
+`handle_key`. Placed after the navigation keys, `j`/`k` and ENTER were consumed
+by list movement while typing, so the field never saw them.
+
+**Graphical distortion — measured, not guessed.** Braille dots are square (2
+across, 4 down, against a roughly 1:2 cell), and the radar measured **0.94:1**,
+so circles were already round. The real fault was the world map: an
+equirectangular projection needs a **2:1** area and the map filled the pane
+instead, stretching continents about **30% vertically**. Fitting the widest 2:1
+box gives **2.04:1**.
+
+The second fault was worse and mine: the map outlined a coarse land/sea
+**rectangle mask**, and outlining a grid of rectangles can only produce
+rectangles. It now draws the bundled coastline **vectors** the desktop map uses,
+which is what braille is actually for. The result is a recognisable world map.
+
+**Truncation audit.** Swept every screen and page at 80x24 for clipped lines and
+for dates without a year. The important find is the one reported: Orbital
+History showed `Sun 13 Dec` for its peak-rate date and axis endpoints, on an
+archive spanning **2015 to 2026** — genuinely ambiguous. `fmt_clock(...)[:10]`
+was slicing the year off. New `fmt_ymd` / `fmt_ymd_hm` are for any value not
+confined to the next few days; `fmt_date` keeps its short form for pass tables,
+where the year is never in doubt.
+
+**Interface consistency.** `e` edits a value, `f` filters, `g` scans, `s`
+searches remotely, `p` pages, ESC cancels. The Satellites screen labelled `/`
+as "search" when it filters the local list, which made two different actions
+look like one; it now reads "filter", with `s` for CelesTrak.
+
+### Both closed
+
+**QRZ** now has an OrbitTerm screen: lookup from Settings credentials, showing
+name, class, grid, address and country, plus distance and bearing from your
+station - the reason to look a call up mid-pass. The session key is cached for
+the run; re-logging in per lookup would burn the account's query allowance.
+
+**Activation detail** is mirrored. The terminal had windows and a Doppler table
+but carried both faults the desktop had fixed in 0.38.0: it read
+`.description` (which does not exist - the attribute is `.desc`) so every
+transponder read "tp", and it opened mid-passband instead of the stated
+frequency. Both fixed, including the single-channel case, where a "fixed" mode
+is meaningless and true rule is the honest reading. A notes page shows the
+activator's own comment. Sky-track polars remain desktop-only - two side-by-side
+polar plots do not fit a terminal usefully.
+
+Two layout faults surfaced while rendering it: the notes page wrote a second
+header over the one already drawn ("Activation detailFN31"), and the four dial
+columns did not fit 80 columns - the unit moved to the header.
+
+
+## Polar plot geometry, measured
+
+Asked to double-check the polar displays, the earlier measurement had only
+covered the radar's ring **grid** (0.94:1, round) and never asked whether the
+plotted **objects** landed on it. They did not.
+
+A marker at the horizon is drawn at `+/-2*radius` cells and `+/-radius` rows -
+`4*radius` dots either way, since a braille cell is 2 dots across and 4 down.
+The ring canvas was sized `radius*2+1` by `radius+1`, giving a circle of about
+`2*radius` dots: exactly **half**. Everything below roughly 60 degrees elevation
+was plotted outside the drawn horizon ring, which makes the rings worse than
+useless - they actively mislead about elevation.
+
+Measured before: grid spanned columns 11-27 while markers ran 2-49. After
+resizing the canvas to `radius*4+1` by `radius*2+1`, the ring is round at
+0.97:1 and objects sit inside it.
+
+The globe and OSCARLOCATOR both use `cols = rows*2`, which is the correct
+relationship for square dots, and measured **exactly 1.00:1**. They draw their
+grid and their objects on the same canvas in dot space, so the two cannot
+disagree - which is the structural reason the radar was the only one wrong: it
+was the only display drawing its grid on the canvas and its objects in
+character cells.
+
+## Legibility pass
+
+Rendered every screen and page and read them, rather than checking for
+exceptions.
+
+**Palette.** Three faults, all in `ui.py`:
+
+- `CLR_DIM` was **blue**. On a dark background that is the least legible colour
+  in most terminal palettes, and it is by far the most-used pair - 166 call
+  sites covering labels, units and help text. Now white with `A_DIM`.
+- `CLR_HEADER` was the **same yellow as `CLR_WARN`**, so a column heading and a
+  warning were indistinguishable. Headers are now white and bold.
+- Both attributes now travel with the pair through `cp()`, so structure still
+  reads on a terminal without colour instead of collapsing to flat text.
+
+**Colour semantics.** Red was being used for *direction*: a receding satellite,
+an eclipse, and the negative half of a Doppler curve all rendered as faults. If
+red means "normal thing happening", it stops meaning "look at this". Red is now
+reserved for genuine warnings - imminent decay, the now-marker - and direction
+reads as green versus accent.
+
+**Edge clipping.** Text cut flush at the pane edge carries no ellipsis, so a
+truncated value reads as a complete one: "sat below horizon" appeared as
+"sat below horiz", and the Radio screen's note as "...for current geomet".
+Three strings shortened to fit. A test now walks every screen and fails on text
+that ends flush at the pane edge in lower case, which is the signature of a
+mid-word cut.
+
+**A test of mine that was flaky by construction.** The workable-filter test
+compared two live snapshots of what is under the footprint - which moves between
+calls - so a prefix taken from one might not exist in the next. Rewritten to
+assert properties within a single snapshot.

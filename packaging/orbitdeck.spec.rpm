@@ -69,6 +69,10 @@ install -Dm644 packaging/io.github.prstoetzer.OrbitDeck.metainfo.xml \
 %{_metainfodir}/io.github.prstoetzer.OrbitDeck.metainfo.xml
 
 %changelog
+* Wed Aug 12 2026 Paul Stoetzer, N8HM - 0.38.2-1
+- OrbitTerm: CelesTrak search and editable Mutual Windows DX grid
+- Correct map proportions and real coastlines; years on long-span dates
+
 * Wed Aug 12 2026 Paul Stoetzer, N8HM - 0.38.1-1
 - Desktop bundles now ship an OrbitTerm binary beside OrbitDeck
 - Standalone single-file OrbitTerm builds for Windows, macOS (arm64 and x86_64),

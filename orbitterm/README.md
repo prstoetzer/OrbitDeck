@@ -1,6 +1,6 @@
 # OrbitTerm
 
-A terminal (curses) companion to **OrbitDeck** for amateur-radio satellite
+A terminal (curses) application for amateur-radio satellite
 operating. OrbitTerm runs in any terminal — including over SSH on a headless
 Raspberry Pi or a remote shack PC — and reuses the exact OrbitDeck engine
 (vendored SGP4/SDP4 propagator, pass prediction, Doppler, orbital analysis) plus

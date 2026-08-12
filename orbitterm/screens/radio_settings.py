@@ -3,7 +3,7 @@
 import time
 
 from ..ui import Screen, addstr, hline, cp, ljust, clip
-from ..ui import (CLR_TITLE, CLR_HEADER, CLR_OK, CLR_WARN, CLR_BAD, CLR_DIM,
+from ..ui import (CLR_TITLE, CLR_HEADER, CLR_OK, CLR_WARN, CLR_DIM,
                   CLR_ACCENT, CLR_ROW_SEL)
 from .. import fmt
 from orbitdeck.engine.dxdoppler import doppler_dials
@@ -139,7 +139,7 @@ class RadioScreen(Screen):
         # live geometry context
         addstr(win, y, x0, "Range rate", cp(CLR_HEADER))
         addstr(win, y, x0 + 14, fmt.fmt_rate(rr),
-               cp(CLR_BAD) if rr > 0 else cp(CLR_OK))
+               cp(CLR_OK) if rr < 0 else 0)
         addstr(win, y, x0 + 32, "(receding)" if rr > 0 else "(approaching)",
                cp(CLR_DIM))
         y += 1
@@ -148,8 +148,10 @@ class RadioScreen(Screen):
             addstr(win, y, x0 + 14, "az %s  el %s" % (
                 fmt.fmt_az(L.az), fmt.fmt_el(L.el)), cp(CLR_OK))
         else:
-            addstr(win, y, x0 + 14, "below horizon \u2014 dials shown for "
-                   "current geometry", cp(CLR_DIM))
+            # Was clipped mid-word at 80 columns ("...for current geomet").
+            addstr(win, y, x0 + 14, clip(
+                "below horizon \u2014 dials for current geometry",
+                max(1, w - 14)), cp(CLR_DIM))
         y += 2
 
         # mini Doppler curve across the next pass (downlink shift)
@@ -186,7 +188,9 @@ class RadioScreen(Screen):
             frac = s / smax
             row = mid - int(round(frac * (gh // 2 - 1)))
             row = max(gy0, min(gy0 + gh - 1, row))
-            attr = cp(CLR_BAD) if s < 0 else cp(CLR_OK)
+            # The two halves of a Doppler curve are directions, not a fault
+            # and a success: green above the zero line, accent below.
+            attr = cp(CLR_ACCENT) if s < 0 else cp(CLR_OK)
             addstr(win, row, x0 + 8 + i, "\u2588", attr)
 
     def help_keys(self):

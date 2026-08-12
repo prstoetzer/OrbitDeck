@@ -1,3 +1,11 @@
+orbitdeck (0.38.2-1) unstable; urgency=medium
+
+  * OrbitTerm: CelesTrak search, editable Mutual Windows DX grid, correct
+    equirectangular map proportions with real coastlines, and years on dates
+    that can span them.
+
+ -- Paul Stoetzer, N8HM <n8hm@arrl.net>  Wed, 12 Aug 2026 03:00:00 +0000
+
 orbitdeck (0.38.1-1) unstable; urgency=medium
 
   * The desktop (PyInstaller) bundles now ship an OrbitTerm binary beside
