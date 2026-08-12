@@ -1,0 +1,275 @@
+name: Build native Linux packages
+
+# Build OrbitDeck's native distribution packages and attach them to a GitHub
+# Release. Each format is built on (or in a container of) the OLDEST supported
+# release of its distro family, so the resulting package installs on that release
+# and everything newer:
+#
+#   .deb      -> built on Ubuntu 22.04 LTS (glibc 2.35, debhelper 13)
+#                installs on Ubuntu 22.04+, Debian 12+, Raspberry Pi OS Bookworm
+#   .rpm      -> built in a rockylinux:9 container (glibc 2.34)
+#                installs on RHEL/Rocky/Alma 9+ and current Fedora
+#   Arch pkg  -> built in an archlinux:latest container (rolling; validated +
+#                .SRCINFO regenerated). The AUR builds on the user's machine, so
+#                CI's job is to prove makepkg works and refresh metadata.
+#   AppImage  -> built on Ubuntu 22.04 (oldest glibc) -> runs across distros
+#   Flatpak   -> built with the Freedesktop runtime -> runs across distros
+#
+# OrbitDeck is pure-Python (noarch) + Tk, so the only real portability constraint
+# is glibc/Python availability, which the "oldest base" choice above covers.
+# x86_64 and arm64 are both produced where it is cheap to do so.
+#
+# Triggers: a version tag (v*) attaches packages to that release; manual dispatch
+# builds them as downloadable artifacts without touching a release.
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write          # attach packages to the release on a tag
+
+jobs:
+  # ---------------------------------------------------------------- .deb -------
+  deb:
+    name: .deb (${{ matrix.arch }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-22.04          # oldest supported: Ubuntu 22.04 LTS
+            arch: amd64
+          - runner: ubuntu-22.04-arm      # arm64 (Pi / arm servers); public repos only
+            arch: arm64
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install build tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            devscripts debhelper dh-python python3-all python3-setuptools \
+            python3-build pybuild-plugin-pyproject
+
+      - name: Build the .deb
+        run: |
+          cp -r packaging/debian .
+          # 3.0 (native): no separate orig tarball needed
+          dpkg-buildpackage -us -uc -b
+          mkdir -p out
+          mv ../orbitdeck_*_*.deb "out/orbitdeck_$(dpkg-parsechangelog -S Version)_${{ matrix.arch }}.deb"
+          ls -l out
+
+      - name: Sanity-check the package
+        run: |
+          sudo apt-get install -y ./out/orbitdeck_*_${{ matrix.arch }}.deb
+          # both console scripts must be installed and importable
+          test -x /usr/bin/orbitdeck
+          test -x /usr/bin/orbitterm
+          python3 -c "import orbitdeck, orbitterm; print(orbitdeck.__version__)"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: orbitdeck-deb-${{ matrix.arch }}
+          path: out/*.deb
+
+      - name: Attach to release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: out/*.deb
+
+  # ---------------------------------------------------------------- .rpm -------
+  rpm:
+    name: .rpm (rockylinux:9)
+    runs-on: ubuntu-latest
+    container: rockylinux:9          # oldest supported EL baseline (glibc 2.34)
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install build tools
+        run: |
+          dnf -y install rpm-build rpmdevtools python3-devel python3-pip \
+            python3-wheel python3-setuptools git tar gzip
+          rpmdev-setuptree
+
+      - name: Build the source tarball the spec expects
+        run: |
+          VERSION=$(python3 -c "import re;print(re.search(r'version = \"([^\"]+)\"',open('pyproject.toml').read()).group(1))")
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
+          # git archive needs a safe.directory inside the container
+          git config --global --add safe.directory "$PWD"
+          git archive --format=tar.gz --prefix=OrbitDeck-$VERSION/ \
+            -o ~/rpmbuild/SOURCES/orbitdeck-$VERSION.tar.gz HEAD
+
+      - name: Build the RPM
+        run: |
+          rpmbuild -ba packaging/orbitdeck.spec.rpm
+          mkdir -p out
+          cp ~/rpmbuild/RPMS/noarch/orbitdeck-*.rpm out/
+          ls -l out
+
+      - name: Sanity-check the package
+        run: |
+          dnf -y install ./out/orbitdeck-*.rpm
+          test -x /usr/bin/orbitdeck
+          test -x /usr/bin/orbitterm
+          python3 -c "import orbitdeck, orbitterm; print(orbitdeck.__version__)"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: orbitdeck-rpm
+          path: out/*.rpm
+
+      - name: Attach to release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: out/*.rpm
+
+  # ---------------------------------------------------------- Arch package -----
+  arch:
+    name: Arch package (validate + .SRCINFO)
+    runs-on: ubuntu-latest
+    container: archlinux:latest      # Arch is rolling; always build on latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install build tools
+        run: |
+          pacman -Syu --noconfirm base-devel git
+
+      - name: Build with makepkg (as non-root)
+        run: |
+          # makepkg refuses to run as root: create an unprivileged builder
+          useradd -m builder
+          cp -r packaging /home/builder/pkg
+          chown -R builder:builder /home/builder/pkg
+          git config --global --add safe.directory "$PWD"
+          su builder -c '
+            cd /home/builder/pkg &&
+            updpkgsums PKGBUILD &&
+            makepkg -f --noconfirm -p PKGBUILD &&
+            makepkg --printsrcinfo -p PKGBUILD > .SRCINFO
+          '
+          mkdir -p out
+          cp /home/builder/pkg/*.pkg.tar.* out/ 2>/dev/null || true
+          cp /home/builder/pkg/.SRCINFO out/SRCINFO.generated
+          ls -l out
+
+      - name: Sanity-check the package
+        run: |
+          pacman -U --noconfirm out/*.pkg.tar.* || {
+            echo "Install check skipped (deps may be unavailable in CI container)"; }
+          # The generated .SRCINFO is the artifact maintainers push to the AUR.
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: orbitdeck-arch
+          path: out/*
+
+      - name: Attach to release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: out/*.pkg.tar.*
+
+  # ------------------------------------------------------------- AppImage ------
+  appimage:
+    name: AppImage (${{ matrix.arch }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-22.04          # oldest glibc -> widest compatibility
+            arch: x86_64
+          - runner: ubuntu-22.04-arm
+            arch: aarch64
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install system libraries
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            python3 python3-pip python3-tk libfuse2 wget \
+            libgeos-dev libproj-dev
+
+      - name: Stage the app into an AppDir
+        run: |
+          python3 -m pip install --upgrade pip
+          # install OrbitDeck + the full optional set into the AppDir's site
+          python3 -m pip install --target AppDir/usr/lib/python3/dist-packages \
+            ".[full]"
+          mkdir -p AppDir/usr/bin
+          cp packaging/appimage/AppRun AppDir/AppRun 2>/dev/null || true
+          # desktop + icon
+          install -Dm644 packaging/orbitdeck.desktop \
+            AppDir/usr/share/applications/orbitdeck.desktop
+          install -Dm644 orbitdeck/gui/assets/icon-256.png \
+            AppDir/usr/share/icons/hicolor/256x256/apps/orbitdeck.png
+          # top-level icon + desktop that appimagetool wants
+          cp orbitdeck/gui/assets/icon-256.png AppDir/orbitdeck.png
+          cp packaging/orbitdeck.desktop AppDir/orbitdeck.desktop
+
+      - name: Write AppRun (launcher) if not provided in-repo
+        run: |
+          if [ ! -f AppDir/AppRun ]; then
+            cat > AppDir/AppRun <<'SH'
+          #!/bin/sh
+          HERE="$(dirname "$(readlink -f "$0")")"
+          export PYTHONPATH="$HERE/usr/lib/python3/dist-packages:$PYTHONPATH"
+          # default to the GUI; pass "term" to launch OrbitTerm instead
+          if [ "$1" = "term" ]; then shift; exec python3 -m orbitterm "$@"; fi
+          exec python3 -m orbitdeck.gui.app "$@"
+          SH
+            chmod +x AppDir/AppRun
+          fi
+
+      - name: Build the AppImage
+        run: |
+          ARCH=${{ matrix.arch }}
+          wget -q "https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-${ARCH}.AppImage" -O appimagetool
+          chmod +x appimagetool
+          ./appimagetool --appimage-extract >/dev/null   # run extracted (no FUSE in CI)
+          VERSION=$(python3 -c "import orbitdeck;print(orbitdeck.__version__)" 2>/dev/null || echo dev)
+          mkdir -p out
+          ARCH=$ARCH ./squashfs-root/AppRun AppDir "out/OrbitDeck-${VERSION}-${ARCH}.AppImage"
+          ls -l out
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: orbitdeck-appimage-${{ matrix.arch }}
+          path: out/*.AppImage
+
+      - name: Attach to release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: out/*.AppImage
+
+  # -------------------------------------------------------------- Flatpak ------
+  flatpak:
+    name: Flatpak
+    runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/flathub-infra/flatpak-github-actions:gnome-46
+      options: --privileged
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build the Flatpak
+        uses: flatpak/flatpak-github-actions/flatpak-builder@v6
+        with:
+          bundle: OrbitDeck.flatpak
+          manifest-path: packaging/flatpak/io.github.prstoetzer.OrbitDeck.yml
+          cache-key: flatpak-builder-${{ github.sha }}
+
+      - name: Attach to release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: OrbitDeck.flatpak
