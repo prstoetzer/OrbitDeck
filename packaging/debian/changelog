@@ -1,3 +1,10 @@
+orbitdeck (0.39.3-1) unstable; urgency=medium
+
+  * Jupiter, Aurora and EME conditions rendered blank: KVPanel rows were never
+    packed. Jupiter Io windows now search 14 days rather than 48 hours.
+
+ -- Paul Stoetzer, N8HM <n8hm@arrl.net>  Thu, 13 Aug 2026 18:00:00 +0000
+
 orbitdeck (0.39.2-1) unstable; urgency=medium
 
   * Astronomy tab strip was never constructed, leaving every tab unreachable.

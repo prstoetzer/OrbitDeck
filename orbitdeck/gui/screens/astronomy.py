@@ -106,6 +106,8 @@ class AstronomyScreen(Screen):
         st = AS.jupiter_status(obs.lat, obs.lon, t)
         kv = KVPanel(self.body, label_width=22)
         kv.pack(fill="x")
+        kv.begin()
+        kv.section("Jupiter now")
         kv.row("CML (System III)", "%.1f\u00b0" % st["cml_deg"])
         kv.row("Io phase", "%.1f\u00b0" % st["io_phase_deg"])
         kv.row("Jupiter az / el", "%.1f\u00b0 / %+.1f\u00b0"
@@ -113,7 +115,12 @@ class AstronomyScreen(Screen):
                COL_ACCENT2 if st["up"] else COL_MUTED)
         kv.row("Status", st["verdict"],
                COL_ACCENT2 if st["active"] and st["up"] else COL_MUTED)
-        wins = AS.jupiter_windows(obs.lat, obs.lon, t)
+        kv.end()
+        # Io windows are rare: the source has to be active AND Jupiter above
+        # the horizon, and 48 hours often contains no overlap at all. Look a
+        # fortnight ahead so an empty table means "none soon" rather than
+        # "this screen is broken".
+        wins = AS.jupiter_windows(obs.lat, obs.lon, t, hours=24 * 14)
         tree = self._tree(("src", "start", "end", "el"),
                           ("Source", "Start", "End", "Max el"),
                           (100, 170, 170, 90))
@@ -122,9 +129,14 @@ class AstronomyScreen(Screen):
                 w["source"], fmt_utc(w["start"]), fmt_utc(w["end"]),
                 "%+.0f\u00b0" % w["max_el"]))
         self._rows = [("Jupiter now", "kv", kv), ("Io windows", "tree", tree)]
-        self.info.set("Io-controlled decametric storms, 15\u201330 MHz. Only "
-                      "windows with Jupiter above the horizon are listed \u2014 "
-                      "a storm you cannot hear is not a window.")
+        note = ("Io-controlled decametric storms, 15\u201330 MHz, for the next "
+                "14 days. Only windows with Jupiter above the horizon are "
+                "listed \u2014 a storm you cannot hear is not a window.")
+        if not wins:
+            note += ("  Nothing in that fortnight: the source geometry and "
+                     "Jupiter's rising times simply do not line up, which is "
+                     "common.")
+        self.info.set(note)
 
     def _tab_2(self, obs, t):
         kp = None
@@ -135,6 +147,8 @@ class AstronomyScreen(Screen):
         a = AS.aurora_outlook(obs.lat, obs.lon, kp)
         kv = KVPanel(self.body, label_width=24)
         kv.pack(fill="x")
+        kv.begin()
+        kv.section("Aurora outlook")
         kv.row("Magnetic latitude", "%.1f\u00b0" % a["mag_lat"])
         kv.row("Kp", "%.1f" % a["kp"] if a["kp"] is not None else "\u2014")
         if a["boundary"] is not None:
@@ -145,6 +159,7 @@ class AstronomyScreen(Screen):
                COL_ACCENT2 if "likely" in a["visual"] else COL_MUTED)
         kv.row("Radio", a["radio"],
                COL_ACCENT2 if "likely" in a["radio"] else COL_MUTED)
+        kv.end()
         self._rows = [("Aurora", "kv", kv)]
         self.info.set("Magnetic latitude, not geographic \u2014 the oval "
                       "follows the dipole, which is why the UK and Labrador "
@@ -172,6 +187,8 @@ class AstronomyScreen(Screen):
         c = AS.eme_conditions(t)
         kv = KVPanel(self.body, label_width=24)
         kv.pack(fill="x")
+        kv.begin()
+        kv.section("EME conditions")
         kv.row("Moon distance", "%.0f km" % c["distance_km"])
         kv.row("Perigee (30 d)", "%.0f km on %s"
                % (c["perigee_km"], fmt_utc(c["perigee_time"])))
@@ -182,6 +199,7 @@ class AstronomyScreen(Screen):
                COL_WARN if c["degradation_db"] > 1.5 else COL_ACCENT2)
         kv.row("Perigee-apogee swing", "%.2f dB" % c["swing_db"])
         kv.row("Declination", "%+.1f\u00b0" % c["declination_deg"])
+        kv.end()
         self._rows = [("EME conditions", "kv", kv)]
         self.info.set("Two-way path loss goes as 40\u00b7log\u2081\u2080 of "
                       "range, so the monthly swing is worth about 2 dB \u2014 "

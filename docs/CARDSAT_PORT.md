@@ -2171,3 +2171,23 @@ per-screen copies are gone. All 41 screens now place it on the same header row
 on one shared row, right-aligned.
 
 Retagged as **v0.39.2**.
+
+## Three blank astronomy tabs
+
+Jupiter, Aurora and EME conditions showed nothing. They are exactly the three
+tabs built from a **KVPanel** rather than a table, and the cause was the same
+in all three: `KVPanel` builds its rows between `begin()` and `end()`, and
+`end()` is what actually packs them and prunes stale widgets. I called neither,
+so every row was constructed and never displayed.
+
+My own test asked whether widgets *existed*, and they did - it passed against
+three empty screens. The replacement asks whether anything is **mapped with a
+height greater than one**, which is what distinguishes a packed widget from an
+unpacked one, and it now covers all eight tabs.
+
+Related, and reported as part of the same complaint: Jupiter's Io window table
+was legitimately empty. A source has to be active **and** Jupiter above the
+horizon, and 48 hours frequently contains no overlap - measured 20 samples with
+a source active and 170 with Jupiter up, and zero coinciding. Over a fortnight
+there were nine. The search now spans 14 days and, when nothing lines up, says
+that rather than leaving a blank table that reads as a fault.

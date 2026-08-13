@@ -259,3 +259,77 @@ def test_the_track_is_on_both_front_ends():
     assert "ecltrack" in AstronomyScreen.VIEWS
     assert "eclipse_ground_track" in inspect.getsource(
         AstronomyScreen._v_ecltrack)
+
+
+def test_every_astronomy_tab_actually_displays_content():
+    """Three tabs rendered blank: KVPanel builds rows between begin() and
+    end(), and end() is what packs them. Without those calls the widgets were
+    constructed and never shown - so a test that only counted widgets, as mine
+    did, passed while the screen was empty."""
+    import time as _t
+    import tkinter as tk
+    try:
+        root = tk.Tk()
+    except Exception:
+        return
+    root.geometry("1280x820")
+    try:
+        from orbitdeck.gui.app import OrbitDeckApp
+        from orbitdeck.gui.screens.astronomy import TABS
+        app = OrbitDeckApp(root)
+
+        def settle(n=8):
+            for _ in range(n):
+                root.update_idletasks()
+                root.update()
+                _t.sleep(0.01)
+        settle(14)
+        app.show("astronomy")
+        settle(8)
+        scr = app.current
+        blank = []
+        for i, name in enumerate(TABS):
+            scr.tabs.select(i)
+            settle(6)
+            shown = []
+
+            def walk(w):
+                for c in w.winfo_children():
+                    if c.winfo_class() == "Treeview":
+                        shown.extend(c.get_children())
+                    else:
+                        try:
+                            txt = str(c.cget("text"))
+                            # mapped AND laid out: an unpacked label reports
+                            # height 1, which is how the blank tabs slipped by
+                            if txt and c.winfo_ismapped() \
+                                    and c.winfo_height() > 1:
+                                shown.append(txt)
+                        except Exception:
+                            pass
+                    walk(c)
+            walk(scr.pages[i])
+            if not shown:
+                blank.append(name)
+        assert not blank, blank
+    finally:
+        try:
+            root.destroy()
+        except Exception:
+            pass
+
+
+def test_jupiter_windows_span_long_enough_to_find_one():
+    """A source has to be active AND Jupiter above the horizon; 48 hours often
+    contains no overlap at all, so an empty table read as a broken screen."""
+    import inspect
+    from orbitdeck.gui.screens import astronomy as gscr
+    from orbitterm.screens import analysis4
+    for src in (inspect.getsource(gscr.AstronomyScreen._tab_1),
+                inspect.getsource(analysis4.AstronomyScreen._v_jupiter)):
+        assert "24 * 14" in src
+    # and over a fortnight there is normally something to show
+    wins = AS.jupiter_windows(39.93, -74.89, time.time(), hours=24 * 14)
+    assert wins
+    for w in wins:
+        assert w["max_el"] > 0 and w["end"] > w["start"]

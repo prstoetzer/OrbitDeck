@@ -69,6 +69,9 @@ install -Dm644 packaging/io.github.prstoetzer.OrbitDeck.metainfo.xml \
 %{_metainfodir}/io.github.prstoetzer.OrbitDeck.metainfo.xml
 
 %changelog
+* Thu Aug 13 2026 Paul Stoetzer, N8HM - 0.39.3-1
+- Fix blank Jupiter, Aurora and EME astronomy tabs; widen the Io window search
+
 * Thu Aug 13 2026 Paul Stoetzer, N8HM - 0.39.2-1
 - Fix unreachable astronomy tabs, drop the fictional last-60-days group,
   and put "Print screen" in one consistent place

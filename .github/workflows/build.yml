@@ -1,0 +1,373 @@
+name: Build standalone apps
+
+# Build OrbitDeck into standalone executables for Windows, macOS, Linux, and
+# 64-bit Raspberry Pi OS. Runs on tags like v0.5.0 (and can be triggered
+# manually). Artifacts are uploaded per-target; on a tag, they're also attached
+# to a GitHub Release.
+#
+# Targets:
+#   - Windows x86_64           (windows-latest)
+#   - macOS Apple Silicon      (macos-latest, arm64)
+#   - Linux x86_64             (ubuntu-latest)
+#   - Raspberry Pi OS 64-bit   (ubuntu-22.04-arm, arm64)
+#
+# macOS ships an Apple-Silicon (arm64) build only. PyInstaller emits a host-arch
+# binary (target_arch=None) and a clean universal2 build isn't reliable with the
+# cartopy/GEOS/PROJ stack; the macos-13 Intel runner was dropped because those
+# builds did not reliably succeed. Intel Macs can run the source install
+# (pip install) or the arm64 build under Rosetta 2. The Raspberry Pi build runs
+# natively on an arm64 Linux runner; ubuntu-22.04-arm (glibc 2.35) is
+# deliberately older than Pi OS Bookworm (glibc 2.36) so the binary runs there.
+# NOTE: GitHub's arm64 Linux hosted runners work only in PUBLIC repositories --
+# in a private repo this job needs a self-hosted or larger arm64 runner (see
+# packaging/BUILD.md).
+#
+# Dependencies: every build includes the FULL optional set where possible -- sgp4
+# (accurate propagation), openpyxl (xlsx export) and cartopy (high-res
+# coastlines). cartopy needs GEOS/PROJ: on Windows it comes from conda-forge; on
+# x86_64 Linux/macOS from PyPI wheels; on arm64 Linux (no cartopy wheel) it is
+# built from sdist against apt's GEOS/PROJ, falling back to OrbitDeck's bundled
+# coastlines if that build fails.
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write          # required for the "Attach to release" step on tags
+
+jobs:
+  build:
+    name: Build (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            artifact: OrbitDeck-windows
+          - os: macos-latest        # Apple Silicon (ARM64) runner
+            artifact: OrbitDeck-macos-arm64
+          - os: ubuntu-latest       # x86_64 Linux (PC/server distros)
+            artifact: OrbitDeck-linux-x86_64
+          # 64-bit Raspberry Pi OS: build natively on an arm64 Linux runner.
+          # ubuntu-22.04-arm (glibc 2.35) is intentionally OLDER than Raspberry
+          # Pi OS Bookworm (Debian 12, glibc 2.36), so the binary runs there;
+          # building on ubuntu-24.04-arm (glibc 2.39) would produce a binary that
+          # fails on the Pi with "GLIBC_2.3x not found". actions/setup-python
+          # supports arm64 on this runner (Python 3.9-3.14).
+          # NOTE 1: arm64 hosted runners are free on PUBLIC repos; a private repo
+          #   needs the (paid) arm64 runners or a self-hosted Pi runner.
+          # NOTE 2: 22.04 is an older image -- once GitHub deprecates it, move to
+          #   the oldest arm64 image whose glibc is still <= the target Pi OS
+          #   (check `ldd --version` on the Pi; Bookworm = 2.36). See BUILD.md.
+          - os: ubuntu-22.04-arm    # arm64 Linux -> 64-bit Raspberry Pi OS
+            artifact: OrbitDeck-raspberrypi-arm64
+
+    defaults:
+      run:
+        shell: bash          # bash on all three OSes (Git Bash on Windows)
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # --- Python: conda on Windows (for cartopy), setup-python elsewhere ---
+      - name: Set up Python (Linux/macOS)
+        if: runner.os != 'Windows'
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Set up Miniconda (Windows)
+        if: runner.os == 'Windows'
+        uses: conda-incubator/setup-miniconda@v3
+        with:
+          python-version: "3.12"
+          miniforge-version: latest    # conda-forge by default
+          auto-activate-base: false
+          activate-environment: build
+
+      # PyInstaller bundles the Tk runtime from the build machine; the
+      # setup-python build on Ubuntu needs the system Tcl/Tk libraries present
+      # for that to work. Also install GEOS/PROJ dev libraries: cartopy has no
+      # aarch64 PyPI wheel, so on the arm64 (Raspberry Pi) runner pip must build
+      # it from sdist, which needs these headers. Harmless on x86_64 (where the
+      # cartopy wheel is used instead).
+      - name: Install system libraries (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y python3-tk tk-dev \
+            libgeos-dev libproj-dev proj-bin proj-data
+
+      # --- Dependencies (full optional set on every platform) ---
+      # x86_64 Linux + both macOS arches: cartopy ships wheels, so plain pip
+      # handles the whole optional set. (Apple Silicon is arm64 but cartopy DOES
+      # publish macOS arm64 wheels, so it belongs here -- only arm64 *Linux*
+      # lacks a cartopy wheel.)
+      - name: Install dependencies (wheels available)
+        if: runner.os == 'macOS' || (runner.os == 'Linux' && runner.arch != 'ARM64')
+        run: |
+          python -m pip install --upgrade pip
+          pip install pyinstaller
+          pip install -e ".[full]"
+
+      # arm64 Linux (Raspberry Pi target): numpy/matplotlib/sgp4 have aarch64
+      # wheels, but cartopy does not -- it must build from sdist against the
+      # GEOS/PROJ libs installed above. Install the always-on extras first, then
+      # ATTEMPT cartopy; if it can't build, the app falls back to its bundled
+      # coastlines, so the build still succeeds.
+      - name: Install dependencies (arm64 Linux / Raspberry Pi)
+        if: runner.os == 'Linux' && runner.arch == 'ARM64'
+        run: |
+          python -m pip install --upgrade pip
+          pip install pyinstaller
+          pip install -e ".[accurate,excel]"
+          pip install "cartopy>=0.21" || echo "cartopy build failed on arm64; the app will use its bundled coastlines"
+
+      - name: Install dependencies (Windows)
+        if: runner.os == 'Windows'
+        shell: bash -el {0}     # login shell so the conda env is activated
+        run: |
+          # Get the whole NATIVE stack from conda-forge so it is ABI-consistent:
+          # cartopy (GEOS/PROJ), and numpy + matplotlib (whose C extensions must
+          # match the same numpy ABI). Mixing conda-forge cartopy with a separate
+          # pip numpy/matplotlib risks "numpy.core.multiarray failed to import".
+          conda install -n build -y -c conda-forge \
+            "cartopy>=0.21" "numpy>=1.26" "matplotlib>=3.8"
+          python -m pip install --upgrade pip
+          pip install pyinstaller
+          # The remaining pure-Python pieces (sgp4, openpyxl, certifi) via pip;
+          # numpy/matplotlib/cartopy are already satisfied by conda, so pip won't
+          # replace them.
+          pip install -e ".[accurate,excel]"
+
+      # Fail fast if the native stack can't import (catches numpy/matplotlib ABI
+      # mismatches and missing-DLL problems like "DLL load failed importing
+      # ft2font" BEFORE spending time on the PyInstaller build). Runs in the same
+      # interpreter/env the build will freeze.
+      - name: Verify native imports (Linux/macOS)
+        if: runner.os != 'Windows'
+        run: |
+          python -c "import numpy, matplotlib; matplotlib.use('Agg'); import matplotlib.ft2font, matplotlib.pyplot; import sgp4.api; import orbitdeck; print('imports OK', orbitdeck.__version__)"
+          python -c "import cartopy.crs as ccrs; print('cartopy OK')" || echo "cartopy import failed (app falls back to bundled coastlines)"
+
+      - name: Verify native imports (Windows)
+        if: runner.os == 'Windows'
+        shell: bash -el {0}
+        run: |
+          python -c "import numpy, matplotlib; matplotlib.use('Agg'); import matplotlib.ft2font, matplotlib.pyplot; import sgp4.api; import cartopy.crs; import orbitdeck; print('imports OK', orbitdeck.__version__)"
+
+      - name: Generate macOS .icns
+        if: runner.os == 'macOS'
+        run: |
+          cd orbitdeck/gui/assets
+          mkdir -p icon.iconset
+          for s in 16 32 64 128 256 512; do
+            sips -z $s $s icon-512.png --out icon.iconset/icon_${s}x${s}.png
+            d=$((s*2))
+            sips -z $d $d icon-512.png --out icon.iconset/icon_${s}x${s}@2x.png
+          done
+          iconutil -c icns icon.iconset -o icon.icns
+
+      # --- Build ---
+      - name: Build with PyInstaller (Linux/macOS)
+        if: runner.os != 'Windows'
+        run: pyinstaller --noconfirm orbitdeck.spec
+
+      - name: Build with PyInstaller (Windows)
+        if: runner.os == 'Windows'
+        shell: bash -el {0}     # use the activated conda env's PyInstaller/python
+        run: pyinstaller --noconfirm orbitdeck.spec
+
+      # Confirm PyInstaller actually produced the expected bundle before we try
+      # to package it, so a failed/empty build surfaces here with a clear message
+      # rather than as a confusing "path not found" in the packaging step. This
+      # matters most for the least-exercised target (arm64 / Raspberry Pi).
+      - name: Verify build output (macOS)
+        if: runner.os == 'macOS'
+        run: test -d "dist/OrbitDeck.app" || (echo "::error::PyInstaller did not produce dist/OrbitDeck.app" && exit 1)
+
+      - name: Verify build output (Linux)
+        if: runner.os == 'Linux'
+        run: test -x "dist/OrbitDeck/OrbitDeck" || (echo "::error::PyInstaller did not produce dist/OrbitDeck/OrbitDeck" && exit 1)
+
+      - name: Verify build output (Windows)
+        if: runner.os == 'Windows'
+        shell: bash
+        run: |
+          test -f "dist/OrbitDeck/OrbitDeck.exe" || (echo "::error::PyInstaller did not produce dist/OrbitDeck/OrbitDeck.exe" && exit 1)
+          # The desktop bundle ships OrbitTerm alongside the GUI; if the second
+          # entry point silently stops building, the download quietly loses the
+          # terminal UI again.
+          test -f "dist/OrbitDeck/OrbitTerm.exe" || (echo "::error::desktop bundle is missing OrbitTerm.exe" && exit 1)
+
+      - name: Verify OrbitTerm is in the bundle (macOS/Linux)
+        if: runner.os != 'Windows'
+        run: |
+          BUNDLE=dist/OrbitDeck
+          [ -d "dist/OrbitDeck.app" ] && BUNDLE="dist/OrbitDeck.app/Contents/MacOS"
+          test -f "$BUNDLE/OrbitTerm" || {
+            echo "::error::desktop bundle is missing the OrbitTerm binary"
+            ls -la "$BUNDLE" || true
+            exit 1
+          }
+
+      # --- Package ---
+      # Windows runners' Git Bash has no `zip`, so use PowerShell's
+      # Compress-Archive there; zip on macOS/Linux.
+      - name: Package (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: Compress-Archive -Path dist/OrbitDeck -DestinationPath ${{ matrix.artifact }}.zip
+
+      - name: Package (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          cd dist
+          zip -r ../${{ matrix.artifact }}.zip OrbitDeck.app
+
+      - name: Package (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          cd dist
+          zip -r ../${{ matrix.artifact }}.zip OrbitDeck
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: ${{ matrix.artifact }}.zip
+
+      - name: Attach to release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ${{ matrix.artifact }}.zip
+
+  # ---------------------------------------------------------------------------
+  # OrbitTerm: a separate, much smaller standalone build.
+  #
+  # It is its own job rather than a step in the matrix above because it shares
+  # almost none of that build's needs: no cartopy (so no conda on Windows), no
+  # matplotlib, no tkinter. Importing every OrbitTerm screen pulls in none of
+  # them, which is why this comes out around 9 MB against the desktop bundle's
+  # couple of hundred. One file, console mode: scp it to a headless box and run
+  # it, which is the entire point of OrbitTerm.
+  # ---------------------------------------------------------------------------
+  orbitterm:
+    name: OrbitTerm (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            artifact: OrbitTerm-windows
+            exe: dist/OrbitTerm.exe
+          - os: macos-latest          # Apple Silicon
+            artifact: OrbitTerm-macos-arm64
+            exe: dist/OrbitTerm
+          - os: macos-13              # Intel Macs
+            artifact: OrbitTerm-macos-x86_64
+            exe: dist/OrbitTerm
+          - os: ubuntu-22.04          # oldest supported glibc for portability
+            artifact: OrbitTerm-linux-x86_64
+            exe: dist/OrbitTerm
+          - os: ubuntu-22.04-arm      # arm64 Linux / 64-bit Raspberry Pi OS
+            artifact: OrbitTerm-raspberrypi-arm64
+            exe: dist/OrbitTerm
+
+    defaults:
+      run:
+        shell: bash
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          # Only what OrbitTerm actually needs: the propagator, HTTPS roots and
+          # PyInstaller itself.
+          pip install pyinstaller sgp4 certifi
+
+      - name: Install curses (Windows)
+        if: runner.os == 'Windows'
+        # The Windows console has no curses in the stdlib.
+        run: pip install windows-curses
+
+      - name: Build
+        run: pyinstaller orbitterm.spec --noconfirm
+
+      - name: Verify the binary exists
+        run: |
+          test -f "${{ matrix.exe }}" || {
+            echo "::error::PyInstaller did not produce ${{ matrix.exe }}"
+            exit 1
+          }
+          ls -la "${{ matrix.exe }}"
+
+      - name: Smoke-test (POSIX)
+        if: runner.os != 'Windows'
+        # Drive it through a pty and quit: a curses program needs a terminal,
+        # so a plain `--version`-style check would prove nothing.
+        run: |
+          chmod +x "${{ matrix.exe }}"
+          python - <<'PY'
+          import os, pty, select, time, sys
+          pid, fd = pty.fork()
+          if pid == 0:
+              os.environ.update(TERM="xterm-256color", LINES="24", COLUMNS="80")
+              os.execv("${{ matrix.exe }}", ["${{ matrix.exe }}"])
+          buf = b""
+          end = time.time() + 60
+          while time.time() < end:
+              r, _, _ = select.select([fd], [], [], 0.5)
+              if r:
+                  try:
+                      chunk = os.read(fd, 65536)
+                  except OSError:
+                      break
+                  if not chunk:
+                      break
+                  buf += chunk
+              if b"OrbitTerm" in buf:
+                  break
+          try:
+              os.write(fd, b"q")
+          except OSError:
+              pass
+          os.kill(pid, 9)
+          if b"OrbitTerm" not in buf:
+              sys.exit("OrbitTerm did not render a screen")
+          print("rendered OK")
+          PY
+
+      - name: Package (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: Compress-Archive -Path dist/OrbitTerm.exe -DestinationPath ${{ matrix.artifact }}.zip
+
+      - name: Package (POSIX)
+        if: runner.os != 'Windows'
+        run: |
+          cd dist
+          zip -j ../${{ matrix.artifact }}.zip OrbitTerm
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: ${{ matrix.artifact }}.zip
+
+      - name: Attach to release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ${{ matrix.artifact }}.zip

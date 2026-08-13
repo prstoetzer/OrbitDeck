@@ -905,13 +905,17 @@ class AstronomyScreen(Screen):
             cp(CLR_OK) if st["up"] else cp(CLR_DIM))
         _kv(win, y + 3, x0, w, "Status", st["verdict"],
             cp(CLR_OK) if st["active"] and st["up"] else 0)
-        wins = AS.jupiter_windows(o.lat, o.lon, t)
+        # 48 hours often contains no overlap at all; a fortnight makes an
+        # empty list mean "none soon" rather than "this is broken".
+        wins = AS.jupiter_windows(o.lat, o.lon, t, hours=24 * 14)
         out = ["%-6s %s \u2192 %s  max el %+.0f\u00b0" % (
             v["source"], fmt_clock(v["start"], True), fmt_clock(v["end"]),
             v["max_el"]) for v in wins]
         self._rows(win, y + 5, x0, h - 5, w,
-                   "IO WINDOWS, NEXT 48 H (Jupiter up)",
-                   out or ["none in the next 48 hours"])
+                   "IO WINDOWS, NEXT 14 D (Jupiter up)",
+                   out or ["none in the next fortnight \u2014 the source "
+                           "geometry and", "Jupiter's rising times do not "
+                           "line up, which is common"])
 
     def _v_aurora(self, win, y, x0, h, w, o, t, AS):
         kp = None

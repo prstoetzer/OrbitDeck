@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.39.3]
+
+### Fixed
+- **Jupiter, Aurora and EME conditions rendered blank.** `KVPanel` builds its
+  rows between `begin()` and `end()`, and `end()` is what packs them; those
+  calls were missing, so the widgets were constructed and never shown. The
+  three affected tabs are exactly the three built from a KVPanel rather than a
+  table.
+- **Jupiter's Io windows looked broken when they were merely empty.** A source
+  has to be active *and* Jupiter above the horizon, and a 48-hour window often
+  contains no overlap at all. The search now covers 14 days, and says so when
+  nothing lines up.
+
 ## [0.39.2]
 
 ### Fixed
