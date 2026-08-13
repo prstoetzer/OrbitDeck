@@ -1,12 +1,12 @@
 """orbitdeck.engine.decay - days-to-reentry, empirically calibrated.
 
 This replaces an earlier port that came from CardSat 0.9.61. CardSat 0.9.68
-rebuilt the model after fitting it against **244 catalogued objects that
+rebuilt the model after fitting it against **244 catalogd objects that
 actually re-entered** (Space-Track TIP decay epochs plus gp_history element
 sets), cross-checked against the observed mean-motion derivative of ~1500
-catalogued objects. Their note on the old version is blunt: it used
+catalogd objects. Their note on the old version is blunt: it used
 ``Cd*A/m = 38*B*`` together with a ``da/dt`` a factor of two too large; the two
-errors partly cancelled at ISS altitude where the constant had been tuned, and
+errors partly canceled at ISS altitude where the constant had been tuned, and
 left the model predicting **about a fifth of the true remaining life** across
 the re-entry set. The port carried that error, so it is fixed here.
 
@@ -16,13 +16,13 @@ Two anchors, in order of preference:
      measurement of the current decay rate: ``adot = -(2/3)(a/n) * ndot``.
      Back-solving the ballistic coefficient from it makes the present rate right
      by construction and cancels every calibration the B* path needs - the
-     B*->Cd*A/m conversion, the absolute density normalisation and the solar
+     B*->Cd*A/m conversion, the absolute density normalization and the solar
      scale (which multiplies both the back-solve and the integration). It also
      absorbs attitude and true area, being a measurement of the object rather
      than a model of it. Scored 0.99x median against real re-entries, 92% within
      +/-30%.
   2. **B* fallback**, for objects whose n-dot is absent, negative (rising or
-     freshly manoeuvred) or below the noise floor. ``Cd*A/m = 12.741621 * B*``,
+     freshly maneuverd) or below the noise floor. ``Cd*A/m = 12.741621 * B*``,
      the textbook SGP4 conversion.
 
 Both integrate the same King-Hele decay: drag is evaluated at perigee with the
@@ -38,9 +38,10 @@ MU = 3.986004418e14
 RE_M = 6.378137e6
 TWO_PI = 6.283185307179586
 
-SRC_NONE, SRC_NDOT, SRC_BSTAR = 0, 1, 2
+SRC_NONE, SRC_NDOT, SRC_BSTAR, SRC_HISTORY = 0, 1, 2, 3
 SRC_NAMES = {SRC_NONE: "no usable data", SRC_NDOT: "observed decay rate",
-             SRC_BSTAR: "B* drag term"}
+             SRC_BSTAR: "B* drag term",
+             SRC_HISTORY: "element archive"}
 
 SOLAR_SCALES = {"low": 0.35, "mean": 1.0, "high": 3.0}
 
@@ -167,7 +168,7 @@ def estimate_decay_days(mean_motion, ecc, bstar, ndot=0.0, solar="mean",
         cand = (ANCHOR_DRAG * (-adot / 86400.0)
                 / (rho0 * math.sqrt(MU * a) * f0))
         # a real satellite is ~1e-3..1e-1 m^2/kg; outside this the n-dot was not
-        # drag (third-body, manoeuvre or fit noise), so fall through to B*
+        # drag (third-body, maneuver or fit noise), so fall through to B*
         if 1e-4 < cand < 50.0:
             ballistic, src = cand, SRC_NDOT
     if src == SRC_NONE:
@@ -238,7 +239,7 @@ def decay_rows(mean_motion=15.5, ecc=0.0004, bstar=0.00025, ndot=0.0,
     rows = [
         ("Lifetime", life, ""),
         ("Anchor", SRC_NAMES[src],
-         "measured" if src == SRC_NDOT else "modelled"),
+         "measured" if src == SRC_NDOT else "modeled"),
         ("Solar activity", solar, ""),
     ]
     if days != float("inf"):
@@ -262,3 +263,103 @@ def fmt_decay(days):
     if days < 365.25:
         return "%.0f days" % days
     return "%.1f years" % (days / 365.25)
+
+
+# ---------------------------------------------------------------------------
+# Anchoring on the element archive
+# ---------------------------------------------------------------------------
+def ndot_from_history(samples, min_span_days=30.0, min_points=6):
+    """MEAN_MOTION_DOT fitted from an element archive, or None.
+
+    A single element set carries one fitted n-dot from one epoch, and that fit
+    is noisy: it is dominated by whatever the atmosphere was doing that week.
+    An archive spanning months measures the *actual* mean-motion trend, which
+    is what decay depends on. Where both exist the archive is the better
+    anchor, and it is the only one that improves as the record grows.
+
+    Returns n-dot in the GP/TLE convention (rev/day^2, already halved), or
+    None when the record is too short or too sparse to mean anything.
+    """
+    pts = []
+    for s in samples or []:
+        t = s.get("epoch")
+        period = s.get("PERIOD")
+        if t is None or not period or period <= 0:
+            continue
+        pts.append((float(t), 1440.0 / float(period)))    # rev/day
+    if len(pts) < min_points:
+        return None
+    pts.sort()
+    span_days = (pts[-1][0] - pts[0][0]) / 86400.0
+    if span_days < min_span_days:
+        return None
+    # Least-squares slope of mean motion against time, in rev/day per day.
+    n = len(pts)
+    t0 = pts[0][0]
+    xs = [(t - t0) / 86400.0 for t, _v in pts]
+    ys = [v for _t, v in pts]
+    mx = sum(xs) / n
+    my = sum(ys) / n
+    sxx = sum((x - mx) ** 2 for x in xs)
+    if sxx <= 0:
+        return None
+    sxy = sum((x - mx) * (y - my) for x, y in zip(xs, ys))
+    slope = sxy / sxx                       # rev/day per day
+    if slope <= 0:
+        return None                         # rising or flat: not decaying
+    # GP carries n-dot already divided by two.
+    return slope / 2.0
+
+
+def estimate_decay_with_history(mean_motion, ecc, bstar, ndot=0.0,
+                                samples=None, solar="mean"):
+    """Decay estimate preferring an archive-fitted n-dot when one is available.
+
+    Falls back to the element set's own n-dot, then to B*, so a satellite with
+    no archive behaves exactly as before.
+    """
+    fitted = ndot_from_history(samples)
+    if fitted:
+        days, src = estimate_decay_days(mean_motion, ecc, bstar, fitted,
+                                        solar=solar)
+        # Only claim the archive if the fit was actually usable: the n-dot
+        # anchor rejects a ballistic coefficient outside the physical range,
+        # and silently reporting "element archive" for a B* result would
+        # overstate what the number rests on.
+        if src == SRC_NDOT:
+            return days, SRC_HISTORY
+        return days, src
+    return estimate_decay_days(mean_motion, ecc, bstar, ndot, solar=solar)
+
+
+def cached_history(norad, cache_dir=None):
+    """Load a cached Space-Track archive for ``norad``, or [].
+
+    Both front-ends write the same cache, so either can anchor on an archive
+    the other fetched.
+    """
+    import json
+    import os
+    if cache_dir is None:
+        cache_dir = os.path.join(os.path.expanduser("~"), ".orbitdeck",
+                                 "sthist")
+    path = os.path.join(cache_dir, "%d.json" % int(norad))
+    try:
+        with open(path) as f:
+            data = json.load(f)
+        return data if isinstance(data, list) else []
+    except Exception:
+        return []
+
+
+def estimate_for_sat(sat, solar="mean", cache_dir=None):
+    """Decay estimate for a catalog entry, using its archive if one is cached.
+
+    The single place every screen should call: an operator seeing 2.7 years on
+    one screen and 12.5 on another - because only one of them looked at the
+    archive - would rightly not trust either.
+    """
+    samples = cached_history(getattr(sat, "norad", 0), cache_dir)
+    return estimate_decay_with_history(
+        sat.mean_motion, sat.ecc, sat.bstar,
+        getattr(sat, "ndot", 0.0) or 0.0, samples, solar=solar)

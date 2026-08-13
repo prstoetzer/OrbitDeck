@@ -53,7 +53,7 @@ class CelestialScreen(Screen):
     def _build_bodies(self, parent):
         left = ttk.Frame(parent, style="TFrame")
         left.pack(side="left", fill="y", padx=(8, 4), pady=6)
-        ttk.Button(left, text="Report\u2026",
+        ttk.Button(left, text="Print screen\u2026",
 
                    command=self._report).pack(side="right", padx=4)
         ttk.Button(left, text="Export CSV\u2026",

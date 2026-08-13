@@ -88,10 +88,10 @@ class PlanningScreen(Screen):
         self._find_btn = ttk.Button(bar, text="Find windows",
                                     command=self._render_work)
         self._find_btn.pack(side="left", padx=8)
-        ttk.Button(bar, text="Report\u2026",
+        ttk.Button(bar, text="Print screen\u2026",
 
                    command=self._report).pack(side="right", padx=4)
-        ttk.Button(bar, text="Export CSV\u2026",
+        ttk.Button(bar, text="Export workable CSV…",
                    command=self._export_work).pack(side="right", padx=2)
         cols = ("start", "dur", "margin")
         heads = ("Start", "Duration (min)", "Footprint margin")
@@ -158,7 +158,7 @@ class PlanningScreen(Screen):
                 "%.1f\u00b0" % w["margin_deg"]))
         self.work_info.set(
             "%d windows in 72h where %s and your station are both inside %s's "
-            "footprint. Bigger margin = both nearer footprint centre."
+            "footprint. Bigger margin = both nearer footprint center."
             % (len(res), "the target", s.name))
 
     def _target_label(self):
@@ -202,7 +202,7 @@ class PlanningScreen(Screen):
             side="left", padx=(12, 0))
         self._hz_btn = ttk.Button(bar, text="Compute", command=self._run_horizon)
         self._hz_btn.pack(side="left", padx=12)
-        ttk.Button(bar, text="Export CSV\u2026",
+        ttk.Button(bar, text="Export horizon CSV…",
                    command=self._export_horizon).pack(side="right")
         self._hz_info = tk.StringVar(value="")
         ttk.Label(parent, textvariable=self._hz_info, style="Muted.TLabel").pack(
@@ -386,7 +386,7 @@ class PlanningScreen(Screen):
                 side="left")
         ttk.Button(bar, text="Find visible passes",
                    command=self._render_vis).pack(side="left", padx=8)
-        ttk.Button(bar, text="Export CSV\u2026",
+        ttk.Button(bar, text="Export visibility CSV…",
                    command=self._export_vis).pack(side="right", padx=2)
         cols = ("aos", "maxel", "mag", "dur")
         heads = ("Start", "Max El", "Est. mag", "Duration (min)")
@@ -474,7 +474,7 @@ class PlanningScreen(Screen):
                             command=self._render_s2s).pack(side="left")
         ttk.Button(bar, text="Find LOS windows",
                    command=self._render_s2s).pack(side="left", padx=8)
-        ttk.Button(bar, text="Export CSV\u2026",
+        ttk.Button(bar, text="Export LOS windows CSV\u2026",
                    command=self._export_s2s).pack(side="right", padx=2)
         cols = ("start", "end", "dur", "range")
         heads = ("Start", "End", "Duration (min)",
@@ -646,7 +646,7 @@ class PlanningScreen(Screen):
         btns.pack(fill="x", padx=10, pady=4)
         ttk.Button(btns, text="Plan route",
                    command=self._render_rove).pack(side="left")
-        ttk.Button(btns, text="Export CSV\u2026",
+        ttk.Button(btns, text="Export rove plan CSV…",
                    command=self._export_rove).pack(side="left", padx=4)
         ttk.Button(btns, text="PDF\u2026",
                    command=self._export_rove_pdf).pack(side="left")

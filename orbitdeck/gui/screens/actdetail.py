@@ -272,7 +272,7 @@ class ActivationDetail(tk.Toplevel):
         anchor = dict(ANCHORS)[self.anchor_var.get()]
         # If the activation named a frequency, solve the passband so the
         # ANCHORED dial actually reads it. Opening mid-passband and calling that
-        # "seeded" leaves the dial wherever the transponder centre happens to
+        # "seeded" leaves the dial wherever the transponder center happens to
         # fall - not on the frequency the operator said they would use.
         pb = 0
         seeded_now = (self._seed_hz and self._seed_anchor == anchor

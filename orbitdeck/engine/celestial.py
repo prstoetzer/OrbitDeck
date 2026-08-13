@@ -172,19 +172,85 @@ def source_azel(name, lat, lon, t):
 # EME (Earth-Moon-Earth) geometry
 # ---------------------------------------------------------------------------
 
+def moon_ecliptic(jd):
+    """Moon's ecliptic longitude, latitude (degrees) and distance (km).
+
+    Schlyter's model: the equation of the center plus the main perturbations -
+    evection, variation, the annual equation and the parallactic terms. The
+    earlier form carried only the equation of the center and so ran 1-2 degrees
+    out, which is invisible on a pointing readout and fatal for eclipses, where
+    the whole event spans about half a degree.
+    """
+    # Schlyter's elements are epoched at 1999-12-31.0 UT (JD 2451543.5), NOT
+    # J2000. Using the J2000 offset shifts the mean longitude by 1.5 days of
+    # lunar motion - about 19.8 degrees - which is not a small error in a model
+    # whose whole purpose is half-degree geometry.
+    d = jd - 2451543.5
+    # Moon's own elements
+    N = math.radians((125.1228 - 0.0529538083 * d) % 360)   # ascending node
+    i = math.radians(5.1454)
+    w = math.radians((318.0634 + 0.1643573223 * d) % 360)   # arg of perigee
+    a = 60.2666                                             # Earth radii
+    e = 0.054900
+    M = math.radians((115.3654 + 13.0649929509 * d) % 360)  # mean anomaly
+    # Sun's, for the perturbation arguments
+    Ms = math.radians((356.0470 + 0.9856002585 * d) % 360)
+    ws = math.radians((282.9404 + 4.70935e-5 * d) % 360)
+    Ls = ws + Ms
+    Lm = N + w + M                                          # Moon mean longitude
+    D = Lm - Ls                                             # mean elongation
+    F = Lm - N                                              # argument of latitude
+
+    # eccentric anomaly
+    E = M + e * math.sin(M) * (1.0 + e * math.cos(M))
+    for _ in range(6):
+        E = E - (E - e * math.sin(E) - M) / (1.0 - e * math.cos(E))
+    x = a * (math.cos(E) - e)
+    y = a * math.sqrt(1.0 - e * e) * math.sin(E)
+    r = math.hypot(x, y)
+    v = math.atan2(y, x)
+
+    xe = r * (math.cos(N) * math.cos(v + w)
+              - math.sin(N) * math.sin(v + w) * math.cos(i))
+    ye = r * (math.sin(N) * math.cos(v + w)
+              + math.cos(N) * math.sin(v + w) * math.cos(i))
+    ze = r * math.sin(v + w) * math.sin(i)
+    lon = math.degrees(math.atan2(ye, xe))
+    lat = math.degrees(math.atan2(ze, math.hypot(xe, ye)))
+
+    # Perturbations, in degrees. Evection and variation dominate.
+    lon += (-1.274 * math.sin(M - 2 * D)      # evection
+            + 0.658 * math.sin(2 * D)         # variation
+            - 0.186 * math.sin(Ms)            # annual equation
+            - 0.059 * math.sin(2 * M - 2 * D)
+            - 0.057 * math.sin(M - 2 * D + Ms)
+            + 0.053 * math.sin(M + 2 * D)
+            + 0.046 * math.sin(2 * D - Ms)
+            + 0.041 * math.sin(M - Ms)
+            - 0.035 * math.sin(D)             # parallactic
+            - 0.031 * math.sin(M + Ms)
+            - 0.015 * math.sin(2 * F - 2 * D)
+            + 0.011 * math.sin(M - 4 * D))
+    lat += (-0.173 * math.sin(F - 2 * D)
+            - 0.055 * math.sin(M - F - 2 * D)
+            - 0.046 * math.sin(M + F - 2 * D)
+            + 0.033 * math.sin(F + 2 * D)
+            + 0.017 * math.sin(2 * M + F))
+    r += (-0.58 * math.cos(M - 2 * D)
+          - 0.46 * math.cos(2 * D))
+    return lon % 360.0, lat, r * 6378.137
+
+
 def _moon_eci_unit(jd):
-    d = jd - 2451545.0
-    L = math.radians((218.316 + 13.176396 * d) % 360)
-    M = math.radians((134.963 + 13.064993 * d) % 360)
-    F = math.radians((93.272 + 13.229350 * d) % 360)
-    lon = L + math.radians(6.289) * math.sin(M)
-    lat = math.radians(5.128) * math.sin(F)
-    eps = math.radians(23.439)
-    x = math.cos(lat) * math.cos(lon)
-    y = (math.cos(eps) * math.cos(lat) * math.sin(lon)
-         - math.sin(eps) * math.sin(lat))
-    z = (math.sin(eps) * math.cos(lat) * math.sin(lon)
-         + math.cos(eps) * math.sin(lat))
+    """Unit vector to the Moon in equatorial coordinates."""
+    lon, lat, _r = moon_ecliptic(jd)
+    lo, la = math.radians(lon), math.radians(lat)
+    eps = math.radians(23.4393)
+    x = math.cos(la) * math.cos(lo)
+    y = (math.cos(eps) * math.cos(la) * math.sin(lo)
+         - math.sin(eps) * math.sin(la))
+    z = (math.sin(eps) * math.cos(la) * math.sin(lo)
+         + math.cos(eps) * math.sin(la))
     return x, y, z
 
 
@@ -204,11 +270,12 @@ def moon_azel(lat, lon, t):
 
 
 def moon_distance_km(t):
-    """Approximate Earth-Moon distance (km), varying with anomaly."""
-    d = jd_of(t) - 2451545.0
-    M = math.radians((134.963 + 13.064993 * d) % 360)
-    # leading terms of the distance series (km)
-    return 385000.56 - 20905.0 * math.cos(M)
+    """Earth-Moon distance in km, from the same model as the position.
+
+    Two sources for one quantity is how a screen ends up disagreeing with
+    itself, so this reads the Schlyter solution rather than a separate series.
+    """
+    return moon_ecliptic(jd_of(t))[2]
 
 
 def eme_path_loss_db(freq_hz, t):
@@ -252,7 +319,7 @@ def eme_doppler_hz(freq_hz, lat, lon, t, dt=1.0):
 
 def _moon_topocentric_range_km(lat, lon, t):
     """Distance from the observer to the Moon (km), accounting for the
-    observer's offset from Earth centre."""
+    observer's offset from Earth center."""
     jd = jd_of(t)
     mx, my, mz = _moon_eci_unit(jd)
     dist = moon_distance_km(t)

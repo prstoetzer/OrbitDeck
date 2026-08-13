@@ -19,7 +19,7 @@ import os
 import time
 
 from ..ui import Screen, ScrollList, addstr, cp, clip
-from ..ui import (CLR_TITLE, CLR_HEADER, CLR_DIM, CLR_OK, CLR_ACCENT, CLR_ROW_SEL, CLR_WARN)
+from ..ui import (CLR_TITLE, CLR_HEADER, CLR_DIM, CLR_OK, CLR_ACCENT, CLR_ROW_SEL, CLR_WARN, CLR_BAD)
 from ..fmt import fmt_dur, fmt_clock
 
 from orbitdeck.engine.predict import Predictor
@@ -285,7 +285,7 @@ class ActivationsScreen(Screen):
             linear = False
         if seed_leg and not self._mode_touched:
             # A single-channel transponder has no passband to hold a dial in,
-            # so a "fixed" mode there would be theatre - stay in true rule.
+            # so a "fixed" mode there would be for show - stay in true rule.
             if linear:
                 self.mode_sel = 1 if seed_leg == "downlink" else 2
                 self.anchor_sel = 2 if seed_leg == "downlink" else 3
@@ -826,3 +826,250 @@ class QrzScreen(Screen):
         if self.editing:
             return [("ENTER", "look up"), ("ESC", "cancel")]
         return [("e", "callsign"), ("r", "repeat")]
+
+
+class AstronomyScreen(Screen):
+    """Observing astronomy: showers, Jupiter, aurora, twilight, EME, sky events.
+
+    The same models the Sun/Moon and EME screens use, so these agree with them
+    rather than offering a second opinion. A planning tool, not an almanac.
+    """
+
+    title = "Astronomy"
+    refresh_secs = 0.0
+    VIEWS = ["showers", "jupiter", "aurora", "twilight", "eme", "sky",
+             "eclipses", "ecltrack"]
+
+    def __init__(self, app):
+        super().__init__(app)
+        self.view = 0
+        self.scroll = 0
+        self.ecl_sel = 0
+        self._cache = {}
+
+    def _obs(self):
+        return self.state.store.obs
+
+    def draw(self, win, y0, x0, h, w):
+        from orbitdeck.engine import astronomy as AS
+        o = self._obs()
+        name = self.VIEWS[self.view]
+        addstr(win, y0, x0, clip("Astronomy \u2014 %s" % name, w),
+               cp(CLR_TITLE))
+        addstr(win, y0, x0 + w - 18, "a view  j/k scroll", cp(CLR_DIM))
+        if o is None or not getattr(o, "valid", True):
+            addstr(win, y0 + 2, x0, "Set your QTH first (Settings).",
+                   cp(CLR_WARN))
+            return
+        t = time.time()
+        try:
+            getattr(self, "_v_" + name)(win, y0 + 2, x0, h - 2, w, o, t, AS)
+        except Exception as exc:
+            addstr(win, y0 + 2, x0, clip("%s failed: %s" % (name, exc), w),
+                   cp(CLR_WARN))
+
+    def _rows(self, win, y, x0, h, w, header, rows):
+        addstr(win, y, x0, clip(header, w), cp(CLR_HEADER))
+        shown = rows[self.scroll:self.scroll + max(1, h - 2)]
+        for i, line in enumerate(shown):
+            addstr(win, y + 1 + i, x0, clip(line, w))
+        if self.scroll + len(shown) < len(rows):
+            addstr(win, y + h - 1, x0, clip(
+                "\u2026 %d more (j/k)" % (len(rows) - self.scroll
+                                          - len(shown)), w), cp(CLR_DIM))
+
+    def _v_showers(self, win, y, x0, h, w, o, t, AS):
+        rows = AS.meteor_showers(o.lat, o.lon, t)
+        out = []
+        for r in rows:
+            # One word for the verdict: the full sentence does not fit 61
+            # columns beside the numbers, and a clipped sentence reads as a
+            # complete one.
+            word = r["verdict"].split(" - ")[0].split(";")[0]
+            if r["radiant_el"] < 0:
+                word = "radiant down"
+            out.append("%-14s %5s %4d %+5.0f\u00b0 %4.0f%%  %s" % (
+                r["name"][:14],
+                ("%.0fd" % r["days"]) if r["days"] >= 0 else "now",
+                r["zhr"], r["radiant_el"], r["moon_illum"] * 100, word))
+        self._rows(win, y, x0, h, w,
+                   "%-14s %5s %4s %6s %5s  %s" % (
+                       "SHOWER", "IN", "ZHR", "EL", "MOON", "SCATTER"), out)
+
+    def _v_jupiter(self, win, y, x0, h, w, o, t, AS):
+        st = AS.jupiter_status(o.lat, o.lon, t)
+        _kv(win, y, x0, w, "CML III", "%.1f\u00b0" % st["cml_deg"])
+        _kv(win, y + 1, x0, w, "Io phase", "%.1f\u00b0" % st["io_phase_deg"])
+        _kv(win, y + 2, x0, w, "Jupiter az/el",
+            "%.0f\u00b0 / %+.0f\u00b0" % (st["az"], st["el"]),
+            cp(CLR_OK) if st["up"] else cp(CLR_DIM))
+        _kv(win, y + 3, x0, w, "Status", st["verdict"],
+            cp(CLR_OK) if st["active"] and st["up"] else 0)
+        wins = AS.jupiter_windows(o.lat, o.lon, t)
+        out = ["%-6s %s \u2192 %s  max el %+.0f\u00b0" % (
+            v["source"], fmt_clock(v["start"], True), fmt_clock(v["end"]),
+            v["max_el"]) for v in wins]
+        self._rows(win, y + 5, x0, h - 5, w,
+                   "IO WINDOWS, NEXT 48 H (Jupiter up)",
+                   out or ["none in the next 48 hours"])
+
+    def _v_aurora(self, win, y, x0, h, w, o, t, AS):
+        kp = None
+        try:
+            kp = (self.state.store.load_spacewx_cache() or {}).get("kp")
+        except Exception:
+            pass
+        a = AS.aurora_outlook(o.lat, o.lon, kp)
+        _kv(win, y, x0, w, "Magnetic lat", "%.1f\u00b0" % a["mag_lat"])
+        _kv(win, y + 1, x0, w, "Kp",
+            "%.1f" % a["kp"] if a["kp"] is not None else "no data")
+        if a["boundary"] is not None:
+            _kv(win, y + 2, x0, w, "Oval boundary",
+                "%.1f\u00b0 magnetic" % a["boundary"])
+            _kv(win, y + 3, x0, w, "Margin", "%+.1f\u00b0" % a["margin"],
+                cp(CLR_OK) if a["margin"] >= 0 else cp(CLR_DIM))
+        _kv(win, y + 5, x0, w, "Visual", a["visual"],
+            cp(CLR_OK) if "likely" in a["visual"] else 0)
+        _kv(win, y + 6, x0, w, "Radio", a["radio"],
+            cp(CLR_OK) if "likely" in a["radio"] else 0)
+        addstr(win, y + 8, x0, clip(
+            "Magnetic latitude, not geographic.", w), cp(CLR_DIM))
+
+    def _v_twilight(self, win, y, x0, h, w, o, t, AS):
+        rows = AS.twilight_times(o.lat, o.lon)
+        out = ["%-18s %+6.1f\u00b0  %-8s %-8s" % (
+            r["label"], r["altitude"],
+            fmt_clock(r["morning"]) if r["morning"] else "\u2014",
+            fmt_clock(r["evening"]) if r["evening"] else "\u2014")
+            for r in rows]
+        self._rows(win, y, x0, h, w,
+                   "%-18s %7s  %-8s %-8s" % ("PHASE", "SUN EL", "MORNING",
+                                             "EVENING"), out)
+        addstr(win, y + h - 1, x0, clip(
+            "UTC day; a dash means no crossing today.", w),
+            cp(CLR_DIM))
+
+    def _v_eme(self, win, y, x0, h, w, o, t, AS):
+        c = AS.eme_conditions(t)
+        _kv(win, y, x0, w, "Distance", "%.0f km" % c["distance_km"])
+        _kv(win, y + 1, x0, w, "Perigee (30 d)", "%.0f km on %s" % (
+            c["perigee_km"], fmt_clock(c["perigee_time"], True)))
+        _kv(win, y + 2, x0, w, "Apogee (30 d)", "%.0f km on %s" % (
+            c["apogee_km"], fmt_clock(c["apogee_time"], True)))
+        _kv(win, y + 3, x0, w, "Degradation",
+            "%.2f dB vs perigee" % c["degradation_db"],
+            cp(CLR_WARN) if c["degradation_db"] > 1.5 else 0)
+        _kv(win, y + 4, x0, w, "Monthly swing", "%.2f dB" % c["swing_db"])
+        _kv(win, y + 5, x0, w, "Declination",
+            "%+.1f\u00b0" % c["declination_deg"])
+        addstr(win, y + 7, x0, clip(
+            "Two-way loss: 40 log10 of range.", w), cp(CLR_DIM))
+
+    def _v_sky(self, win, y, x0, h, w, o, t, AS):
+        key = ("sky", int(t // 3600))
+        if key not in self._cache:
+            # A year-long scan is slow; hold it for the hour.
+            self._cache.clear()
+            self._cache[key] = (AS.occultations(o.lat, o.lon, t, days=365),
+                                AS.appulses(t, days=365))
+        occ, app = self._cache[key]
+        out = []
+        for r in occ[:10]:
+            out.append("%-11s %s %.3f\u00b0 %s" % (
+                r["target"][:11], fmt_clock(r["time"], True),
+                r["separation_deg"],
+                "OCCULTATION" if r["occultation"] else "close"))
+        out.append("")
+        for r in app[:10]:
+            out.append("%-11s %s %.2f\u00b0 appulse" % (
+                ("%s/%s" % (r["a"][:4], r["b"][:4]))[:11],
+                fmt_clock(r["time"], True), r["separation_deg"]))
+        self._rows(win, y, x0, h, w,
+                   "MOON EVENTS AND PLANETARY APPULSES, ONE YEAR", out)
+
+    def _v_ecltrack(self, win, y, x0, h, w, o, t, AS):
+        """Central line of the next solar eclipse, on the braille canvas."""
+        from ..canvas import Canvas, blit
+        key = ("ecl", int(t // 3600))
+        rows = self._cache.get(key) or AS.eclipses(o.lat, o.lon, t, days=730)
+        self._cache[key] = rows
+        solar = [r for r in rows if r["kind"] == "solar"]
+        if not solar:
+            addstr(win, y, x0, "no solar eclipse in the next two years",
+                   cp(CLR_WARN))
+            return
+        ev = solar[min(self.ecl_sel, len(solar) - 1)]
+        addstr(win, y, x0, clip("%s  mag %.3f  (n cycles, %d of %d)" % (
+            fmt_clock(ev["max_time"], True), ev["magnitude"],
+            self.ecl_sel % len(solar) + 1, len(solar)), w), cp(CLR_ACCENT))
+        segs = AS.eclipse_ground_track(ev)
+        # 2:1 for an equirectangular map, as on the Ground Track screen.
+        dw, dh = (w - 2) * 2, (h - 4) * 4
+        if dw < 2 * dh:
+            dh = dw // 2
+        else:
+            dw = dh * 2
+        cv = Canvas(max(8, dw // 2), max(2, dh // 4))
+
+        def to_px(la, lo):
+            return ((lo + 180.0) / 360.0 * (cv.width - 1),
+                    (90.0 - la) / 180.0 * (cv.height - 1))
+
+        from orbitdeck.data.worldmap_data import COASTLINES
+        for poly in COASTLINES:
+            prev = None
+            for lo, la in poly:
+                pt = to_px(la, lo)
+                if prev is not None and abs(pt[0] - prev[0]) < cv.width * 0.5:
+                    cv.line(prev[0], prev[1], pt[0], pt[1], cp(CLR_DIM))
+                prev = pt
+        for seg in segs:
+            prev = None
+            for la, lo in seg:
+                pt = to_px(la, lo)
+                if prev is not None:
+                    cv.line(prev[0], prev[1], pt[0], pt[1], cp(CLR_BAD))
+                prev = pt
+        blit(win, cv, y + 1, x0)
+        ox, oy = to_px(o.lat, o.lon)
+        addstr(win, y + 1 + int(oy) // 4, x0 + int(ox) // 2, "\u25b2",
+               cp(CLR_OK))
+        addstr(win, y + h - 1, x0, clip(AS.eclipse_track_summary(ev), w),
+               cp(CLR_DIM))
+
+    def _v_eclipses(self, win, y, x0, h, w, o, t, AS):
+        key = ("ecl", int(t // 3600))
+        if key not in self._cache:
+            self._cache.clear()
+            self._cache[key] = AS.eclipses(o.lat, o.lon, t, days=730)
+        rows = self._cache[key]
+        out = ["%-6s %-10s %s %+6.3f %+4.0f\u00b0 %s" % (
+            r["kind"][:6], r["class_name"][:10],
+            fmt_clock(r["max_time"], True), r["magnitude"], r["elevation"],
+            "vis" if r["visible"] else "down") for r in rows]
+        self._rows(win, y, x0, h, w,
+                   "%-6s %-10s %-17s %6s %5s %s" % (
+                       "KIND", "CLASS", "MAXIMUM UTC", "MAG", "EL", ""),
+                   out or ["none in the next two years"])
+
+    def handle_key(self, ch):
+        if ch in (ord("a"), ord("\t")):
+            self.view = (self.view + 1) % len(self.VIEWS)
+            self.scroll = 0
+            return True
+        if ch == ord("n") and self.VIEWS[self.view] == "ecltrack":
+            self.ecl_sel += 1
+            return True
+        if ch in (curses.KEY_DOWN, ord("j")):
+            self.scroll += 1
+            return True
+        if ch in (curses.KEY_UP, ord("k")):
+            self.scroll = max(0, self.scroll - 1)
+            return True
+        return False
+
+    def help_keys(self):
+        if self.VIEWS[self.view] == "ecltrack":
+            return [("a", "view"), ("n", "next eclipse")]
+        return [("a", "view (%s)" % self.VIEWS[self.view]),
+                ("j/k", "scroll")]

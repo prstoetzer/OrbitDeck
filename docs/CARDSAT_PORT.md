@@ -377,7 +377,7 @@ minutes per day.
 
 **Deliberate difference from CardSat, stated rather than glossed:** CardSat
 classifies the belts from a real **IGRF-14** field with field-line tracing.
-OrbitDeck uses a **tilted centred-dipole** model for the McIlwain L shell and
+OrbitDeck uses a **tilted centered-dipole** model for the McIlwain L shell and
 B/B0. That is the standard analytic approximation and fine for "is this orbit
 belt-exposed" questions, but it will disagree with IGRF near the belt horns and
 inside the SAA, where the real field is markedly non-dipolar. Belt verdicts are
@@ -394,7 +394,7 @@ eclipse at ~36% of each orbit, both of which match the real spacecraft.
 
 | Gap | Status | Notes |
 | --- | --- | --- |
-| Sky at a glance | ✅ | `engine/skyglance.py` + screen: Gantt-style timeline of every upcoming pass across favorites, bars coloured by peak elevation, plus the longest quiet gap |
+| Sky at a glance | ✅ | `engine/skyglance.py` + screen: Gantt-style timeline of every upcoming pass across favorites, bars colored by peak elevation, plus the longest quiet gap |
 | AO-7 mode calculator | ✅ **complete** | `skyglance.ao7_illumination()`: beta angle, eclipse fraction over one orbit, and the continuous-sunlight verdict that decides whether AO-7's 24 h mode timer is running. CardSat *also* estimates the current mode phase from a month of fetched AMSAT status reports — that crowd-sourced estimate is **not** ported |
 
 ### Remaining (revised)
@@ -436,7 +436,7 @@ Validated by recovering a synthetic 19.5 h square wave to within 5 minutes at
 `engine/muf.py` + the **MUF / HF Prop** screen: MINIMUF-3.5 from the station to
 24 world regions, showing the maximum usable frequency, the ~85%-of-MUF
 "workable" figure, the band that implies, and path distance/bearing. Sortable by
-region, MUF or distance; rows colour-graded by band quality.
+region, MUF or distance; rows color-graded by band quality.
 
 The MINIMUF transcription deliberately keeps the published BASIC's variable
 names (K1, G0, Y1, M9...) so it stays checkable line-by-line against the
@@ -562,7 +562,7 @@ The lever that actually raises graphical quality in a terminal is **sub-cell
 rendering**. `orbitterm/canvas.py` adds a braille surface: the Unicode block at
 U+2800 encodes 2x4 independently settable dots per character cell, so a plot gets
 **8x the addressable points** of a block-character chart in the same space, while
-staying pure text. Colour remains per cell (a terminal limit, not a braille one),
+staying pure text. Color remains per cell (a terminal limit, not a braille one),
 and `ascii_fallback()` renders the same buffer with `#` for fonts without
 braille coverage.
 
@@ -572,7 +572,7 @@ Four graphical screens built on it (`screens/graphics.py`):
 | --- | --- |
 | Graphing Calc | expression plot, `e` edits, `[ ]` zoom, poles break the trace |
 | Sky Map | star field + constellation lines on a zenith disk, satellites overlaid |
-| Sky at a Glance | pass timeline across favorites, bars coloured by peak elevation |
+| Sky at a Glance | pass timeline across favorites, bars colored by peak elevation |
 | Orbital History | Space-Track element series from the desktop's cache, `c` cycles column |
 
 OrbitTerm: **34 of 37** screens. Verified by rendering in a real curses session -
@@ -635,7 +635,7 @@ OrbitTerm: **35 of 37**. Remaining: OSCARLOCATOR sim (Learn omitted).
 braille canvas - graticule disc, ground-track arc, footprint circle and a live
 readout of EQX longitude and minutes after the crossing. Projection conventions
 match the printable sheet and the desktop screen (north polar: 0 deg longitude
-at the bottom, east counter-clockwise; QTH-centred: north up, clockwise
+at the bottom, east counter-clockwise; QTH-centered: north up, clockwise
 bearings). LIVE pins the overlay to the satellite's real last ascending node;
 MANUAL rotates the disc and steps the minutes by hand, as you would slide the
 paper transparency.
@@ -691,11 +691,11 @@ The inventory was re-audited against 0.9.75, but many *implementations* were
 ported from the 0.9.61 drop and never re-checked. Decay is the clearest case.
 
 **CardSat 0.9.68 rebuilt the decay model** after fitting it against **244
-catalogued objects that actually re-entered** (Space-Track TIP decay epochs plus
+catalogd objects that actually re-entered** (Space-Track TIP decay epochs plus
 gp_history element sets), cross-checked against ~1500 objects' observed n-dot.
 Their finding about the version OrbitDeck had ported: it combined
 `Cd*A/m = 38*B*` with a `da/dt` a factor of two too large; the errors partly
-cancelled at ISS altitude where the constant was tuned, and elsewhere the model
+canceled at ISS altitude where the constant was tuned, and elsewhere the model
 predicted **about a fifth of the true remaining life**.
 
 `engine/decay.py` now implements the calibrated model:
@@ -703,7 +703,7 @@ predicted **about a fifth of the true remaining life**.
 - **n-dot anchor.** The element set's mean-motion derivative *is* a measurement
   of the current decay rate, so back-solving the ballistic coefficient from it
   makes the present rate right by construction and cancels the B*→Cd*A/m
-  conversion, the density normalisation and the solar scale. Scored 0.99x median
+  conversion, the density normalization and the solar scale. Scored 0.99x median
   against real re-entries, 92% within ±30%.
 - **B* fallback** (`Cd*A/m = 12.741621 * B*`) when n-dot is absent, negative or
   noise.
@@ -760,7 +760,7 @@ came from and 0.9.75.
 
 **Result: 39 of 40 tool cases are byte-identical.** The one that "differs" is
 `TOOL_FRESNEL`, and the only change is a spelling correction in a comment
-(`metres` → `meters`). The MPE/RF-exposure limits, the state-vector→GP seed, the
+(`meters` → `meters`). The MPE/RF-exposure limits, the state-vector→GP seed, the
 Doppler budget and the coax/antenna/electronics constants are all unchanged, so
 those ports are current.
 
@@ -815,7 +815,7 @@ Rewritten as a coarse backward scan (12 h steps) to find the first eclipsing
 orbit, then a bisection to 30-minute resolution, requiring at least two shadowed
 samples so a graze cannot flip the verdict. `orbit_eclipse_samples()` now returns
 `None` for an unevaluatable state instead of claiming eclipse, and the function
-returns `(start, exact)` so a run older than the search window is labelled as
+returns `(start, exact)` so a run older than the search window is labeled as
 "at least this long" rather than presented as a found boundary.
 
 ## OrbitTerm was showing local time under UTC labels
@@ -829,7 +829,7 @@ Six call sites fixed (three in `fmt.py`, three in `progression.py`), and the
 visual audit caught two more the grep had not:
 
 - the **title-bar clock** rendered `13:05:00 EDT` from `strftime("%Z")`;
-- the **progression axis** was labelled `local h` and bucketed passes by local
+- the **progression axis** was labeled `local h` and bucketed passes by local
   day.
 
 All now UTC. A regression test re-imports the formatters under
@@ -848,7 +848,7 @@ the sample catalog lacks (Orbital History has no cached archive).
 limited: without a window manager the capture leaves an unpainted region over
 part of the frame, so fine alignment could not be judged from these images. The
 threaded screens (MUF, Zones) were captured mid-scan showing their progress
-message and an empty table, which is correct behaviour rather than a defect.
+message and an empty table, which is correct behavior rather than a defect.
 
 ## OrbitTerm independence, Space-Track fetch, and the time question
 
@@ -899,7 +899,7 @@ is exactly how the AO-7 fit ended up querying `AO-7[A]` and getting a 404.
 from the API's own `catalog.php`:
 
 1. parenthesised designator (`AO-7` -> `AO-7 (OSCAR 7)`) - the CelesTrak bridge
-2. whole-name equality on the normalised form
+2. whole-name equality on the normalized form
 3. delimited-token containment
 4. legacy prefix stem (`AO-07` and `AO-7` collapse together)
 5. collapsed form (`AO-7` / `AO 7` / `AO7`)
@@ -914,7 +914,7 @@ reporting picker need.
 **AO-7** now calls `resolve_api_names()` to ask the catalog which names it
 publishes today, mapping each to a mode by its tag (`V/a` = 2 m up / 10 m down =
 Mode A; `U/v` = 70 cm up / 2 m down = Mode B). Hardcoded names remain only as a
-fallback, so a catalog fetch failure degrades to the previous behaviour instead
+fallback, so a catalog fetch failure degrades to the previous behavior instead
 of breaking the fit.
 
 **Both AMSAT Status screens** resolve the selected satellite through the ladder
@@ -938,7 +938,7 @@ Now at parity on both front-ends:
 | Feature | Notes |
 | --- | --- |
 | **Value** view | the element plotted over time (was already there) |
-| **Rate** view | d(element)/dt - drag and manoeuvres read directly off this |
+| **Rate** view | d(element)/dt - drag and maneuvers read directly off this |
 | **Analysis** view | has the *rate itself* changed? |
 | **Table** view | per-element first/last/change/per-year over the window |
 | Time zoom & pan | `+`/`-` zoom, `[`/`]` pan, `0` reset; value, rate and table honour it - **analysis deliberately ignores it**, because its question is about the whole record |
@@ -951,7 +951,7 @@ to get wrong and that their source documents as audit findings:
   halves and report the same rate twice.
 - **Jump baseline falls back to the mean.** An object that sat perfectly still
   for years has a median |rate| of zero, which disabled the detector at exactly
-  the moment its one big manoeuvre arrived.
+  the moment its one big maneuver arrived.
 - **A near-zero era outranks the ratio.** "early 0, late large" used to print
   "rate roughly steady (0.00x)"; it now reads "NEW trend developed lately".
 
@@ -959,7 +959,7 @@ Rate pairs closer than an hour are skipped: the archive holds several element
 sets per day, and dividing by a near-zero interval manufactures enormous
 spurious rates.
 
-Validated against a synthetic record with a planted manoeuvre: the jump is
+Validated against a synthetic record with a planted maneuver: the jump is
 detected at ~150 km/yr against a 0.6 km/yr median, and the verdict reports the
 acceleration.
 
@@ -1082,7 +1082,7 @@ number - a fix applied to one surface and not the other.
 
 The seeding logic now lives once, in `spacewx_interp.seed_ssn()`, and both
 screens call it: observed SSN from the cache, else derived from F10.7, else a
-labelled default. Both show the provenance.
+labeled default. Both show the provenance.
 
 The TUI additionally tracks it through edits: `+`/`-` relabels the source as
 `manual`, and `s` reseeds from the cache. A number nudged by hand must stop
@@ -1142,7 +1142,7 @@ explicitly in `openActMutual()`. All three operating modes and all four anchors
 are available, from the existing `engine/dxdoppler` - the new work here is the
 seeding, not the maths:
 
-| Mode | Behaviour |
+| Mode | Behavior |
 | --- | --- |
 | True rule | the passband point is fixed; every dial Doppler-tracks its own station |
 | Fixed downlink | the anchor's RX dial is held in real RF; the passband drifts to absorb its Doppler and the other three follow |
@@ -1220,7 +1220,7 @@ exists. A feature with no way to reach it is not shipped, and a string-replace
 edit that does not match fails silently - both worth a test rather than a
 promise.
 
-## OrbitTerm normalised to 80x24
+## OrbitTerm normalized to 80x24
 
 Audited every screen at exactly 80x24 (and at 100x30 / 120x40 to check nothing
 regressed wider). No screen overflowed or came up blank, but the **Orbital
@@ -1242,7 +1242,7 @@ day/night MUF, per-band open/fair/weak/shut for 80 m through 6 m, geomagnetic
 state, aurora-VHF likelihood, D-layer absorption, meteor scatter (named showers
 with their dates, else the sporadic background) and sporadic-E season. Verified
 that a storm suppresses the MUF while raising aurora and absorption, which is
-the behaviour that makes the screen worth having.
+the behavior that makes the screen worth having.
 
 **B1 Orbital Analysis fields** — Velocity and V apo/peri added (vis-viva from
 elements already held: ISS 7.659 km/s, GTO 1.63 / 10.02). Launched, In orbit and
@@ -1301,7 +1301,7 @@ these were losing data inside the line:
 
 A test asserts both survive at 80x24 and that no line exceeds the width.
 
-**Graphical screens print their tables** - confirmed as the intended behaviour
+**Graphical screens print their tables** - confirmed as the intended behavior
 rather than a limitation to fix.
 
 ## Activations display, and OrbitTerm data parity
@@ -1418,7 +1418,7 @@ revs/day, rev at epoch, decay estimate and its solar-activity range). Six pages
 now: elements, live, pass, stats, anomaly, identity.
 
 **Radio** gained a link-budget view (`l`): slant range, free-space path loss,
-EIRP, propagation delay and estimated received power, labelled as an estimate
+EIRP, propagation delay and estimated received power, labeled as an estimate
 rather than a calibrated figure.
 
 **AO-7** gained the fit diagnostics - report agreement, mode changes seen, timer
@@ -1509,7 +1509,7 @@ gone, applied to 14 screens.
 ## Reported issues, round 5
 
 **1. Seeding did not change the table.** Two faults. The passband was opened at
-mid-band and called seeded - so the anchored dial sat at the transponder centre,
+mid-band and called seeded - so the anchored dial sat at the transponder center,
 not the stated frequency. `solve_pb_for_dial()` now converges the offset so the
 anchored dial actually reads it (verified holding 145.8650 MHz across a whole
 window on CAS-4B's linear transponder), the same way CardSat's
@@ -1536,7 +1536,7 @@ and fails if one has neither a report control nor a `_report` method.
 
 **MUF map.** `muf_grid()` runs MINIMUF to a lat/lon grid and the MUF screen
 shades it over the coastline basemap with the QTH marked. The region table gives
-24 representative centres; the map shows the *shape* of the opening - where the
+24 representative centers; the map shows the *shape* of the opening - where the
 band edge actually falls - which rows cannot.
 
 **Link margin vs elevation.** `link_margin_curve()` computes slant range from a
@@ -1549,7 +1549,7 @@ on the MUF screen.
 
 **GP-fit diagnostics.** `fit_diagnostics()` reports what a state-vector fit
 rests on - radius, speed, circular speed at that radius and their ratio - and
-flags the unit mix-ups (metres for kilometres, m/s for km/s) that otherwise
+flags the unit mix-ups (meters for kilometers, m/s for km/s) that otherwise
 produce a converged-looking element set from nonsense.
 
 ### One thing deliberately not built
@@ -1762,7 +1762,7 @@ box gives **2.04:1**.
 The second fault was worse and mine: the map outlined a coarse land/sea
 **rectangle mask**, and outlining a grid of rectangles can only produce
 rectangles. It now draws the bundled coastline **vectors** the desktop map uses,
-which is what braille is actually for. The result is a recognisable world map.
+which is what braille is actually for. The result is a recognizable world map.
 
 **Truncation audit.** Swept every screen and page at 80x24 for clipped lines and
 for dates without a year. The important find is the one reported: Orbital
@@ -1773,7 +1773,7 @@ confined to the next few days; `fmt_date` keeps its short form for pass tables,
 where the year is never in doubt.
 
 **Interface consistency.** `e` edits a value, `f` filters, `g` scans, `s`
-searches remotely, `p` pages, ESC cancels. The Satellites screen labelled `/`
+searches remotely, `p` pages, ESC cancels. The Satellites screen labeled `/`
 as "search" when it filters the local list, which made two different actions
 look like one; it now reads "filter", with `s` for CelesTrak.
 
@@ -1829,15 +1829,15 @@ exceptions.
 
 **Palette.** Three faults, all in `ui.py`:
 
-- `CLR_DIM` was **blue**. On a dark background that is the least legible colour
+- `CLR_DIM` was **blue**. On a dark background that is the least legible color
   in most terminal palettes, and it is by far the most-used pair - 166 call
   sites covering labels, units and help text. Now white with `A_DIM`.
 - `CLR_HEADER` was the **same yellow as `CLR_WARN`**, so a column heading and a
   warning were indistinguishable. Headers are now white and bold.
 - Both attributes now travel with the pair through `cp()`, so structure still
-  reads on a terminal without colour instead of collapsing to flat text.
+  reads on a terminal without color instead of collapsing to flat text.
 
-**Colour semantics.** Red was being used for *direction*: a receding satellite,
+**Color semantics.** Red was being used for *direction*: a receding satellite,
 an eclipse, and the negative half of a Doppler curve all rendered as faults. If
 red means "normal thing happening", it stops meaning "look at this". Red is now
 reserved for genuine warnings - imminent decay, the now-marker - and direction
@@ -1854,3 +1854,271 @@ mid-word cut.
 compared two live snapshots of what is under the footprint - which moves between
 calls - so a prefix taken from one might not exist in the next. Rewritten to
 assert properties within a single snapshot.
+
+## 0.39.0 — Tiny BASIC
+
+Ported from CardSat 0.9.75 and kept **source-compatible in both directions**: a
+program written on the card runs here unchanged, and one written here runs on
+the card. That constraint drove every design decision.
+
+**The coordinate space is the card's 240x135, not the window's.** Scaling
+happens at draw time in the UI, never in the interpreter. If the interpreter
+used a larger space, a program drawing a border at `x=239` would be right on one
+machine and wrong on the other. Colors are the card's ten palette indices for
+the same reason.
+
+**The display scales by a whole number of pixels.** A fractional scale would
+leave some rows a pixel taller than their neighbors and blur a one-pixel
+`PSET`; an integer factor keeps it a crisp NxN square, with the 240x135 aspect
+preserved and centered.
+
+**Drawing is clipped to the card's screen.** The first cut was not, and the
+sample program's spokes ran past the edge - a picture the card would never
+produce. Tk cannot clip canvas items directly, so the overhang is masked in the
+panel background.
+
+**`INPUT` is collected before the run**, as on the card, so the interpreter
+never re-enters the event loop with a live program on the stack. Runaway
+programs are bounded by statement and time budgets.
+
+Two behaviors carried over deliberately because they look like bugs otherwise:
+`IF ... THEN` accepts **any** statement, not a hand-picked subset (CardSat's
+notes record that the subset made `IF C=3 THEN TEXT ...` fall through to
+assignment and report "unknown name"); and `ON..GOTO` with an out-of-range
+selector **falls through** rather than erroring, which is classic behavior.
+
+**The "card-only" statements are ported too.** The first cut refused them; they
+turned out to be perfectly portable, and refusing them left a real gap - the
+whole **system-variable table** (`SATAZ`, `MYLAT`, `UTCH`, `SFI`, `NSAT`, ...)
+was missing, so a card program reading `SATAZ` would have failed with "unknown
+name". `engine/basichost.py` supplies those from the live catalog, station,
+clock and space-weather data, and `SATSEL`/`TXSEL` repoint them.
+
+Two behaviors from the card matter here and are kept: an unavailable value
+reads **0 with its `...OK` flag at 0** so a program branches rather than halts,
+and `SATSEL` treats a bad *index* as an error but an unpropagatable satellite as
+merely `SATOK = 0` - which is what lets `FOR I=0 TO NSAT-1 : SATSEL I : IF
+SATOK=0 ...` survive a dead element set. `SATSEL` also clears any previous
+`TXSEL`, since those values are stale once the satellite changes.
+
+`FOPEN`/`FPRINT`/`FCLOSE`/`FILES` write to `~/.orbitdeck/basic/`. A file name
+must be a single plain name - no path separators, no leading dot - so a program
+cannot reach the rest of the disk.
+
+Not ported to OrbitTerm, per the brief.
+
+
+The interpreter screen no longer names CardSat anywhere: it describes the
+240x135 canvas and leaves provenance to the changelog, since from a user's point
+of view this is simply OrbitDeck's BASIC.
+
+
+## American English
+
+About **500** British spellings across **80 files** — mine, accumulated over the
+whole project. Two passes were needed: the first used word boundaries and so
+missed everything where an underscore blocked one (`_colour`, `analyse_rate`,
+`colour_pair`), which is exactly where the renames matter most.
+
+Public identifiers changed: `analyse_rate` -> `analyze_rate`,
+`CP_ALUMINIUM` -> `CP_ALUMINUM`, and the canvas drawing methods now take
+`color`. Build output, third-party code and CardSat's own quoted strings were
+left alone.
+
+A guard test walks every source file and fails on any British spelling. It
+immediately earned its place: it found a `prioritising` that both bulk passes
+had missed, and caught itself matching its own word list.
+
+
+## Decay from the element archive
+
+`ndot_from_history()` fits the mean-motion trend across an archive by least
+squares and returns it in the GP convention. A single element set's n-dot is one
+noisy number from one epoch; a record spanning months measures what the orbit
+actually did, and it is the only anchor that gets better as more data arrives.
+
+`estimate_decay_with_history()` prefers it, then falls back to the element set's
+n-dot, then B*, so a satellite with no archive behaves exactly as before.
+
+Three guards, because a confident wrong number is worse than an honest fallback:
+a record under 30 days or 6 points is refused; a *rising* mean motion is refused
+(that orbit is not decaying); and the archive source is claimed **only** when the
+n-dot anchor actually accepted the fit - the anchor rejects a ballistic
+coefficient outside the physical range, and labeling a B* result as "element
+archive" would overstate what the number rests on.
+
+Both Orbital History screens display the estimate with its anchor named. The
+desktop also says *why* the archive was not used when it wasn't, rather than
+leaving the operator to guess whether it had been.
+
+
+### Making it work in OrbitTerm
+
+Wiring the helper in was not enough; rendering it found three faults:
+
+- the decay line was written to `y0+2`, which already carried the column/zoom
+  header, producing **"full recordhive)"** on screen;
+- it appeared on the two plot views only. The **analysis and table views are
+  where you go to judge a trend**, so they needed it most;
+- a fresh `f` fetch never recomputed it, so a newly fetched archive left the
+  previous satellite's line up.
+
+A wider problem surfaced at the same time: four other call sites across both
+front-ends still called `estimate_decay_days` directly, so Orbital Analysis
+would have said 2.7 years while Orbital History said 12.5 for the same
+satellite. An operator seeing that would rightly not trust either. All of them
+now go through `estimate_for_sat()`, which reads the shared cache - the same
+file both front-ends write, so either can anchor on an archive the other
+fetched. Verified both TUI screens now report 12.5 years from the archive.
+
+The combined line then overran 80 columns, so the anchor name is abbreviated
+there ("archive", "n-dot", "B*") with the full name on Orbital Analysis.
+
+
+## Duplicate buttons
+
+Reported as duplicates, and they were - but the real fault was that two
+genuinely different actions shared one word.
+
+The base `header()` has always offered a **satellite** report: analysis, passes
+and EQX for the selected object. My earlier printing pass then added a
+screen-level report to twenty screens, also labeled "Report...". On six screens
+both appeared, identical in the UI and different in output. A user clicking one
+had no way to know which they would get, and the two are not interchangeable.
+
+They are now named for what they produce: **Satellite report...** and **Print
+screen...**.
+
+The same audit found five different exports on Planning all labeled
+"Export CSV..." - workable, horizon, visibility, rove plan and LOS windows -
+plus two on the export screen and two on Satellites. Each now says what it
+writes.
+
+A test walks every screen and fails on two buttons with the same label, with a
+narrow exemption for a pair that live on different tabs of one screen, where
+only one is ever visible.
+
+
+## CardSat 0.9.76 - the astronomy set
+
+Ported to `engine/astronomy.py` and given a screen on **both** front-ends. All
+of it runs on the Sun, Moon and planet models `celestial.py` already provides,
+so these agree with the Sun/Moon and EME screens instead of forming a second
+opinion.
+
+Verified against invariants rather than eyeballed:
+
+- **Jupiter** - the System III and Io rates are checked against their physical
+  rotation periods, since wrong rates would put every storm window in the wrong
+  place while still looking plausible.
+- **Comet** - Halley's elements give r = q at perihelion, aphelion at
+  a(1+e) half a period later, a period of **74.8 years** (matching CardSat's own
+  harness), and exact time symmetry about perihelion. Barker's equation covers
+  the parabolic case, where Kepler's degenerates.
+- **Aurora** - magnetic, not geographic, latitude: a test asserts the UK and
+  Labrador differ by more than 5 degrees at the same geographic latitude,
+  because that difference is the whole point.
+
+Two things the first cut got wrong, both caught by running it:
+
+- **Occultations were near misses.** A 3-hour scan reported a 1.05 degree
+  separation against a 0.27 degree limb and called it an occultation. The
+  minimum is now refined to 2-minute resolution and classified honestly: inside
+  the limb is an occultation, wider is a close approach.
+- **Twilight ordering.** My test assumed morning precedes evening. Over a UTC
+  day at western longitudes it does not - civil dusk lands at 00:29 UTC and
+  civil dawn at 09:40 UTC the same day. The test was wrong, not the code, and
+  both screens now say so rather than leaving it looking like a fault.
+
+
+## Eclipses - and the Moon model underneath them
+
+The eclipse calculator is ported with both of the fixes CardSat's own harness
+caught: the syzygy scan starts two steps in the past (an eclipse in the first
+few hours cannot be bracketed otherwise, and fully-past events are dropped at
+the end), and the lunar class keeps the **deepest** class seen rather than the
+shallowest, which had called a total eclipse penumbral.
+
+Building it exposed something much larger. The first run put the August 2026
+eclipse **39 hours** late with the wrong class, and chasing that found two
+faults of my own:
+
+1. **An off-by-one bracket.** `cur` holds the elongation at `tt - step`, so the
+   extremum must be bracketed by `[tt - 2*step, tt]`. I had bracketed
+   `[tt - step, tt + step]`, putting the extremum on the window edge.
+2. **The Moon model was 1-2 degrees out** - it carried only the equation of the
+   center, with no evection or variation. On a pointing readout that is
+   invisible; for an eclipse, where the entire event spans half a degree, it is
+   fatal. Upgraded to Schlyter's perturbation set, and `moon_distance_km` now
+   reads the same solution instead of a separate series.
+
+Then a third, found only because the canon disagreed: **Schlyter's elements are
+epoched at 1999-12-31.0, not J2000**. Using the J2000 offset shifts the mean
+longitude by 1.5 days of lunar motion - **19.8 degrees**. The elongation at the
+canon time read 161 degrees instead of 180, which is what made the error
+obvious.
+
+With all three fixed, the 28 August 2026 partial lunar eclipse comes out at
+**umbral magnitude 0.931 at 04:13 UT** against a published 0.93 at 04:13, and
+the January 2028 partial at 0.044 against CardSat's own 0.04. A test pins the
+canon, because a calculator that cannot reproduce a known eclipse should not be
+shown to an operator as one.
+
+The Moon upgrade improves Sun/Moon, EME, transits and occultations at the same
+time, and broke no existing test.
+
+
+## Eclipse ground track
+
+The shadow axis runs from the Sun through the Moon; the near root of its
+intersection with the Earth sphere is the point of greatest eclipse. Verified
+against the almanac: 12 August 2026 at 17:46 UT gives **65.7N 23.8W** against a
+published 65.2N 25.2W - about 70 km, comfortably inside the model's accuracy.
+
+Three things the geometry demands and the UI has to respect:
+
+- **Segments, not one polyline.** The track crosses the date line, and joining
+  those points draws a stripe straight across the map.
+- **"No intersection" is a real answer.** A partial-only eclipse has an axis
+  that misses the planet entirely; drawing nothing without saying so reads as a
+  bug, so the screen states it.
+- **A lunar eclipse has no ground track.** The Earth's shadow falls on the
+  Moon, not the other way round - said plainly rather than leaving a blank map.
+
+Desktop plots it over the coastline basemap with the observer marked; OrbitTerm
+draws it on the braille canvas in the same 2:1 box the Ground Track screen uses,
+with `n` cycling through the solar eclipses.
+
+
+## New-launch transmitter discovery
+
+Implemented from the design document, taking its **portable alternative**
+rather than the embedded path. CardSat probes candidates one at a time against
+SatNOGS with a budget of 100; OrbitDeck already fetches and caches the entire
+transmitter database keyed by NORAD, so the intersection is a dictionary
+lookup. About a hundred round-trips become one cached read, and the probe
+budget disappears entirely - every filtered candidate is checked.
+
+The document's ordering caution (filter before taking the newest N) therefore
+stops being load-bearing, but the filter still runs first, because the counts
+shown to the operator should describe what was actually considered.
+
+Three rules from the document that are the difference between a useful feature
+and a misleading one, all covered by tests:
+
+- **`TBA` objects are never filtered.** That is the state a freshly launched
+  amateur cubesat occupies for its first weeks.
+- **The filter is switchable off**, with a rescan. A name-matching rule will
+  eventually hide something interesting.
+- **A negative is never stated as "no transmitter".** SatNOGS lags a launch by
+  days to weeks, so the wording is "not found among those checked".
+
+The filter is tested in **both directions** on the document's 31 fixtures -
+cutting junk is the easy half; not eating `LEDSAT`, `HADES-D` or
+`TBA - TO BE ASSIGNED` is the half that matters. All 31 passed first run.
+
+One self-inflicted problem worth recording: verifying the add path by hand
+wrote to the real `~/.orbitdeck/transmitters.json`, which overwrote the ISS's
+sample transponders and broke an unrelated transponder test. My own test had
+the same fault - it took a `tmp_path` and never used it. Both fixed; the test
+now redirects `TX_CACHE` with `monkeypatch`.

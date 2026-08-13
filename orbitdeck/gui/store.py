@@ -226,6 +226,43 @@ class Store:
         if s is not None:
             s.transponders = list(s.transponders) + [tp]
 
+    def load_tx_cache(self):
+        """The cached SatNOGS transmitter database, grouped by NORAD id.
+
+        Returns {} when nothing is cached yet, so a caller can decide whether
+        to fetch rather than being handed a silent empty result.
+        """
+        try:
+            with open(TX_CACHE) as f:
+                data = json.load(f)
+            return data if isinstance(data, dict) else {}
+        except Exception:
+            return {}
+
+    def cache_transmitters(self, norad, records):
+        """Store transmitter records already in hand under the shared cache.
+
+        Data fetched for one purpose should not be thrown away and fetched
+        again for the next: the caller has the records, so adding a satellite
+        needs no further network.
+        """
+        if not records:
+            return False
+        data = self.load_tx_cache()
+        data[str(int(norad))] = list(records)
+        try:
+            os.makedirs(CONFIG_DIR, exist_ok=True)
+            with open(TX_CACHE, "w") as f:
+                json.dump(data, f)
+        except Exception:
+            return False
+        try:
+            self._apply_tx_cache()
+            self._merge_manual()
+        except Exception:
+            pass
+        return True
+
     def _apply_tx_cache(self):
         """Attach transponders from a cached SatNOGS dump (by NORAD) to every
         matching satellite in the catalog, if the cache exists."""

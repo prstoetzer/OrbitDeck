@@ -188,7 +188,7 @@ def test_tui_graphics_draw_in_curses():
 # ---- globe ----
 def test_globe_projection_hides_far_side():
     from orbitterm.screens.globe import GlobeScreen
-    # a point at the view centre is visible and at the origin
+    # a point at the view center is visible and at the origin
     x, y, vis = GlobeScreen._project(0, 0, 0, 0, 100)
     assert vis and abs(x) < 1e-6 and abs(y) < 1e-6
     # the antipode is on the far side

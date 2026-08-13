@@ -18,7 +18,7 @@ from ._helpers import _jd_from_tle_epoch
 
 
 def test_sgp4_vallado_reference_vector():
-    """Position must match the published reference to ~1 metre at epoch."""
+    """Position must match the published reference to ~1 meter at epoch."""
     jd = _jd_from_tle_epoch(0, 179.78495062)
     s = Satrec()
     ok = s.init_from_elements(jd, 0.66816e-4, 0.0, 0.0,

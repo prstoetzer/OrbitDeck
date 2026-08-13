@@ -40,7 +40,7 @@ class _CursesError(Exception):
 
 @pytest.fixture(autouse=True)
 def _patch_curses(monkeypatch):
-    """Make ui.addstr's curses.error catch our fake error, and stub colour/bold
+    """Make ui.addstr's curses.error catch our fake error, and stub color/bold
     so screens can import and run headless."""
     import curses
     import orbitterm.ui as ui

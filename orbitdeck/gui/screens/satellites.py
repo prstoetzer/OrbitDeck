@@ -66,7 +66,7 @@ class SatellitesScreen(Screen):
 
         btns = ttk.Frame(parent, style="TFrame")
         btns.pack(fill="x", padx=4, pady=(0, 8))
-        ttk.Button(btns, text="Report\u2026",
+        ttk.Button(btns, text="Print screen\u2026",
 
                    command=self._report).pack(side="right", padx=4)
         ttk.Button(btns, text="Select (double-click)",
@@ -351,7 +351,7 @@ class SatellitesScreen(Screen):
                          ("Period", "period")):
             ttk.Radiobutton(bar, text=label, value=v, variable=self._bt_sort,
                             command=self._reload_bytype).pack(side="left")
-        ttk.Button(bar, text="Export CSV\u2026",
+        ttk.Button(bar, text="Export by type CSV…",
                    command=self._export_bytype).pack(side="right", padx=2)
 
         cols = ("norad", "period", "incl", "downlink", "tp")
@@ -484,7 +484,7 @@ class SatellitesScreen(Screen):
                             command=self._scan_up).pack(side="left")
         ttk.Button(bar, text="Rescan", command=self._scan_up).pack(
             side="left", padx=8)
-        ttk.Button(bar, text="Export CSV\u2026",
+        ttk.Button(bar, text="Export what’s up CSV…",
                    command=self._export_up).pack(side="right", padx=2)
         self._up_info = tk.StringVar(value="")
         ttk.Label(bar, textvariable=self._up_info, style="Muted.TLabel").pack(

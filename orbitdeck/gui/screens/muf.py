@@ -30,7 +30,7 @@ class MufScreen(Screen):
         ent = ttk.Entry(bar, textvariable=self.ssn, width=7)
         ent.pack(side="left", padx=6)
         ent.bind("<Return>", lambda _e: self._compute())
-        ttk.Button(bar, text="Report\u2026",
+        ttk.Button(bar, text="Print screen\u2026",
 
                    command=self._report).pack(side="right", padx=4)
         ttk.Button(bar, text="Compute",
@@ -72,8 +72,8 @@ class MufScreen(Screen):
         self.map = MplPanel(self.frame, figsize=(8.4, 3.6))
         self.map.widget.pack(fill="both", expand=True, padx=16,
                              pady=(0, 8))
-        for name, colour in QUALITY_TAGS.items():
-            self.tree.tag_configure(name, foreground=colour)
+        for name, color in QUALITY_TAGS.items():
+            self.tree.tag_configure(name, foreground=color)
 
         note = ("MINIMUF-3.5 is a monthly-median model driven by sunspot number, "
                 "not a live ionosonde: weakest on very short and antipodal paths, "

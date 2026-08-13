@@ -50,9 +50,9 @@ def constellation_segments(lat, lon, t, min_el=0.0):
 
 
 def azel_to_xy(az_deg, el_deg, size=1.0):
-    """Project az/el to x,y in a unit circle sky plot (zenith centre, horizon
+    """Project az/el to x,y in a unit circle sky plot (zenith center, horizon
     edge; north up, east right). Returns (x, y) with the circle radius = size/2
-    centred at (size/2, size/2), or None if below the horizon."""
+    centered at (size/2, size/2), or None if below the horizon."""
     import math
     if el_deg < 0:
         return None

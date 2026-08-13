@@ -26,7 +26,7 @@ def free_space_path_loss_db(range_km, freq_hz):
     """Free-space path loss in dB for a slant range and frequency.
 
     FSPL(dB) = 20 log10(d) + 20 log10(f) + 20 log10(4*pi/c)
-    with d in metres and f in Hz.
+    with d in meters and f in Hz.
     """
     if range_km <= 0 or freq_hz <= 0:
         return 0.0
@@ -96,7 +96,7 @@ def apparent_magnitude(std_mag, range_km, phase_angle_deg, range_ref_km=1000.0):
     if range_km <= 0:
         return 99.0
     pa = max(0.0, min(180.0, phase_angle_deg)) * DEG
-    # diffuse-sphere phase function, normalised to 1 at full phase (pa=0)
+    # diffuse-sphere phase function, normalized to 1 at full phase (pa=0)
     fphase = (math.sin(pa) + (math.pi - pa) * math.cos(pa)) / math.pi
     fphase = max(fphase, 1e-3)
     return (std_mag + 5.0 * math.log10(range_km / range_ref_km)
@@ -285,7 +285,7 @@ def sat_to_sat_los(r1, r2, re_km=RE_KM):
     Earth.
 
     Geometry: find the closest approach of the line segment r1->r2 to Earth
-    centre. If that minimum distance exceeds Earth's radius, or the closest
+    center. If that minimum distance exceeds Earth's radius, or the closest
     point lies outside the segment, the two can see each other.
     """
     d = (r2[0] - r1[0], r2[1] - r1[1], r2[2] - r1[2])

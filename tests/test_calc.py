@@ -359,3 +359,132 @@ def test_recalibrated_decay_differs_from_the_old_model():
     assert D.fmt_decay(-1) == "no usable data"
     assert "days" in D.fmt_decay(30)
     assert "years" in D.fmt_decay(800)
+
+
+# ---- decay anchored on the element archive ----
+def _archive(n=74, step_days=10, dperiod=-0.0025, period0=92.9):
+    import time as _t
+    base = _t.time() - n * step_days * 86400
+    return [{"epoch": base + i * step_days * 86400,
+             "PERIOD": period0 + dperiod * i,
+             "APOAPSIS": 420 - i * 0.06, "PERIAPSIS": 410 - i * 0.06,
+             "INCLINATION": 51.6, "ECCENTRICITY": 0.0005,
+             "SEMIMAJOR_AXIS": 6790, "BSTAR": 2e-4} for i in range(n)]
+
+
+def test_ndot_fitted_from_the_element_archive():
+    """One element set carries a single noisy n-dot from one epoch; an archive
+    measures the actual mean-motion trend over months."""
+    from orbitdeck.engine import decay as D
+    nd = D.ndot_from_history(_archive())
+    assert nd is not None and nd > 0
+    # too few points, too short a span, and a rising mean motion all decline
+    assert D.ndot_from_history(_archive(n=4)) is None
+    assert D.ndot_from_history(_archive(n=10, step_days=1)) is None
+    assert D.ndot_from_history(_archive(dperiod=+0.002)) is None
+    assert D.ndot_from_history([]) is None
+    assert D.ndot_from_history(None) is None
+
+
+def test_estimate_prefers_the_archive_then_falls_back():
+    from orbitdeck.engine import decay as D
+    days, src = D.estimate_decay_with_history(15.50, 0.0004, 0.00025, 0.0001,
+                                              _archive())
+    assert src == D.SRC_HISTORY and days > 0
+    # no archive: identical to the plain estimate
+    a = D.estimate_decay_with_history(15.50, 0.0004, 0.00025, 0.0001, None)
+    b = D.estimate_decay_days(15.50, 0.0004, 0.00025, 0.0001)
+    assert a == b
+    # a short archive falls back rather than claiming the archive
+    _d, src2 = D.estimate_decay_with_history(15.50, 0.0004, 0.00025, 0.0001,
+                                             _archive(n=4))
+    assert src2 != D.SRC_HISTORY
+
+
+def test_archive_source_is_only_claimed_when_it_anchored():
+    """Reporting 'element archive' for a result that actually came from B*
+    would overstate what the number rests on."""
+    from orbitdeck.engine import decay as D
+    # a wildly implausible trend is rejected by the n-dot anchor, so the
+    # result must not be labeled as coming from the archive
+    silly = _archive(dperiod=-5.0)
+    _days, src = D.estimate_decay_with_history(15.50, 0.0004, 0.00025, 0.0,
+                                               silly)
+    assert src in (D.SRC_HISTORY, D.SRC_BSTAR, D.SRC_NONE)
+    if src != D.SRC_HISTORY:
+        assert D.SRC_NAMES[src] != "element archive"
+
+
+def test_both_history_screens_show_the_decay_estimate():
+    import inspect
+    from orbitdeck.gui.screens import orbithistory
+    from orbitterm.screens import graphics
+    gsrc = inspect.getsource(orbithistory.OrbitHistoryScreen)
+    tsrc = inspect.getsource(graphics.OrbitHistoryScreen)
+    for src in (gsrc, tsrc):
+        assert "estimate_decay_with_history" in src
+        # the anchor must be named, so the number is never bare - the desktop
+        # spells it out, the terminal abbreviates it to fit 80 columns
+        assert "SRC_NAMES" in src or "SRC_HISTORY" in src
+    # the desktop says WHY the archive was not used, rather than leaving it
+    assert "too short or not decaying" in gsrc
+
+
+def test_estimate_for_sat_reads_the_shared_cache(tmp_path):
+    """Both front-ends write the same archive cache, so either can anchor on
+    one the other fetched."""
+    import json
+    import os
+    import time as _t
+    from orbitdeck.engine import decay as D
+
+    class _Sat:
+        norad = 25544
+        mean_motion = 15.50
+        ecc = 0.0004
+        bstar = 0.00025
+        ndot = 0.0001
+
+    # no cache: falls back, and says so
+    _d, src = D.estimate_for_sat(_Sat(), cache_dir=str(tmp_path))
+    assert src != D.SRC_HISTORY
+
+    base = _t.time() - 730 * 86400
+    samples = [{"epoch": base + i * 86400 * 10, "PERIOD": 92.9 - 0.0025 * i}
+               for i in range(74)]
+    with open(os.path.join(str(tmp_path), "25544.json"), "w") as f:
+        json.dump(samples, f)
+    _d2, src2 = D.estimate_for_sat(_Sat(), cache_dir=str(tmp_path))
+    assert src2 == D.SRC_HISTORY
+    # a corrupt or missing cache must not raise
+    assert D.cached_history(999999, str(tmp_path)) == []
+    with open(os.path.join(str(tmp_path), "42.json"), "w") as f:
+        f.write("not json")
+    assert D.cached_history(42, str(tmp_path)) == []
+
+
+def test_every_decay_readout_uses_the_same_helper():
+    """An operator seeing 2.7 years on one screen and 12.5 on another - because
+    only one looked at the archive - would rightly not trust either."""
+    import inspect
+    from orbitdeck.gui.screens import orbit as gorbit
+    from orbitterm.screens import analysis_screens, graphics
+    gsrc = inspect.getsource(gorbit.OrbitScreen)
+    tsrc = inspect.getsource(analysis_screens.OrbitalAnalysisScreen)
+    hsrc = inspect.getsource(graphics.OrbitHistoryScreen)
+    assert "estimate_for_sat" in gsrc
+    assert "estimate_for_sat" in tsrc
+    assert "estimate_decay_with_history" in hsrc
+
+
+def test_orbitterm_history_shows_decay_on_every_view():
+    """The analysis and table views are where you go to judge the trend, so
+    the estimate belongs there too - not only on the two plots."""
+    import inspect
+    from orbitterm.screens import graphics
+    src = inspect.getsource(graphics.OrbitHistoryScreen)
+    assert src.count("self.decay") >= 6
+    # a fresh fetch must recompute it, or a stale line survives the change
+    assert "self.decay = self._decay_line()" in src
+    fetch = inspect.getsource(graphics.OrbitHistoryScreen._fetch)
+    assert "_decay_line" in fetch

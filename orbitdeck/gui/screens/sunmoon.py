@@ -74,7 +74,7 @@ class SunMoonScreen(Screen):
         self.header("Sun / Moon \u2014 sky view")
         bar = ttk.Frame(self.frame, style="TFrame")
         bar.pack(fill="x", padx=16, pady=(0, 4))
-        ttk.Button(bar, text="Report\u2026",
+        ttk.Button(bar, text="Print screen\u2026",
                    command=self._report).pack(side="right", padx=4)
 
         body = ttk.Frame(self.frame, style="TFrame")
@@ -132,8 +132,8 @@ class SunMoonScreen(Screen):
         self.mpl._style_axes()
         ax.set_theta_zero_location("N")
         ax.set_theta_direction(-1)
-        ax.set_rlim(90, 0)             # zenith centre, horizon rim
-        # ring labels follow the radius (90 at centre .. 0 at rim) so a body
+        ax.set_rlim(90, 0)             # zenith center, horizon rim
+        # ring labels follow the radius (90 at center .. 0 at rim) so a body
         # high in the sky reads as a high elevation rather than near-horizon
         ax.set_rgrids([0, 30, 60, 90], labels=["0", "30", "60", "90"],
                       color=COL_MUTED, fontsize=7)
@@ -154,7 +154,7 @@ class SunMoonScreen(Screen):
             ax.plot([sthe], [s_r], "o", color="#ffe08a", markersize=11)
         else:
             # below the horizon: park a faint marker at the horizon rim in the
-            # body's compass direction (not at the zenith centre, where it would
+            # body's compass direction (not at the zenith center, where it would
             # sit on top of the "90" ring label), with the label nudged outward
             ax.plot([sthe], [2.0], "o", color=COL_WARN, markersize=7,
                     alpha=0.4, clip_on=False)
@@ -177,7 +177,7 @@ class SunMoonScreen(Screen):
         else:
             # below the horizon: faint marker at the horizon rim in the moon's
             # direction with the label nudged outward, so neither sits on the
-            # "90" zenith ring label at the centre
+            # "90" zenith ring label at the center
             ax.plot([mthe], [2.0], "o", color="#cfe3ff", markersize=6,
                     alpha=0.4, clip_on=False)
             ax.annotate("Moon \u25bc", (mthe, 0), color=COL_MUTED, fontsize=7,

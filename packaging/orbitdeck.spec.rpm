@@ -69,6 +69,13 @@ install -Dm644 packaging/io.github.prstoetzer.OrbitDeck.metainfo.xml \
 %{_metainfodir}/io.github.prstoetzer.OrbitDeck.metainfo.xml
 
 %changelog
+* Thu Aug 13 2026 Paul Stoetzer, N8HM - 0.39.1-1
+- Astronomy hub from CardSat 0.9.76 on both front-ends
+
+* Wed Aug 12 2026 Paul Stoetzer, N8HM - 0.39.0-1
+- Add Tiny BASIC, source-compatible with CardSat; card-sized graphics space,
+  integer-scaled desktop display
+
 * Wed Aug 12 2026 Paul Stoetzer, N8HM - 0.38.2-1
 - OrbitTerm: CelesTrak search and editable Mutual Windows DX grid
 - Correct map proportions and real coastlines; years on long-span dates

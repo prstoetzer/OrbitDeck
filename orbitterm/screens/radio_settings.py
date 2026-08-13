@@ -30,10 +30,10 @@ class RadioScreen(Screen):
             # downlink_center is a METHOD; downlink is a plain value. Taking
             # `a or b` picked up the bound method and compared it as a number.
             dl = getattr(tp, "downlink", None)
-            centre = getattr(tp, "downlink_center", None)
-            if callable(centre):
+            center = getattr(tp, "downlink_center", None)
+            if callable(center):
                 try:
-                    dl = centre() or dl
+                    dl = center() or dl
                 except Exception:
                     pass
         if not dl:

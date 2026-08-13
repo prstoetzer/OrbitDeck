@@ -12,8 +12,8 @@ from . import (Screen, KVPanel, COL_ACCENT2, COL_MUTED, COL_TEXT, COL_WARN,
                now_unix, make_scrolled_tree)
 from ...engine import propagation as PROP
 
-SEV_COLOUR = {0: COL_MUTED, 1: COL_TEXT, 2: COL_ACCENT2, 3: COL_WARN}
-STATE_COLOUR = {"open": COL_ACCENT2, "fair": COL_TEXT, "weak": COL_WARN,
+SEV_COLOR = {0: COL_MUTED, 1: COL_TEXT, 2: COL_ACCENT2, 3: COL_WARN}
+STATE_COLOR = {"open": COL_ACCENT2, "fair": COL_TEXT, "weak": COL_WARN,
                 "shut": COL_MUTED, "unknown": COL_MUTED}
 
 
@@ -24,7 +24,7 @@ class PropagationScreen(Screen):
         bar.pack(fill="x", padx=16, pady=4)
         ttk.Button(bar, text="Refresh",
                    command=self._reload).pack(side="left")
-        ttk.Button(bar, text="Report\u2026",
+        ttk.Button(bar, text="Print screen\u2026",
                    command=self._report).pack(side="left", padx=6)
         self.summary = tk.StringVar(value="")
         ttk.Label(bar, textvariable=self.summary, style="Muted.TLabel",
@@ -44,8 +44,8 @@ class PropagationScreen(Screen):
             self.tree.column(c, width=w,
                              anchor="w" if c == "band" else "center")
         wrap.pack(side="left", fill="both", expand=True)
-        for name, colour in STATE_COLOUR.items():
-            self.tree.tag_configure(name, foreground=colour)
+        for name, color in STATE_COLOR.items():
+            self.tree.tag_configure(name, foreground=color)
 
         note = ("Rules of thumb driven by solar flux and Kp, not a path "
                 "calculation \u2014 use the MUF screen for a specific path. "
@@ -82,7 +82,7 @@ class PropagationScreen(Screen):
                            ("Meteor scatter", "meteor"),
                            ("Sporadic E", "sporadic_e")):
             text, sev = res[key]
-            self.kv.row(label, text, SEV_COLOUR.get(sev, COL_TEXT))
+            self.kv.row(label, text, SEV_COLOR.get(sev, COL_TEXT))
         self.kv.end()
 
         self.tree.delete(*self.tree.get_children())

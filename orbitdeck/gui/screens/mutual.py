@@ -140,7 +140,7 @@ class MutualScreen(Screen):
                           % (len(results), len(favs), ll[0], ll[1]))
             return
 
-        # selected-satellite mode (the original behaviour)
+        # selected-satellite mode (the original behavior)
         s = self.sat()
         if not s:
             self.info.set("No satellite selected.")
@@ -295,7 +295,7 @@ class MutualScreen(Screen):
         self._build_dxdoppler_tab(t_dop, s, w, dx_obs)
 
     def _build_sky_tab(self, parent, s, w, my_track, dx_track):
-        tk.Label(parent, text="The grey arc is the full pass from that station; "
+        tk.Label(parent, text="The gray arc is the full pass from that station; "
                  "the bold orange arc is the mutually-visible portion. "
                  "Circle = AOS, square = LOS.", bg=COL_BG, fg=COL_MUTED).pack(
             anchor="w", padx=14, pady=(8, 6))

@@ -41,18 +41,18 @@ def test_b_ratio_minimum_at_magnetic_equator():
     assert eqr < off
 
 
-def test_saa_ellipse_contains_centre_only():
+def test_saa_ellipse_contains_center_only():
     t = time.time()
     assert Z.in_zone(Z.ZONE_SAA, -27, -53, 400, True, t)
     assert not Z.in_zone(Z.ZONE_SAA, 50, 10, 400, True, t)     # Europe
     assert not Z.in_zone(Z.ZONE_SAA, 0, 150, 400, True, t)     # Pacific
 
 
-def test_saa_centre_drifts_west():
+def test_saa_center_drifts_west():
     y2025 = time.mktime(time.strptime("2025-01-02", "%Y-%m-%d"))
     y2035 = time.mktime(time.strptime("2035-01-02", "%Y-%m-%d"))
-    lon25 = Z.saa_centre(y2025)[1]
-    lon35 = Z.saa_centre(y2035)[1]
+    lon25 = Z.saa_center(y2025)[1]
+    lon35 = Z.saa_center(y2035)[1]
     assert lon35 < lon25                       # drifts westward
 
 

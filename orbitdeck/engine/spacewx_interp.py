@@ -12,7 +12,7 @@ evening" rather than "what is the official NOAA scale".
 """
 
 # (upper bound, label, severity) - severity 0 dim, 1 normal, 2 good, 3 warn,
-# 4 bad, so a front-end can colour without re-deriving the meaning.
+# 4 bad, so a front-end can color without re-deriving the meaning.
 FLUX_BANDS = ((90, "low", 0), (120, "moderate", 1), (160, "good", 2),
               (float("inf"), "very high", 3))
 KP_BANDS = ((4, "quiet", 2), (5, "unsettled", 1), (6, "minor storm", 3),

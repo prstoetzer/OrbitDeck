@@ -409,7 +409,7 @@ def test_activation_detail_offers_notes_and_seeds_from_frequency():
 
 def test_seeding_holds_a_linear_dial_on_the_stated_frequency():
     """Setting the operating point mid-passband is not seeding: the anchored
-    dial then sits at the transponder centre, not the stated frequency."""
+    dial then sits at the transponder center, not the stated frequency."""
     import time as _t
     from orbitdeck.gui.store import Store
     from orbitdeck.engine.predict import Observer

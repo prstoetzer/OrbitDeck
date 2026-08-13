@@ -1,3 +1,19 @@
+orbitdeck (0.39.1-1) unstable; urgency=medium
+
+  * Add the astronomy hub from CardSat 0.9.76 to both front-ends: meteor
+    showers, Jupiter decametric windows, aurora, twilight, EME conditions,
+    lunar occultations, planetary appulses and a comet ephemeris.
+
+ -- Paul Stoetzer, N8HM <n8hm@arrl.net>  Thu, 13 Aug 2026 10:00:00 +0000
+
+orbitdeck (0.39.0-1) unstable; urgency=medium
+
+  * Add Tiny BASIC, ported from CardSat and source-compatible with it. Keeps
+    the card's 240x135 graphics space so pictures match, and scales the
+    desktop display by a whole number of pixels.
+
+ -- Paul Stoetzer, N8HM <n8hm@arrl.net>  Wed, 12 Aug 2026 11:00:00 +0000
+
 orbitdeck (0.38.2-1) unstable; urgency=medium
 
   * OrbitTerm: CelesTrak search, editable Mutual Windows DX grid, correct

@@ -50,7 +50,7 @@ def find_local(db, name):
 
     Tries the AMSAT name matcher first - the feed uses operating names like
     "AO-91" or "RS-44" while the catalog carries "AO-91 (RADFXSAT)" - then a
-    plain normalised compare. Returns the SatEntry or None.
+    plain normalized compare. Returns the SatEntry or None.
 
     This is what stops the screen re-adding satellites you already have.
     """

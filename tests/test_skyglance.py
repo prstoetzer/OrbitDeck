@@ -76,11 +76,11 @@ def test_beta_star_rises_with_altitude():
     assert 0 < SG.beta_star_for_altitude(550) < 90
 
 
-def test_elevation_colour_bands():
-    from orbitdeck.gui.screens.skyglance import elevation_colour
-    low = elevation_colour(10)
-    mid = elevation_colour(30)
-    high = elevation_colour(70)
+def test_elevation_color_bands():
+    from orbitdeck.gui.screens.skyglance import elevation_color
+    low = elevation_color(10)
+    mid = elevation_color(30)
+    high = elevation_color(70)
     assert low != mid != high
 
 

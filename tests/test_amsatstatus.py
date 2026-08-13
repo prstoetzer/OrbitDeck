@@ -96,7 +96,7 @@ def test_build_report_body():
                         when=1786000000)
     assert b["name"] == "AO-91[FM]"
     assert b["report"] == "Heard"
-    assert b["callsign"] == "N8HM"           # normalised
+    assert b["callsign"] == "N8HM"           # normalized
     assert b["grid_square"] == "FM18"
     assert b["reported_at"].endswith("Z")
 

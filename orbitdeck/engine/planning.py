@@ -56,7 +56,7 @@ def best_passes_for_target(pred, obs, tgt_lat, tgt_lon, frm, hours=72.0,
 
     ``max_common`` is the maximum (over the window) of the smaller of the two
     elevation-equivalent margins -- a rough "quality" proxy: a window where both
-    stations are near the centre of the footprint is better than one where both
+    stations are near the center of the footprint is better than one where both
     are near the edge.
     """
     end = frm + hours * 3600.0

@@ -21,7 +21,7 @@ D2R = math.pi / 180.0
 PIC = 3.141593
 P0C = 1.570796
 
-# Region centres. NOTE: longitudes here are **west-positive**, matching the
+# Region centers. NOTE: longitudes here are **west-positive**, matching the
 # MINIMUF convention; convert when handing them to normal east-positive code.
 REGIONS = [
     ("W Europe", 50.0, -5.0), ("E Europe", 52.0, -21.0),
@@ -144,7 +144,7 @@ def workable_band(muf_mhz):
     return "80m"
 
 
-def muf_band_colour_key(muf_mhz):
+def muf_band_color_key(muf_mhz):
     """Coarse quality bucket: 'low', 'fair', 'good' or 'high'."""
     if muf_mhz < 10:
         return "low"
@@ -186,7 +186,7 @@ def muf_to_regions(lat, lon, when, ssn, regions=None):
         dist, brg = great_circle(lat, lon, r_lat, -r_wlon)
         out.append({
             "name": name, "muf_mhz": muf, "band": workable_band(muf),
-            "quality": muf_band_colour_key(muf),
+            "quality": muf_band_color_key(muf),
             "distance_km": dist, "bearing_deg": brg,
             "workable_mhz": WORKABLE_FRACTION * muf,
         })
@@ -238,7 +238,7 @@ def muf_to_dxcc(lat, lon, when, ssn, prefix, max_results=8):
         out.append({
             "prefix": pfx, "name": name,
             "muf_mhz": muf, "band": workable_band(muf),
-            "quality": muf_band_colour_key(muf),
+            "quality": muf_band_color_key(muf),
             "workable_mhz": WORKABLE_FRACTION * muf,
             "distance_km": dist, "bearing_deg": brg,
         })
@@ -248,7 +248,7 @@ def muf_to_dxcc(lat, lon, when, ssn, prefix, max_results=8):
 def muf_grid(lat, lon, when, ssn, lat_step=15.0, lon_step=15.0):
     """MUF from the QTH to a grid of points, for a shaded world map.
 
-    The region table gives 24 representative centres; a grid shows the *shape*
+    The region table gives 24 representative centers; a grid shows the *shape*
     of the opening - where the band edge actually falls - which is what a map
     is for. Coarse by default because MINIMUF is a per-path model and the cost
     grows with the square of the resolution.

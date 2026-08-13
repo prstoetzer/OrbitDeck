@@ -7,14 +7,14 @@ absorbed?* This is that layer, ported from CardSat 0.9.75's `SCR_PROP`.
 
 Everything here is a **rule of thumb** driven by solar flux and Kp. The models
 are deliberately crude - CardSat's own note says as much ("6 m Es is seasonal")
-- and they are labelled that way wherever they are shown. They answer "is it
+- and they are labeled that way wherever they are shown. They answer "is it
 worth turning the radio on", not "what will the signal report be".
 """
 
 
 import time
 
-# Representative band centres used for the open/fair/weak/shut verdicts.
+# Representative band centers used for the open/fair/weak/shut verdicts.
 HF_BANDS = [("80 m", 3.6), ("40 m", 7.1), ("30 m", 10.1), ("20 m", 14.1),
             ("17 m", 18.1), ("15 m", 21.2), ("12 m", 24.9), ("10 m", 28.3),
             ("6 m", 50.1)]

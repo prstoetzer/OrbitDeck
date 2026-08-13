@@ -10,7 +10,7 @@ from . import (Screen, KVPanel, COL_TEXT, COL_MUTED, COL_ACCENT2,
 
 def _color_for(level):
     # Single mapping per level (no duplicate keys). "moderate" is treated as a
-    # storm-severity level (warning colour), consistent with NOAA G/R/S scales.
+    # storm-severity level (warning color), consistent with NOAA G/R/S scales.
     return {
         "low": COL_WARN, "weak": COL_WARN,
         "unsettled": COL_TEXT, "active": COL_WARN,
@@ -25,7 +25,7 @@ class SpaceWxScreen(Screen):
         self.header("Space Weather \u2014 solar & geomagnetic indices")
         bar = ttk.Frame(self.frame, style="TFrame")
         bar.pack(fill="x", padx=16, pady=(0, 4))
-        ttk.Button(bar, text="Report\u2026",
+        ttk.Button(bar, text="Print screen\u2026",
 
                    command=self._report).pack(side="right", padx=4)
         ttk.Button(bar, text="Refresh",
@@ -82,10 +82,10 @@ class SpaceWxScreen(Screen):
             self.kv.end()
             self.outlook_var.set("")
             return
-        colours = {0: COL_MUTED, 1: COL_TEXT, 2: COL_ACCENT2,
+        colors = {0: COL_MUTED, 1: COL_TEXT, 2: COL_ACCENT2,
                    3: COL_WARN, 4: COL_WARN}
         for label, value, sev in SI.rows(d):
-            self.kv.row(label, value, colours.get(sev, COL_TEXT))
+            self.kv.row(label, value, colors.get(sev, COL_TEXT))
         self.kv.end()
         self.outlook_var.set("Operating outlook:  "
                              + SI.outlook(d.get("flux"), d.get("kp")))

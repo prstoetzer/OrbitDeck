@@ -7,7 +7,7 @@ dwell time per day.
 
 Ported from CardSat 0.9.75's SCR_SAA ("Orbital zones") with one **deliberate
 difference, stated plainly**: CardSat classifies the belts from a real IGRF-14
-field with field-line tracing. This uses a *tilted centred-dipole* model for the
+field with field-line tracing. This uses a *tilted centered-dipole* model for the
 McIlwain L shell and B/B0. That is the standard analytic approximation and is
 fine for "is this orbit belt-exposed"-class questions, but it will disagree with
 IGRF near the belt horns and inside the SAA, where the real field is markedly
@@ -71,8 +71,8 @@ def b_ratio(lat_deg, lon_deg, alt_km):
     return math.sqrt(1.0 + 3.0 * s * s) / (c ** 6)
 
 
-def saa_centre(unix_t):
-    """SAA ellipse centre, drifting ~0.3 deg/yr west from the 2025.0 epoch."""
+def saa_center(unix_t):
+    """SAA ellipse center, drifting ~0.3 deg/yr west from the 2025.0 epoch."""
     import time as _t
     yrs = 0.0
     if unix_t:
@@ -85,7 +85,7 @@ def in_zone(zone, lat_deg, lon_deg, alt_km, sunlit, unix_t=0):
     """True if the sub-satellite point is inside ``zone``."""
     lon = ((lon_deg + 180.0) % 360.0) - 180.0
     if zone == ZONE_SAA:
-        c_lat, c_lon = saa_centre(unix_t)
+        c_lat, c_lon = saa_center(unix_t)
         d_lon = ((lon - c_lon + 180.0) % 360.0) - 180.0
         u = (lat_deg - c_lat) / 25.0
         v = d_lon / 55.0

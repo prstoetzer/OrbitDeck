@@ -27,7 +27,7 @@ def test_workable_grids_counts():
 def test_workable_states_conus():
     from orbitdeck.engine import analysis as A
     from orbitdeck.data.us_states import workable_states
-    # a LEO footprint centred over Kansas should sweep most of the lower 48
+    # a LEO footprint centered over Kansas should sweep most of the lower 48
     inside = A.make_footprint_test(39.0, -95.0, 420)
     states = workable_states(inside)
     assert "KS" in states and "TX" in states and "CA" in states
@@ -80,7 +80,7 @@ def test_sat_to_sat_los():
     # near each other on the same side -> clear
     assert LB.sat_to_sat_los((7000, 0, 0), (7000, 200, 0))
     # two sats at 7000 km separated by 30 deg: chord midpoint is ~6761 km from
-    # Earth centre (> RE), so the line of sight is clear
+    # Earth center (> RE), so the line of sight is clear
     a = (7000.0, 0.0, 0.0)
     b = (7000.0 * math.cos(math.radians(30)),
          7000.0 * math.sin(math.radians(30)), 0.0)

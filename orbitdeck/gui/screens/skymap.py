@@ -1,7 +1,7 @@
 """skymap.py (screen) - a naked-eye sky map with satellite overlays.
 
 Plots the stars and constellation lines currently above the horizon (from the
-bundled catalog) on a zenith-centred sky disk, and overlays the selected
+bundled catalog) on a zenith-centered sky disk, and overlays the selected
 satellite plus favorites at their current az/el, so you can relate a pass to
 what you'd actually see. Refreshes on the shared tick.
 """
@@ -21,7 +21,7 @@ class SkyMapScreen(Screen):
         bar = ttk.Frame(self.frame, style="TFrame")
         bar.pack(fill="x", padx=16, pady=2)
         self.showcon = tk.BooleanVar(value=True)
-        ttk.Button(bar, text="Report\u2026",
+        ttk.Button(bar, text="Print screen\u2026",
                    command=self._report).pack(side="right", padx=4)
         ttk.Checkbutton(bar, text="Constellation lines", variable=self.showcon,
                         command=self._redraw).pack(side="left")

@@ -534,7 +534,7 @@ def test_visible_stars_and_projection():
     assert stars                          # some stars are always up
     for az, el, m in stars:
         assert 0 <= az < 360.01 and el >= 0 and m <= 4.5
-    # projection: zenith -> centre, horizon -> edge
+    # projection: zenith -> center, horizon -> edge
     assert sm.azel_to_xy(0, 90, 100) == (50.0, 50.0)
     n = sm.azel_to_xy(0, 0, 100)
     assert abs(n[0] - 50.0) < 1e-6 and abs(n[1] - 0.0) < 1e-6

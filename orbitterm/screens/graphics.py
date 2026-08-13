@@ -6,7 +6,7 @@ resolution of a block-character chart in the same space.
 
   * Sky at a Glance - pass timeline across all favorites
   * Graphing Calculator - plot expressions of x
-  * Sky Map - star field with satellite overlay, zenith-centred
+  * Sky Map - star field with satellite overlay, zenith-centered
   * Orbital History - element series from the Space-Track archive cache
 """
 
@@ -81,10 +81,10 @@ class SkyGlanceScreen(Screen):
             for a, b, el in r["passes"]:
                 xa = int(scale(a, t0, t1, 0, cv.width - 1))
                 xb = int(scale(b, t0, t1, 0, cv.width - 1))
-                colour = (cp(CLR_OK) if el >= 45 else
+                color = (cp(CLR_OK) if el >= 45 else
                           cp(CLR_ACCENT) if el >= 20 else cp(CLR_WARN))
                 for x in range(min(xa, xb), max(xa, xb) + 1):
-                    cv.fill_column(x, 0, cv.height - 1, colour)
+                    cv.fill_column(x, 0, cv.height - 1, color)
             blit(win, cv, y, x0 + label_w)
             y += per
         # time axis
@@ -221,7 +221,7 @@ class SkyMapScreen(Screen):
     def draw(self, win, y0, x0, h, w):
         o = self.state.store.obs
         t = time.time()
-        addstr(win, y0, x0, "Sky Map \u2014 zenith centred, N up", cp(CLR_TITLE))
+        addstr(win, y0, x0, "Sky Map \u2014 zenith centered, N up", cp(CLR_TITLE))
         rows = max(3, h - 2)
         cols = min(max(10, w - 1), rows * 2)      # keep the disk round-ish
         cv = Canvas(cols, rows)
@@ -308,6 +308,7 @@ class OrbitHistoryScreen(Screen):
         self.zoom = (0.0, 1.0)
         self.scroll = 0
         self.samples = []
+        self.decay = ""
         self.status = "c column  t view  +/- zoom  [ ] pan  0 reset  f fetch"
 
     def on_enter(self):
@@ -325,10 +326,34 @@ class OrbitHistoryScreen(Screen):
             span = (self.samples[-1]["epoch"] - self.samples[0]["epoch"])
             self.status = "%d element sets over %.1f years" % (
                 len(self.samples), span / 86400.0 / 365.25)
+            self.decay = self._decay_line()
         except Exception:
             self.samples = []
+            self.decay = ""
             self.status = ("no cached history - press f to fetch from "
                            "Space-Track")
+
+    def _decay_line(self):
+        """Decay estimate anchored on the archive when it can be.
+
+        The archive measures the actual mean-motion trend over months; one
+        element set carries a single noisy n-dot from one epoch. Where both
+        exist the archive is the better anchor, and unlike the other two it
+        improves as the record grows.
+        """
+        from orbitdeck.engine import decay as DK
+        sat = self.state.sat
+        if sat is None or not self.samples:
+            return ""
+        days, src = DK.estimate_decay_with_history(
+            sat.mean_motion, sat.ecc, sat.bstar,
+            getattr(sat, "ndot", 0.0) or 0.0, self.samples)
+        # Abbreviated so it fits beside the record summary at 80 columns;
+        # the full anchor name is on the Orbital Analysis screen.
+        short = {DK.SRC_HISTORY: "archive", DK.SRC_NDOT: "n-dot",
+                 DK.SRC_BSTAR: "B*", DK.SRC_NONE: "no data"}
+        return "Decay %s (%s)" % (DK.fmt_decay(days),
+                                  short.get(src, "?"))
 
     def _cache_path(self, norad):
         return os.path.join(self.CACHE, "%d.json" % int(norad))
@@ -370,6 +395,10 @@ class OrbitHistoryScreen(Screen):
         span = samples[-1]["epoch"] - samples[0]["epoch"]
         self.status = "%d element sets over %.1f years (cached)" % (
             len(samples), span / 86400.0 / 365.25)
+        # Recompute after a fetch, not only after a cache load: otherwise a
+        # freshly fetched archive left the previous satellite's decay line on
+        # screen, or none at all.
+        self.decay = self._decay_line()
 
     VIEWS = ["value", "rate", "analysis", "table"]
 
@@ -387,8 +416,13 @@ class OrbitHistoryScreen(Screen):
         addstr(win, y0, x0, clip("%s \u2014 %s%s" % (
             sat.name if sat else "-", label,
             (" (%s)" % unit) if unit else ""), w), cp(CLR_TITLE))
-        addstr(win, y0 + 1, x0, clip(self.status + "   c column", w),
-               cp(CLR_DIM))
+        # The decay line shares the status row: y0+2 already carries the
+        # column/zoom header, and writing both there produced
+        # "full recordhive)".
+        head = self.status
+        if self.decay:
+            head = "%s  %s" % (self.decay, self.status)
+        addstr(win, y0 + 1, x0, clip(head, w), cp(CLR_DIM))
         if not self.samples:
             return
         vis = self._visible()
@@ -430,10 +464,15 @@ class OrbitHistoryScreen(Screen):
                    cp(CLR_DIM))
 
     def _draw_analysis(self, win, y0, x0, h, w, col, label, unit):
-        a = ST.analyse_rate(self.samples, col)
+        a = ST.analyze_rate(self.samples, col)
         addstr(win, y0, x0, clip("%s \u2014 rate analysis (whole record)"
                                  % label, w), cp(CLR_TITLE))
-        addstr(win, y0 + 1, x0, clip(self.status, w), cp(CLR_DIM))
+        # The decay estimate belongs on every history view, not just the
+        # two plots - the analysis and table views are where you go to
+        # judge the trend.
+        addstr(win, y0 + 1, x0, clip(
+            ("%s   %s" % (self.decay, self.status))
+            if self.decay else self.status, w), cp(CLR_DIM))
         if a is None:
             addstr(win, y0 + 3, x0, "not enough data for analysis",
                    cp(CLR_WARN))
@@ -474,7 +513,12 @@ class OrbitHistoryScreen(Screen):
             else "%.0f%%-%.0f%% of record" % (self.zoom[0] * 100,
                                               self.zoom[1] * 100)), w),
                cp(CLR_TITLE))
-        addstr(win, y0 + 1, x0, clip(self.status, w), cp(CLR_DIM))
+        # The decay estimate belongs on every history view, not just the
+        # two plots - the analysis and table views are where you go to
+        # judge the trend.
+        addstr(win, y0 + 1, x0, clip(
+            ("%s   %s" % (self.decay, self.status))
+            if self.decay else self.status, w), cp(CLR_DIM))
         addstr(win, y0 + 3, x0, clip("%-14s %9s %9s %9s %9s" % (
             "ELEMENT", "FIRST", "LAST", "CHANGE", "PER YR"), w),
             cp(CLR_HEADER))

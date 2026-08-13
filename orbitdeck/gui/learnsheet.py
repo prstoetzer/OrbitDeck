@@ -13,7 +13,7 @@ PAGE_H_IN = 11.0
 
 
 def _brand(fig):
-    # Centred branding credit at the foot of every handout page, at y=0.045.
+    # Centered branding credit at the foot of every handout page, at y=0.045.
     # The handout pages lay out fixed reference content with a manually
     # decremented ``y`` cursor (no auto-overflow guard), so KEEP CONTENT ABOVE
     # ~y=0.09: if you add items to the fixed lists below and the cursor runs
@@ -71,7 +71,7 @@ _RADIO_NOTES = [
      "antennas you need."),
     ("Doppler", "Approaching, the downlink is heard high and falls through the "
      "pass; you tune DOWN. On a linear bird both legs shift \u2014 keep the "
-     "downlink centred by retuning the uplink (opposite direction if "
+     "downlink centered by retuning the uplink (opposite direction if "
      "inverting)."),
     ("Polarization", "Satellites use circular polarization to beat the "
      "ionosphere's Faraday rotation; a linear ground antenna fades as the "

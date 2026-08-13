@@ -174,7 +174,7 @@ def solve_pb_for_dial(t_ref, sat, me, dx, tp, target_hz, anchor,
     """Passband offset that puts the ANCHORED dial on ``target_hz``.
 
     Setting the operating point to mid-passband and calling it "seeded" is not
-    seeding: the anchored dial then sits wherever the transponder centre
+    seeding: the anchored dial then sits wherever the transponder center
     happens to fall, not on the frequency the operator said they would use.
 
     There is no closed form - the dial and the passband move together through

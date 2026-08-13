@@ -164,11 +164,11 @@ def test_orbit_history_screen_builds():
 
 
 # ---- derived views (CardSat SCR_STHIST parity) ----
-def _synthetic(n=200, manoeuvre_at=120):
+def _synthetic(n=200, maneuver_at=120):
     base = 1.6e9
     out = []
     for i in range(n):
-        apo = 420 - i * 0.05 - (12 if i > manoeuvre_at else 0)
+        apo = 420 - i * 0.05 - (12 if i > maneuver_at else 0)
         out.append({"epoch": base + i * 86400 * 30, "APOAPSIS": apo,
                     "PERIAPSIS": apo - 10, "INCLINATION": 51.6,
                     "ECCENTRICITY": 0.0005, "PERIOD": 92.9,
@@ -189,20 +189,20 @@ def test_rate_series_differentiates_and_skips_dense_pairs():
     assert ST.rate_series(dense, "APOAPSIS") == ([], [])
 
 
-def test_analyse_rate_detects_a_manoeuvre_jump():
-    a = ST.analyse_rate(_synthetic(), "APOAPSIS")
+def test_analyze_rate_detects_a_maneuver_jump():
+    a = ST.analyze_rate(_synthetic(), "APOAPSIS")
     assert a is not None
     assert a["n_jumps"] >= 1
     assert abs(a["peak_rate"]) > 10 * abs(a["median_abs"])
     assert "faster" in a["verdict"].lower() or "REVERSED" in a["verdict"]
 
 
-def test_analyse_rate_needs_enough_data():
-    assert ST.analyse_rate(_synthetic(3), "APOAPSIS") is None
-    assert ST.analyse_rate([], "APOAPSIS") is None
+def test_analyze_rate_needs_enough_data():
+    assert ST.analyze_rate(_synthetic(3), "APOAPSIS") is None
+    assert ST.analyze_rate([], "APOAPSIS") is None
 
 
-def test_analyse_rate_zero_baseline_does_not_read_as_steady():
+def test_analyze_rate_zero_baseline_does_not_read_as_steady():
     """A satellite still for years then moving must not report 'roughly steady
     (0.00x)' - a near-zero early era outranks the ratio."""
     base = 1.6e9
@@ -212,12 +212,12 @@ def test_analyse_rate_zero_baseline_does_not_read_as_steady():
         s.append({"epoch": base + i * 86400 * 30, "APOAPSIS": val})
     for d in s:
         d.update({k: None for k in ST.COLUMNS if k != "APOAPSIS"})
-    a = ST.analyse_rate(s, "APOAPSIS")
+    a = ST.analyze_rate(s, "APOAPSIS")
     assert "steady" not in a["verdict"].lower()
     assert "NEW trend" in a["verdict"] or "FASTER" in a["verdict"]
 
 
-def test_analyse_rate_splits_on_time_not_sample_count():
+def test_analyze_rate_splits_on_time_not_sample_count():
     """A sparse early archive plus a dense modern one must still weigh eras by
     time, or the modern era dominates both halves."""
     base = 1.6e9
@@ -228,7 +228,7 @@ def test_analyse_rate_splits_on_time_not_sample_count():
           for i in range(1, 200)]                 # dense: 200 daily points
     for d in s:
         d.update({k: d.get(k) for k in ST.COLUMNS})
-    a = ST.analyse_rate(s, "APOAPSIS")
+    a = ST.analyze_rate(s, "APOAPSIS")
     assert a is not None and a["n"] > 100
     # Split by TIME: the sparse yearly points fall in the early era and keep
     # their own ~1 unit/yr rate instead of being averaged away by the 199

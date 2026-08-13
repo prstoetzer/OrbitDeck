@@ -347,9 +347,12 @@ class Screen:
             bar, text="", bg=COL_BG, fg=COL_WARN,
             font=("DejaVu Sans", 9))
         self._ds_badge.pack(side="left", padx=(10, 0), pady=(3, 0))
-        # a "Report..." action is offered on every satellite-specific screen so
-        # a printable PDF (analysis + passes + EQX) is always one click away
-        ttk.Button(bar, text="Report\u2026",
+        # Two different reports exist and used to share the label "Report...":
+        # this one covers the SATELLITE (analysis + passes + EQX) and is offered
+        # on every satellite-specific screen, while a screen's own "Print
+        # screen..." prints what is currently displayed. Same word, different
+        # output - so they are named for what they produce.
+        ttk.Button(bar, text="Satellite report\u2026",
                    command=self.make_report).pack(side="right", padx=(0, 4))
         self.refresh_sat_header()
         return bar
@@ -357,7 +360,7 @@ class Screen:
     def save_text_dialog(self, content, default_name, title="Save file",
                          ext=".csv", filetypes=None):
         """Prompt for a path and write a text payload (CSV/ICS/JSON). Returns
-        the path written, or None if cancelled/failed."""
+        the path written, or None if canceled/failed."""
         from tkinter import filedialog, messagebox
         if filetypes is None:
             filetypes = [("All files", "*.*")]
@@ -479,12 +482,12 @@ class Screen:
             detail = ("Page 1 (polar base map): print on paper or card.\n"
                       "Pages 2 & 3 (range circle + orbit overhead): print on "
                       "transparency film.\n\nLay the overlays on the base map "
-                      "with centres aligned and rotate to the equator-crossing "
+                      "with centers aligned and rotate to the equator-crossing "
                       "longitude (see the Orbital Analysis \u2192 Crossings List).")
         else:
             detail = ("Page 1 (base map): print on paper or card.\n"
                       "Pages 2 & 3 (range circle + path arc): print on "
-                      "transparency film.\n\nPin the overlays through the centre "
+                      "transparency film.\n\nPin the overlays through the center "
                       "cross over your station on the base map.")
         if reduced:
             detail += ("\n\nReduced-text set: the base map carries all the "
@@ -497,7 +500,7 @@ class Screen:
 
 class TabBar:
     """A flat tabbed container matching the Orbital Analysis screen's look:
-    text labels on a subtle panel-coloured strip, a blue underline on the active
+    text labels on a subtle panel-colored strip, a blue underline on the active
     tab, no boxes and no client border (unlike ttk.Notebook).
 
     Usage:
@@ -523,7 +526,7 @@ class TabBar:
             self._groupbar.pack(fill="x", pady=(0, 2))
             self._groups = []          # list of (name, btn, [tab_indices])
             self._active_group = 0
-        # the tab strip itself is panel-coloured, exactly like Orbital Analysis
+        # the tab strip itself is panel-colored, exactly like Orbital Analysis
         self._bar = tk.Frame(self.outer, bg=COL_PANEL)
         self._bar.pack(fill="x", pady=(0, 6))
         self._body = ttk.Frame(self.outer, style="TFrame")
@@ -756,7 +759,7 @@ class MplPanel:
         self.canvas.draw_idle()
 
     def recolor_ticks(self):
-        """Re-apply muted colour to all (major and minor) tick labels. Call this
+        """Re-apply muted color to all (major and minor) tick labels. Call this
         after changing to a log scale, whose minor labels otherwise render in
         the default black and disappear on the dark panel."""
         ax = self.ax
@@ -923,7 +926,8 @@ def make_screen(key, parent, app):
                    conjunction, datafeeds, references, skymap,
                    orbithistory, eme, graphcalc, zones,
                    skyglance, ao7, muf, amsatstatus,
-                   propagation)
+                   propagation, tinybasic, astronomy,
+                   newlaunch)
     mapping = {
         "home": home.HomeScreen,
         "track": track.TrackScreen,
@@ -963,6 +967,9 @@ def make_screen(key, parent, app):
         "muf": muf.MufScreen,
         "amsatstatus": amsatstatus.AmsatStatusScreen,
         "propagation": propagation.PropagationScreen,
+        "tinybasic": tinybasic.TinyBasicScreen,
+        "astronomy": astronomy.AstronomyScreen,
+        "newlaunch": newlaunch.NewLaunchScreen,
     }
     cls = mapping[key]
     return cls(parent, app)

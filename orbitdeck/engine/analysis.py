@@ -110,7 +110,7 @@ def mean_anomaly_now_deg(ma_epoch_deg, mean_motion_revday, unix_t, epoch_unix):
 
 
 def true_anomaly_deg(mean_anom_deg, ecc):
-    """Equation-of-centre expansion (3 terms) — matches CardSat."""
+    """Equation-of-center expansion (3 terms) — matches CardSat."""
     M = mean_anom_deg * DEG
     e = ecc
     nu = (M + (2 * e - 0.25 * e ** 3) * math.sin(M)
@@ -267,7 +267,7 @@ def elevation_for_central_angle_deg(gamma_deg, alt_km):
     from a ground station, when the great-circle central angle between the
     station and the sub-satellite point is ``gamma_deg``.
 
-    This is the geometry that turns a QTH-centred OSCARLOCATOR's range rings
+    This is the geometry that turns a QTH-centered OSCARLOCATOR's range rings
     into elevation rings: a ring at ground central angle gamma is the locus
     where the satellite appears at this elevation. Elevation is +90 deg directly
     overhead (gamma=0), 0 deg at the footprint edge, and negative (below the
@@ -356,8 +356,8 @@ def central_angle_for_elevation_deg(el_deg, alt_km):
     if r <= RE_KM:
         return None
     e = el_deg * DEG
-    # from the law of sines in the station-Earthcentre-satellite triangle:
-    #   the spacecraft's nadir/centre angle eta satisfies
+    # from the law of sines in the station-Earthcenter-satellite triangle:
+    #   the spacecraft's nadir/center angle eta satisfies
     #   sin(eta) = (RE/r) * cos(el); the central angle is gamma = 90-el-eta
     s = (RE_KM / r) * math.cos(e)
     if s < -1.0 or s > 1.0:
@@ -379,7 +379,7 @@ def make_footprint_test(sub_lat, sub_lon, alt_km):
 
 
 def workable_grids(sub_lat, sub_lon, alt_km):
-    """Return the sorted set of 4-char Maidenhead grids whose centre lies inside
+    """Return the sorted set of 4-char Maidenhead grids whose center lies inside
     the satellite footprint (sub-point + great-circle radius for that altitude).
     Pure geometry; no bundled data. A ~2500 km bird floods a few thousand grids.
     """
@@ -388,7 +388,7 @@ def workable_grids(sub_lat, sub_lon, alt_km):
         return []
     radius_deg = math.acos(RE_KM / r) / DEG     # angular footprint radius
     grids = set()
-    # iterate grid-cell centres: 2deg lon x 1deg lat. Bound the lat band to the
+    # iterate grid-cell centers: 2deg lon x 1deg lat. Bound the lat band to the
     # footprint to keep the scan cheap.
     lat_lo = max(-90.0, sub_lat - radius_deg - 1)
     lat_hi = min(90.0, sub_lat + radius_deg + 1)
@@ -504,7 +504,7 @@ def years_in_orbit(intl_desig, now):
     """Approximate years since launch, from the COSPAR year.
 
     The designator carries the year but not the day, so this is a whole-year
-    figure and is labelled as approximate wherever it is shown - claiming a
+    figure and is labeled as approximate wherever it is shown - claiming a
     precise age from data that does not contain one would be a lie.
     """
     yr = cospar_launch_year(intl_desig)

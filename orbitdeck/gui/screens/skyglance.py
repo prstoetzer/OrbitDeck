@@ -1,7 +1,7 @@
 """skyglance.py (screen) - all-favorites pass timeline.
 
 A horizontal timeline of every upcoming pass across your favorites: one row per
-satellite, one bar per pass, coloured by peak elevation. Answers "what is my sky
+satellite, one bar per pass, colored by peak elevation. Answers "what is my sky
 doing tonight" at a glance, and calls out the longest quiet gap.
 """
 
@@ -16,8 +16,8 @@ from ...engine.predict import Predictor
 from ...engine import skyglance as SG
 
 
-def elevation_colour(max_el):
-    """Bar colour by peak elevation: low / useful / excellent."""
+def elevation_color(max_el):
+    """Bar color by peak elevation: low / useful / excellent."""
     if max_el >= 45:
         return COL_ACCENT2
     if max_el >= 20:
@@ -42,7 +42,7 @@ class SkyGlanceScreen(Screen):
             ttk.Radiobutton(bar, text="%d\u00b0" % v, value=v,
                             variable=self.minel,
                             command=self._reload).pack(side="left")
-        ttk.Button(bar, text="Report\u2026",
+        ttk.Button(bar, text="Print screen\u2026",
 
                    command=self._report).pack(side="right", padx=4)
         ttk.Button(bar, text="Refresh", command=self._reload).pack(side="left",
@@ -53,8 +53,8 @@ class SkyGlanceScreen(Screen):
 
         self.panel = MplPanel(self.frame, figsize=(8.4, 4.8))
         self.panel.widget.pack(fill="both", expand=True, padx=10, pady=6)
-        note = ("Bar colour is peak elevation: amber below 20\u00b0, blue to "
-                "45\u00b0, green above. Favourite satellites with no pass in the "
+        note = ("Bar color is peak elevation: amber below 20\u00b0, blue to "
+                "45\u00b0, green above. Favorite satellites with no pass in the "
                 "window still get a row, so a quiet bird is visible as quiet.")
         ttk.Label(self.frame, text=note, style="Muted.TLabel",
                   wraplength=900).pack(anchor="w", padx=16, pady=(0, 8))
@@ -123,7 +123,7 @@ class SkyGlanceScreen(Screen):
                 xa = dt.datetime.fromtimestamp(a, dt.timezone.utc)
                 width = (b - a) / 86400.0          # matplotlib date units = days
                 ax.barh(y, width, left=xa, height=0.6,
-                        color=elevation_colour(el), edgecolor="none")
+                        color=elevation_color(el), edgecolor="none")
                 if (b - a) > (hours * 3600.0) / 40.0:
                     ax.text(dt.datetime.fromtimestamp((a + b) / 2,
                                                       dt.timezone.utc),

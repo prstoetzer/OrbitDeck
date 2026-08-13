@@ -3,7 +3,7 @@
 A "transit" is when a satellite passes across (or very near) the Sun's or Moon's
 disk as seen from the observer - the money shot for satellite astrophotography.
 This scans a satellite's visible passes and flags the moments its apparent
-position comes within a small angular distance of the Sun or Moon centre.
+position comes within a small angular distance of the Sun or Moon center.
 
 Positions come from the existing propagator (az/el of the satellite) and the
 celestial module (az/el of the Sun and Moon), so this needs no new ephemeris.
@@ -54,7 +54,7 @@ def find_transits(pred, site, sat, frm, hours=72.0, body="both",
     site  - Observer (for the Sun/Moon az/el).
     frm   - start unix time; scans ``hours`` forward.
     body  - "sun", "moon" or "both".
-    max_sep_deg - report approaches within this angular distance of a disk centre.
+    max_sep_deg - report approaches within this angular distance of a disk center.
     Returns a list of dicts sorted by time:
         {body, time, sep_deg, sat_az, sat_el, body_az, body_el,
          transit (bool, within the disk), sat_range_km}

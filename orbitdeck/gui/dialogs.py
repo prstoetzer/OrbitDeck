@@ -1,8 +1,8 @@
 """dialogs.py - small modal form dialogs for manual data entry.
 
-FormDialog presents a set of labelled fields in one modal window (friendlier on
+FormDialog presents a set of labeled fields in one modal window (friendlier on
 the desktop than CardSat's one-field-at-a-time prompts) and returns a dict of the
-entered values, or None if cancelled. Fields can carry a help hint and a parser
+entered values, or None if canceled. Fields can carry a help hint and a parser
 so values come back typed and validated.
 """
 
@@ -108,7 +108,7 @@ class OscarlocatorOptionsDialog:
     """A single modal dialog gathering all OSCARLOCATOR print options (base-map
     style, whether the range circle is drawn on the QTH map, and reduced-text
     transparencies), replacing the old chain of yes/no questions. Returns a dict
-    {projection, footprint_on_qth, reduced_text} or None if cancelled."""
+    {projection, footprint_on_qth, reduced_text} or None if canceled."""
 
     def __init__(self, parent, sat_name=""):
         self.result = None
@@ -138,7 +138,7 @@ class OscarlocatorOptionsDialog:
         for val, label in (
                 ("polar-auto", "Polar (generic \u2014 works for any QTH via "
                                "the equator-crossing list)"),
-                ("qth", "QTH-centred (personalised to your station: "
+                ("qth", "QTH-centered (personalised to your station: "
                         "azimuth/range from your location)")):
             tk.Radiobutton(
                 self.win, text=label, value=val, variable=self._proj,

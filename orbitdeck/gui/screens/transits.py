@@ -40,7 +40,7 @@ class TransitsScreen(Screen):
             ttk.Radiobutton(bar, text="%d" % v, value=v, variable=self.days,
                             command=self._reload).pack(side="left")
 
-        ttk.Button(bar, text="Report\u2026",
+        ttk.Button(bar, text="Print screen\u2026",
 
 
                    command=self._report).pack(side="right", padx=4)

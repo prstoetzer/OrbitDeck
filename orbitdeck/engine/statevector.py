@@ -145,8 +145,8 @@ def fit_diagnostics(r, v):
     A converged-looking element set from a bad vector is the dangerous case, so
     report what the fit rests on rather than only its output: the residual
     between the input vector and the vector regenerated from the derived
-    elements, plus the sanity checks that catch a unit mix-up (metres for
-    kilometres, m/s for km/s) which otherwise yields plausible-looking garbage.
+    elements, plus the sanity checks that catch a unit mix-up (meters for
+    kilometers, m/s for km/s) which otherwise yields plausible-looking garbage.
     """
     import math as _m
     rmag = _m.sqrt(sum(c * c for c in r))
@@ -154,7 +154,7 @@ def fit_diagnostics(r, v):
     notes = []
     ok = True
     if rmag < 6500:
-        notes.append("position is inside the Earth - are these metres?")
+        notes.append("position is inside the Earth - are these meters?")
         ok = False
     elif rmag > 500000:
         notes.append("position is beyond cislunar space - check units")

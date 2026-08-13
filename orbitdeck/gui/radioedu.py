@@ -182,7 +182,7 @@ OPERATING_PRACTICE = [
      "Exchange is usually callsign and 4- or 6-character grid. Log the time "
      "(UTC), satellite, and grid; many chase grid squares, US states, or DXCC "
      "entities worked via satellite."),
-    ("Be a good neighbour",
+    ("Be a good neighbor",
      "Don't transmit through a transponder you can't hear yourself on, don't "
      "run more uplink power than you need, and yield to stations completing a "
      "contact. The whole pass is only a few minutes \u2014 share it."),
@@ -297,18 +297,18 @@ SAT_HISTORY = [
 ]
 
 COORDINATE_FRAMES = [
-    ("ECI \u2014 Earth-centred inertial",
+    ("ECI \u2014 Earth-centered inertial",
      "A frame fixed to the stars, not rotating with the Earth. Orbits are "
-     "naturally described here because gravity points at the Earth's centre and "
+     "naturally described here because gravity points at the Earth's center and "
      "the orbit plane stays (almost) fixed. The propagator works in an "
      "ECI-like frame."),
-    ("ECEF \u2014 Earth-centred, Earth-fixed",
+    ("ECEF \u2014 Earth-centered, Earth-fixed",
      "Rotates with the Earth, so a point on the ground keeps constant "
      "coordinates. Converting the satellite's ECI position into ECEF (using the "
      "Earth's rotation angle for the time) gives the sub-satellite latitude and "
      "longitude you see on the maps."),
     ("Topocentric \u2014 your local sky",
-     "Centred on your station: azimuth (compass bearing) and elevation (angle "
+     "Centered on your station: azimuth (compass bearing) and elevation (angle "
      "above the horizon), plus range. This is what you point an antenna with, "
      "and it comes from subtracting your ECEF position from the satellite's and "
      "rotating into your local up/north/east frame."),

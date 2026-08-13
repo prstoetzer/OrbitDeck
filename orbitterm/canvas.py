@@ -14,8 +14,8 @@ surface - 8x the addressable points - while staying pure text.
         (0,3) (1,3)                  0x40 0x80
 
 Set dots with ``plot``/``line``, then ``blit`` the result into a curses window.
-Colour is per character cell (a terminal limitation, not a braille one), so a
-cell takes the colour of the last coloured dot written into it.
+Color is per character cell (a terminal limitation, not a braille one), so a
+cell takes the color of the last colored dot written into it.
 
 Terminals without a braille-capable font degrade to mojibake rather than
 crashing, so ``Canvas.ascii_fallback`` renders the same buffer with '#'/'.' if
@@ -36,10 +36,10 @@ class Canvas:
         self.width = self.cols * 2          # addressable dots
         self.height = self.rows * 4
         self._cells = {}                    # (cx, cy) -> bitmask
-        self._colour = {}                   # (cx, cy) -> colour pair
+        self._color = {}                   # (cx, cy) -> color pair
 
     # ---- drawing ----
-    def plot(self, x, y, colour=None):
+    def plot(self, x, y, color=None):
         """Set the dot at pixel (x, y). Origin is top-left."""
         x, y = int(x), int(y)
         if not (0 <= x < self.width and 0 <= y < self.height):
@@ -48,11 +48,11 @@ class Canvas:
         bit = _DOT_BITS[x % 2][y % 4]
         key = (cx, cy)
         self._cells[key] = self._cells.get(key, 0) | bit
-        if colour is not None:
-            self._colour[key] = colour
+        if color is not None:
+            self._color[key] = color
         return True
 
-    def line(self, x0, y0, x1, y1, colour=None):
+    def line(self, x0, y0, x1, y1, color=None):
         """Bresenham line between two pixel coordinates."""
         x0, y0, x1, y1 = int(x0), int(y0), int(x1), int(y1)
         dx, dy = abs(x1 - x0), -abs(y1 - y0)
@@ -60,7 +60,7 @@ class Canvas:
         sy = 1 if y0 < y1 else -1
         err = dx + dy
         while True:
-            self.plot(x0, y0, colour)
+            self.plot(x0, y0, color)
             if x0 == x1 and y0 == y1:
                 break
             e2 = 2 * err
@@ -71,19 +71,19 @@ class Canvas:
                 err += dx
                 y0 += sy
 
-    def rect(self, x0, y0, x1, y1, colour=None):
-        self.line(x0, y0, x1, y0, colour)
-        self.line(x1, y0, x1, y1, colour)
-        self.line(x1, y1, x0, y1, colour)
-        self.line(x0, y1, x0, y0, colour)
+    def rect(self, x0, y0, x1, y1, color=None):
+        self.line(x0, y0, x1, y0, color)
+        self.line(x1, y0, x1, y1, color)
+        self.line(x1, y1, x0, y1, color)
+        self.line(x0, y1, x0, y0, color)
 
-    def circle(self, cx, cy, r, colour=None):
+    def circle(self, cx, cy, r, color=None):
         """Midpoint circle - used for the sky disk and the globe limb."""
         x, y, err = int(r), 0, 1 - int(r)
         while x >= y:
             for px, py in ((x, y), (y, x), (-x, y), (-y, x),
                            (-x, -y), (-y, -x), (x, -y), (y, -x)):
-                self.plot(cx + px, cy + py, colour)
+                self.plot(cx + px, cy + py, color)
             y += 1
             if err < 0:
                 err += 2 * y + 1
@@ -91,16 +91,16 @@ class Canvas:
                 x -= 1
                 err += 2 * (y - x) + 1
 
-    def fill_column(self, x, y0, y1, colour=None):
+    def fill_column(self, x, y0, y1, color=None):
         """A vertical run - the building block for bar charts."""
         if y1 < y0:
             y0, y1 = y1, y0
         for y in range(int(y0), int(y1) + 1):
-            self.plot(x, y, colour)
+            self.plot(x, y, color)
 
     def clear(self):
         self._cells.clear()
-        self._colour.clear()
+        self._color.clear()
 
     # ---- output ----
     def cell_char(self, cx, cy):
@@ -108,12 +108,12 @@ class Canvas:
         return chr(BRAILLE_BASE + bits) if bits else " "
 
     def rows_out(self):
-        """Yield (row_index, text, [(col, colour), ...]) for each canvas row."""
+        """Yield (row_index, text, [(col, color), ...]) for each canvas row."""
         for cy in range(self.rows):
             text = "".join(self.cell_char(cx, cy) for cx in range(self.cols))
-            colours = [(cx, self._colour[(cx, cy)])
-                       for cx in range(self.cols) if (cx, cy) in self._colour]
-            yield cy, text, colours
+            colors = [(cx, self._color[(cx, cy)])
+                       for cx in range(self.cols) if (cx, cy) in self._color]
+            yield cy, text, colors
 
     def ascii_fallback(self):
         """The same buffer as plain ASCII, for fonts without braille."""
@@ -127,7 +127,7 @@ class Canvas:
 def blit(win, canvas, y0, x0, default_attr=0, use_braille=True):
     """Draw a canvas into a curses window at (y0, x0).
 
-    Each cell is written with its own colour where one was recorded. Writing is
+    Each cell is written with its own color where one was recorded. Writing is
     guarded: a terminal that refuses a glyph (no braille in the font, or the
     bottom-right corner) is skipped rather than raising.
     """
@@ -138,8 +138,8 @@ def blit(win, canvas, y0, x0, default_attr=0, use_braille=True):
             except Exception:
                 pass
         return
-    for cy, text, colours in canvas.rows_out():
-        cmap = dict(colours)
+    for cy, text, colors in canvas.rows_out():
+        cmap = dict(colors)
         for cx, ch in enumerate(text):
             if ch == " ":
                 continue
@@ -167,13 +167,13 @@ def scale(value, vmin, vmax, out_min, out_max, invert=False):
 # Braille is line art. For a FILLED area - a heatmap, an eclipse raster, a bar -
 # its 2x4 dots render as sparse specks and read washed out next to a solid
 # block. The right tool there is the half-block set: U+2580 UPPER HALF BLOCK
-# over a coloured background gives two independently coloured, fully filled
+# over a colored background gives two independently colored, fully filled
 # half-cells, so a raster gets 2x the vertical resolution of full blocks while
 # staying solid.
 #
-#   both halves lit, same colour  -> full block, that colour
-#   top only                      -> upper half block, fg = top colour
-#   bottom only                   -> upper half block, fg = bg colour, bg = ...
+#   both halves lit, same color  -> full block, that color
+#   top only                      -> upper half block, fg = top color
+#   bottom only                   -> upper half block, fg = bg color, bg = ...
 #                                    (we use LOWER HALF via reversed fg/bg)
 #   neither                       -> space
 UPPER_HALF = "\u2580"
@@ -184,7 +184,7 @@ FULL_BLOCK = "\u2588"
 class HalfBlockCanvas:
     """A filled raster at 2x vertical resolution using half-block glyphs.
 
-    ``set(x, y, colour)`` addresses rows at half-cell granularity. Rendering
+    ``set(x, y, color)`` addresses rows at half-cell granularity. Rendering
     picks the glyph and attribute that fills the cell solidly.
     """
 
@@ -193,20 +193,20 @@ class HalfBlockCanvas:
         self.rows = max(1, int(rows))
         self.width = self.cols
         self.height = self.rows * 2
-        self._px = {}                    # (x, y) -> colour attr
+        self._px = {}                    # (x, y) -> color attr
 
-    def set(self, x, y, colour=0):
+    def set(self, x, y, color=0):
         x, y = int(x), int(y)
         if 0 <= x < self.width and 0 <= y < self.height:
-            self._px[(x, y)] = colour
+            self._px[(x, y)] = color
             return True
         return False
 
-    def fill_column(self, x, y0, y1, colour=0):
+    def fill_column(self, x, y0, y1, color=0):
         if y1 < y0:
             y0, y1 = y1, y0
         for y in range(int(y0), int(y1) + 1):
-            self.set(x, y, colour)
+            self.set(x, y, color)
 
     def clear(self):
         self._px.clear()
@@ -220,9 +220,9 @@ class HalfBlockCanvas:
         if top is not None and bot is not None:
             if top == bot:
                 return FULL_BLOCK, top
-            # two different colours: draw the top half in its colour over the
+            # two different colors: draw the top half in its color over the
             # bottom's - curses can't set a per-cell background here, so prefer
-            # the upper glyph and the top colour, which keeps boundaries crisp
+            # the upper glyph and the top color, which keeps boundaries crisp
             return UPPER_HALF, top
         if top is not None:
             return UPPER_HALF, top

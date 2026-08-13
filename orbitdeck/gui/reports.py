@@ -43,7 +43,7 @@ C_ROWALT = "#eef2fa"
 
 
 def _brand_fig(fig):
-    """Centred OrbitDeck + author credit along the bottom of a report page,
+    """Centered OrbitDeck + author credit along the bottom of a report page,
     inside the printer-safe margin (a corner-anchored credit was being clipped
     by desktop printers' unprintable edge)."""
     try:
@@ -63,7 +63,7 @@ def _utc(unix, fmt="%Y-%m-%d %H:%M:%S"):
 def _draw_sky_polar(ax, pred, p, n=80):
     """Draw a single pass as a sky-track polar plot on the given polar axes,
     matching the on-screen Pass Detail view: N-up, clockwise, radius 90deg
-    (zenith) at centre to 0deg (horizon) at the rim, AOS = green circle,
+    (zenith) at center to 0deg (horizon) at the rim, AOS = green circle,
     LOS = orange square."""
     azs, els = [], []
     for i in range(n + 1):
@@ -100,7 +100,7 @@ class _Page:
         self._new_page()
 
     def _brand(self):
-        """Centred OrbitDeck + author credit along the bottom of the page,
+        """Centered OrbitDeck + author credit along the bottom of the page,
         inside the printer-safe margin."""
         if self.fig is not None:
             _brand_fig(self.fig)
@@ -121,7 +121,7 @@ class _Page:
                                        color=C_RULE, linewidth=1.0))
 
     def ensure(self, need=0.06):
-        # 0.085 floor keeps flowed content clear of the centred branding credit
+        # 0.085 floor keeps flowed content clear of the centered branding credit
         # at the foot of the page (branding sits at y~0.045-0.058; text drawn with
         # va="top" descends below its anchor, so stopping at 0.06 could clip it).
         if self.y - need < 0.085:
@@ -352,7 +352,7 @@ def generate_satellite_report(path, store, sat, when_unix=None,
                     pdf, pred, sat, polar_passes,
                     "%s \u2014 pass sky tracks" % sat.name,
                     "Next 3 days \u2014 min elevation %g\u00b0 \u2014 %d passes. "
-                    "Green \u25cf AOS, orange \u25a0 LOS; centre = zenith."
+                    "Green \u25cf AOS, orange \u25a0 LOS; center = zenith."
                     % (store.min_el, len(polar_passes)))
 
         if "illum" in sections:
@@ -702,7 +702,7 @@ def _hms(seconds):
 
 
 def _el_color(el):
-    """Match the on-screen progression colours: low passes muted blue, mid
+    """Match the on-screen progression colors: low passes muted blue, mid
     blue, high passes bright green."""
     if el >= 45:
         return "#3fb950"        # COL_ACCENT2
@@ -714,7 +714,7 @@ def _el_color(el):
 def generate_progression_report(path, store, sat, when_unix=None, days=30):
     """Multi-day pass progression matching the on-screen display: one row per
     day, each a 24-hour UTC timeline with passes drawn as bars positioned by
-    AOS->LOS and coloured by max elevation (green high, blue mid, dark-blue
+    AOS->LOS and colored by max elevation (green high, blue mid, dark-blue
     low). Paginated across days; a full pass table follows."""
     _set_page(store)
     if when_unix is None:
@@ -761,7 +761,7 @@ def _progression_chart_pages(pdf, store, sat, when_unix, days, passes, by_day,
                      va="top")
             fig.text(0.07, 0.918, "%d-day progression from %s UTC \u2014 min "
                      "elevation %g\u00b0 \u2014 %d passes. Each row is a UTC day; "
-                     "bars are passes by time of day, coloured by max "
+                     "bars are passes by time of day, colored by max "
                      "elevation." % (days, _utc(when_unix, "%Y-%m-%d"),
                                      store.min_el, len(passes)),
                      fontsize=9.5, color=C_MUTED, va="top", wrap=True)
@@ -772,7 +772,7 @@ def _progression_chart_pages(pdf, store, sat, when_unix, days, passes, by_day,
                      fontweight="bold", va="top")
             top = 0.90
         # bottom raised to 0.12 so the x-axis tick labels and the "Time of day"
-        # xlabel clear the centred branding credit at the foot of the page
+        # xlabel clear the centered branding credit at the foot of the page
         # (the branding sits at y~0.045; with the axis at 0.07 the xlabel was
         # printing on top of it).
         ax = fig.add_axes([0.13, 0.12, 0.82, top - 0.12])
@@ -861,7 +861,7 @@ def _pass_polar_grid(pdf, pred, sat, passes, title, subtitle, cols=3, rows=4):
                      color=C_TITLE, fontweight="bold", va="top")
             top = 0.92
         # grid of polar axes. The lower bound is 0.10 (not 0.06) so the lowest
-        # row's caption clears the centred branding credit at the foot of the page.
+        # row's caption clears the centered branding credit at the foot of the page.
         gap_x, gap_y = 0.04, 0.03
         cell_w = (0.86 - (cols - 1) * gap_x) / cols
         cell_h = (top - 0.10 - (rows - 1) * gap_y) / rows
@@ -875,7 +875,7 @@ def _pass_polar_grid(pdf, pred, sat, passes, title, subtitle, cols=3, rows=4):
                 # The polar theta-labels (N/S/E/W ...) sit just OUTSIDE the
                 # circle on every side, so the plot must be inset within the
                 # cell on all sides to leave room. We size the axes to the
-                # central ~62% of the cell height and centre it horizontally,
+                # central ~62% of the cell height and center it horizontally,
                 # then drop the caption into the clear strip at the very bottom.
                 lbl = "%s  %s\nmax %.0f\u00b0  %s\u2192%s  %.1f min" % (
                     _utc(p.aos, "%a %m-%d"), _utc(p.aos, "%H:%M"),
@@ -935,7 +935,7 @@ def _draw_mutual_station_polar(ax, pred, w, n=120):
     ax.grid(True, color="#cccccc", linewidth=0.6)
     if not azs:
         return
-    # full pass muted grey
+    # full pass muted gray
     ax.plot(azs, els, color="#999999", linewidth=1.6)
     # mutual portion bold orange
     maz = [a for a, tt in zip(azs, times) if w.start <= tt <= w.end]
@@ -969,13 +969,13 @@ def _mutual_polar_pages(pdf, store, sat, dx, wins, max_windows=12):
                  fontweight="bold", va="top")
         if pageno == 0:
             fig.text(0.07, 0.925,
-                     "Left: %s.  Right: DX (%.3f, %.3f).  Grey = full pass; "
+                     "Left: %s.  Right: DX (%.3f, %.3f).  Gray = full pass; "
                      "orange = mutually-visible portion.  \u25cb AOS  \u25a1 LOS"
                      % (my_name, dx.lat, dx.lon),
                      fontsize=9, color=C_MUTED, va="top", wrap=True)
         top = 0.89 if pageno == 0 else 0.93
         # 0.10 lower bound so the lowest row's station-name labels clear the
-        # centred branding credit at the foot of the page
+        # centered branding credit at the foot of the page
         row_h = (top - 0.10) / rows_per_page
         for r in range(rows_per_page):
             if idx >= len(sel):
@@ -1019,7 +1019,7 @@ def _compass(az):
 def generate_polar_passes_report(path, store, sat, when_unix=None, days=3):
     """A grid of sky-track polar plots for every pass of ``sat`` over the next
     ``days`` days (default 3), matching the on-screen Pass Detail sky track:
-    N-up, zenith at centre, AOS green circle, LOS orange square."""
+    N-up, zenith at center, AOS green circle, LOS orange square."""
     _set_page(store)
     if when_unix is None:
         when_unix = time.time()
@@ -1031,7 +1031,7 @@ def generate_polar_passes_report(path, store, sat, when_unix=None, days=3):
                                  when_unix + days * 86400)
     title = "%s \u2014 pass sky tracks" % sat.name
     subtitle = ("Station %s (%.3f, %.3f) \u2014 next %d days \u2014 min elevation "
-                "%g\u00b0 \u2014 %d passes. Green \u25cf AOS, orange \u25a0 LOS; centre = "
+                "%g\u00b0 \u2014 %d passes. Green \u25cf AOS, orange \u25a0 LOS; center = "
                 "zenith." % (store.my_grid(), obs.lat, obs.lon, days,
                              store.min_el, len(passes)))
     with PdfPages(path) as pdf:

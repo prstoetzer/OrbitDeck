@@ -198,7 +198,7 @@ class LabDialog:
     # ---- slider row builder ----
     def _build_slider_row(self, parent, label, lo, hi, unit, value,
                           getter, fmt, on_slide, on_type, key):
-        """Build one labelled slider + linked entry box. ``key`` indexes the
+        """Build one labeled slider + linked entry box. ``key`` indexes the
         widget dicts; ``getter`` returns the current value for syncing; ``fmt``
         formats it; ``on_slide``/``on_type`` receive a float value."""
         row = tk.Frame(parent, bg=COL_BG)

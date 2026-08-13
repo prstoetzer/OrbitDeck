@@ -33,7 +33,7 @@ def _ftin(feet):
 
 
 def _antlen(feet):
-    """Antenna length in both ft-in and metres, as CardSat's antLen() does."""
+    """Antenna length in both ft-in and meters, as CardSat's antLen() does."""
     return "%s (%.3f m)" % (_ftin(feet), feet * 0.3048)
 
 
@@ -969,7 +969,7 @@ def orbit_lifetime(perigee_alt_km=550.0, mass_kg=4.0, area_m2=0.03, cd=2.2):
     form (the new model works from the element set instead). CardSat 0.9.68
     refit the physics against 244 real re-entries and found the old formula
     combined Cd*A/m = 38*B* with a da/dt a factor of two too large; the errors
-    partly cancelled at ISS altitude where the constant was tuned, and the model
+    partly canceled at ISS altitude where the constant was tuned, and the model
     predicted roughly a fifth of the true remaining life elsewhere. It also
     lacks the King-Hele eccentricity factor, so it is badly wrong for eccentric
     orbits. Prefer engine.decay for anything quantitative.

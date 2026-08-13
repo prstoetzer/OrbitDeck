@@ -275,7 +275,7 @@ def test_lab_altitude_period_roundtrip():
 
 
 def test_lab_orbit_type_labels():
-    """The orbit-type classifier recognises the standard archetypes."""
+    """The orbit-type classifier recognizes the standard archetypes."""
     from orbitdeck.gui import lab
     assert lab.orbit_type_label(35786, 0.0, 0.0) == "Geostationary"
     assert "Molniya" in lab.orbit_type_label(26600, 0.7, 63.4)
@@ -342,7 +342,7 @@ def test_lab_derived_extended_fields():
 
 
 def test_lab_challenges_check():
-    """Each challenge's checker returns a (bool, str) and recognises a correct
+    """Each challenge's checker returns a (bool, str) and recognizes a correct
     design (geostationary)."""
     from orbitdeck.gui import lab
     from orbitdeck.gui.labdialog import CHALLENGES
@@ -398,7 +398,7 @@ def test_learn_screen_builds():
 
 
 def test_radioedu_band_and_verdict():
-    """Band labelling and the workable verdict behave sensibly."""
+    """Band labeling and the workable verdict behave sensibly."""
     from orbitdeck.gui import radioedu as RE
     assert "2 m" in RE.band_label(145900000.0)
     assert "70 cm" in RE.band_label(435000000.0)
@@ -499,7 +499,7 @@ def test_duplex_roundtrip_holds_downlink():
             u_heard = ideal_ul * (1.0 - beta)
             dl_satframe = dl_c + sign * (u_heard - ul_c)
             heard = dl_satframe * (1.0 - beta)
-            assert abs(heard - dl_c) < 1.0      # lands on centre to <1 Hz
+            assert abs(heard - dl_c) < 1.0      # lands on center to <1 Hz
 
 
 def test_antenna_gain_pattern_and_beamwidth():
@@ -654,7 +654,7 @@ def test_handout_has_four_pages():
 
 
 def test_learn_tabs_grouped():
-    """The Learn screen organises its tabs into logical groups."""
+    """The Learn screen organizes its tabs into logical groups."""
     import tkinter as tk
     try:
         root = tk.Tk()
@@ -755,7 +755,7 @@ def test_label_styles_use_window_background():
     """Readability/consistency: informational text must not sit on a background
     that differs from the window. The shared label styles (and the panel-frame /
     panel radio-check styles) are configured to the window background COL_BG, so
-    text never shows a stray panel-coloured rectangle (only buttons, entries,
+    text never shows a stray panel-colored rectangle (only buttons, entries,
     sliders and the deliberate KVPanel cards have their own background)."""
     import tkinter as tk
     from tkinter import ttk

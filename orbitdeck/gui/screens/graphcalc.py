@@ -12,7 +12,7 @@ from tkinter import ttk
 from . import (Screen, MplPanel, COL_MUTED, COL_ACCENT, COL_ACCENT2, COL_WARN)
 from ...engine import calc as C
 
-TRACE_COLOURS = [COL_ACCENT2, COL_ACCENT, COL_WARN, "#c678dd"]
+TRACE_COLORS = [COL_ACCENT2, COL_ACCENT, COL_WARN, "#c678dd"]
 SAMPLES = 800          # desktop: sample densely, no device pixel budget
 
 
@@ -52,7 +52,7 @@ class GraphCalcScreen(Screen):
         e2.pack(side="left", padx=4)
         for e in (e1, e2):
             e.bind("<Return>", lambda _ev: self._redraw())
-        ttk.Button(bar, text="Report\u2026",
+        ttk.Button(bar, text="Print screen\u2026",
 
                    command=self._report).pack(side="right", padx=4)
         ttk.Button(bar, text="Plot", command=self._redraw).pack(side="left",
@@ -125,7 +125,7 @@ class GraphCalcScreen(Screen):
             if not any(y is not None for y in ys):
                 errs.append(expr)
                 continue
-            ax.plot(xs, ys, "-", color=TRACE_COLOURS[i % len(TRACE_COLOURS)],
+            ax.plot(xs, ys, "-", color=TRACE_COLORS[i % len(TRACE_COLORS)],
                     lw=1.3, label="y = " + expr)
             plotted += 1
         if not self.autoy.get():

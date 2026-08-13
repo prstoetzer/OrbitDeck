@@ -166,7 +166,7 @@ class ExportScreen(Screen):
         for v in (1, 3, 7):
             ttk.Radiobutton(bar, text=str(v), value=v, variable=self._cdays,
                             command=self._render_cmp).pack(side="left")
-        ttk.Button(bar, text="Export CSV\u2026",
+        ttk.Button(bar, text="Export comparison CSV\u2026",
                    command=self._exp_cmp).pack(side="right", padx=2)
         cols = ("sat", "n", "best", "el", "dur")
         heads = ("Satellite", "Passes", "Best pass", "Best max el",
@@ -413,7 +413,7 @@ class ExportScreen(Screen):
         self._lvis = tk.BooleanVar(value=False)
         ttk.Checkbutton(bar, text="Visible only", variable=self._lvis,
                         command=self._render_listing).pack(side="left", padx=8)
-        ttk.Button(bar, text="Export CSV\u2026",
+        ttk.Button(bar, text="Export listing CSV\u2026",
                    command=self._exp_listing).pack(side="right", padx=2)
 
         # second-observer picker (for the Two-observers sub-tab)

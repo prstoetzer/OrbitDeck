@@ -128,7 +128,7 @@ class SatellitesScreen(Screen):
         if self.filtering:
             return [("type", "filter"), ("\u21b5", "apply"), ("esc", "cancel")]
         # "/" filters the LOCAL list; "s" searches CelesTrak's whole catalog.
-        # Labelling "/" as "search" made those look like the same action.
+        # Labeling "/" as "search" made those look like the same action.
         return [("\u2191\u2193", "move"), ("\u21b5", "select"),
                 ("/", "filter"), ("s", "CelesTrak"), ("f", "favorite")]
 
@@ -326,7 +326,7 @@ class RadarScreen(Screen):
         cx = x0 + radius * 2 + 2     # 2:1 char aspect
         self._draw_grid(win, cx, cy, radius)
 
-        # plot sats (N up, E right, az clockwise; el: rim=0, centre=90)
+        # plot sats (N up, E right, az clockwise; el: rim=0, center=90)
         for idx, (s, az, el) in enumerate(ups):
             r = (1 - el / 90.0) * radius
             a = math.radians(az)
@@ -416,3 +416,174 @@ class RadarScreen(Screen):
 def _bold():
     import curses
     return curses.A_BOLD
+
+
+class NewLaunchScreen(Screen):
+    """What went up recently that has a transmitter worth chasing.
+
+    Crosses the last 30 days of the catalog against the SatNOGS transmitter
+    database. The scan is started with `s`, never automatically: it is a
+    network operation and should be the operator's choice.
+    """
+
+    title = "New Launches"
+    refresh_secs = 0.0
+
+    def __init__(self, app):
+        super().__init__(app)
+        self.hits = []
+        self.stats = None
+        self.entries = []
+        self.tx = {}
+        self.filter_on = True
+        self.list = ScrollList()
+        self.status = "s scans the last 30 days"
+        self.busy = False
+
+    def _scan(self, days=30):
+        from orbitdeck.engine import newlaunch as NL
+        from orbitdeck.netio import http_get
+        self.busy = True
+        self.status = "fetching the last %d days\u2026" % days
+        try:
+            url = NL.LAST_60_URL if days == 60 else NL.LAST_30_URL
+            self.entries = NL.parse_gp(http_get(url, 60))
+            self.tx = self.state.store.load_tx_cache()
+            if not self.tx:
+                self.status = "fetching the SatNOGS transmitter database\u2026"
+                self.state.store.update_transponders_online()
+                self.tx = self.state.store.load_tx_cache()
+        except Exception as exc:
+            self.busy = False
+            self.status = "scan failed: %s" % str(exc)[:50]
+            return
+        self.busy = False
+        self._render()
+
+    def _render(self):
+        from orbitdeck.engine import newlaunch as NL
+        known = {s.norad for s in self.state.store.db.sats}
+        self.hits, self.stats = NL.discover(
+            self.entries, self.tx, filter_noise=self.filter_on,
+            known_norads=known)
+        self.status = NL.provenance(self.stats)
+        self.list.sel = 0
+
+    def draw(self, win, y0, x0, h, w):
+        from orbitdeck.engine import newlaunch as NL
+        addstr(win, y0, x0, clip("New launches with transmitters", w),
+               cp(CLR_TITLE))
+        addstr(win, y0 + 1, x0, clip(self.status, w), cp(CLR_DIM))
+        if not self.entries and not self.busy:
+            for i, line in enumerate([
+                    "Fetches what was cataloged in the last 30 days, sets",
+                    "aside rocket bodies, debris and constellation batches,",
+                    "and checks the rest against SatNOGS.",
+                    "",
+                    "s  scan 30 days      S  scan 60 days",
+                    "f  toggle the filter (currently %s)"
+                    % ("on" if self.filter_on else "off"),
+                    "",
+                    "Missing does not mean silent: SatNOGS lags a launch by",
+                    "days to weeks."]):
+                addstr(win, y0 + 3 + i, x0, clip(line, w), cp(CLR_DIM))
+            return
+        if not self.hits:
+            if self.stats:
+                for i, line in enumerate(_wrap_text(
+                        NL.empty_message(self.stats), w)):
+                    addstr(win, y0 + 3 + i, x0, line, cp(CLR_WARN))
+            return
+        addstr(win, y0 + 3, x0, clip("%-20s %7s %11s %-6s %s" % (
+            "OBJECT", "NORAD", "DOWNLINK", "MODE", "STATUS"), w),
+            cp(CLR_HEADER))
+        page = max(1, h - 6)
+        self.list.clamp(len(self.hits), page)
+        favorites = self.state.store.favorites
+        for i in range(min(page, len(self.hits) - self.list.top)):
+            hit = self.hits[self.list.top + i]
+            if hit["norad"] in favorites:
+                st = "favorite"
+            elif hit["in_catalog"]:
+                st = "in catalog"
+            else:
+                st = "new"
+            line = "%-20s %7d %11s %-6s %s" % (
+                hit["name"][:20], hit["norad"],
+                NL.fmt_downlink(hit["downlink_hz"]).replace(" MHz", ""),
+                (hit["mode"] or "-")[:6], st)
+            attr = cp(CLR_ROW_SEL) | _bold() \
+                if self.list.top + i == self.list.sel else 0
+            addstr(win, y0 + 4 + i, x0, clip(line, w), attr)
+        addstr(win, y0 + h - 1, x0, clip(
+            "ENTER adds the selected object", w), cp(CLR_DIM))
+
+    def _add(self):
+        if not self.hits:
+            return
+        hit = self.hits[self.list.sel % len(self.hits)]
+        store = self.state.store
+        existing = store.db.get(hit["norad"])
+        if existing is not None:
+            store.favorites.add(existing.norad)
+            store.save_config()
+            self.status = "%s was already in the catalog \u2014 starred" \
+                % existing.name
+        else:
+            try:
+                store.add_extra_sat({"norad": hit["norad"],
+                                     "name": hit["name"],
+                                     "omm": hit["omm"]}, make_favorite=True)
+                self.status = "added %s (elements refresh with the rest)" \
+                    % hit["name"]
+            except Exception as exc:
+                self.status = "could not add: %s" % str(exc)[:40]
+                return
+        try:
+            # already in hand: adding needs no further network
+            store.cache_transmitters(hit["norad"], hit["records"])
+        except Exception:
+            pass
+        self._render()
+
+    def handle_key(self, ch):
+        import curses
+        if ch == ord("s"):
+            self._scan(30)
+            return True
+        if ch == ord("S"):
+            self._scan(60)
+            return True
+        if ch == ord("f"):
+            self.filter_on = not self.filter_on
+            if self.entries:
+                self._render()
+            return True
+        if ch in (ord("\n"), curses.KEY_ENTER):
+            self._add()
+            return True
+        if ch in (curses.KEY_DOWN, ord("j")):
+            self.list.move(1, len(self.hits), 8)
+            return True
+        if ch in (curses.KEY_UP, ord("k")):
+            self.list.move(-1, len(self.hits), 8)
+            return True
+        return False
+
+    def help_keys(self):
+        return [("s", "scan"), ("f", "filter %s" %
+                                ("on" if self.filter_on else "off")),
+                ("\u21b5", "add")]
+
+
+def _wrap_text(text, width):
+    out, line = [], ""
+    for word in text.split():
+        if line and len(line) + 1 + len(word) > width:
+            out.append(line)
+            line = word
+        else:
+            line = (line + " " + word).strip()
+    if line:
+        out.append(line)
+    return out

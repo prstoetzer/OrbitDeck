@@ -158,7 +158,7 @@ class TrackScreen(Screen):
             names = ["(no transponder data \u2014 145.800 MHz default)"]
             self._tp_list = []
         self.tp_combo.configure(values=names)
-        # initialise the selection from the store (shared with the Radio screen)
+        # initialize the selection from the store (shared with the Radio screen)
         self._tp_index = self.store.selected_tp_index(s)
         if self._tp_index >= len(names):
             self._tp_index = 0
@@ -359,8 +359,8 @@ class TrackScreen(Screen):
         ax.set_theta_zero_location("N")
         ax.set_theta_direction(-1)
         ax.set_rlim(90, 0)
-        # radius runs 90 (centre) -> 0 (rim); label each ring with its own
-        # value so zenith reads 90 at the centre and the horizon reads 0.
+        # radius runs 90 (center) -> 0 (rim); label each ring with its own
+        # value so zenith reads 90 at the center and the horizon reads 0.
         ax.set_rgrids([0, 30, 60, 90], labels=["0", "30", "60", "90"],
                       color=COL_MUTED, fontsize=7)
         ax.set_thetagrids(range(0, 360, 45),

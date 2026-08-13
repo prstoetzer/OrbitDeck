@@ -8,7 +8,7 @@ paper orbit with no catalog entry works exactly like a real one.
 
 Ported from CardSat 0.9.75's SCR_THERMAL. This is an **educational first-order
 model**, not a flight thermal analysis: one node, no conduction, no internal
-gradients, constant properties, grey surfaces.
+gradients, constant properties, gray surfaces.
 """
 
 import math
@@ -18,7 +18,7 @@ SIGMA = 5.670374419e-8        # Stefan-Boltzmann, W/m^2/K^4
 S0 = 1361.0                   # solar constant, W/m^2
 ALBEDO = 0.30                 # Earth bond albedo
 EARTH_IR = 237.0              # Earth IR emission, W/m^2
-CP_ALUMINIUM = 900.0          # J/kg/K, aluminium-dominated bus
+CP_ALUMINUM = 900.0          # J/kg/K, aluminum-dominated bus
 
 ATTITUDE = ["Tumbling", "Sun-pointing"]
 
@@ -91,7 +91,7 @@ def orbital_thermal(alt_km=550.0, units=3, mass_kg=4.0, alpha=0.35, eps=0.85,
     mu = 398600.4418
     a_km = RE_KM + h
     period_s = 2.0 * math.pi * math.sqrt(a_km ** 3 / mu)
-    heat_cap = m * CP_ALUMINIUM
+    heat_cap = m * CP_ALUMINUM
     ecl_start = period_s * (1.0 - fe)
     t = t_sun
     tmin = tmax = t

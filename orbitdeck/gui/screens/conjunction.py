@@ -68,7 +68,7 @@ class ConjunctionScreen(Screen):
     def _build_neigh(self, parent):
         bar = ttk.Frame(parent, style="TFrame")
         bar.pack(fill="x", padx=4, pady=6)
-        ttk.Button(bar, text="Report\u2026",
+        ttk.Button(bar, text="Print screen\u2026",
 
                    command=self._report).pack(side="right", padx=4)
         ttk.Button(bar, text="Compute now",

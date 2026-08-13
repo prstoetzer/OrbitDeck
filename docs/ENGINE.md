@@ -87,7 +87,7 @@ A ground station.
 |---|---|---|
 | `lat` | float | Latitude, °N (south negative) |
 | `lon` | float | Longitude, °E (west negative) |
-| `alt_m` | float | Site altitude, metres |
+| `alt_m` | float | Site altitude, meters |
 | `valid` | bool | Set `True` once you've filled it in |
 
 ### `SatEntry`
@@ -101,7 +101,7 @@ A radio payload. Fields include `desc`, `downlink`/`uplink` (Hz, with
 `_high` variants for a passband), `mode`, `invert`, `is_linear`, `tone_hz`,
 `baud`, `service`. Helpers:
 
-- `downlink_center()` / `uplink_center()` → centre frequency (Hz)
+- `downlink_center()` / `uplink_center()` → center frequency (Hz)
 - `bandwidth()` → passband width (Hz)
 - `kind()` → a short label ("Linear", "FM", "Beacon", …)
 
@@ -153,7 +153,7 @@ satellite_category(sat)   # -> one of CATEGORIES
 ## `Predictor` — propagation & geometry
 
 Create one, then set a site and a satellite (either order). `set_sat()` returns
-`False` if the elements can't be initialised.
+`False` if the elements can't be initialized.
 
 ```python
 pred = Predictor()
@@ -245,7 +245,7 @@ pred.deepspace_approximate()   # True if the bundled approx deep-space model
 from orbitdeck.engine import latlon_to_grid, grid_to_latlon, jd_of, have_full_sdp4
 
 latlon_to_grid(39.93, -74.89)     # -> 'FM29' (4-char Maidenhead)
-grid_to_latlon('FM29')            # -> (lat, lon) of the square centre
+grid_to_latlon('FM29')            # -> (lat, lon) of the square center
 jd_of(unix)                       # -> Julian Date
 have_full_sdp4()                  # -> True if the pip `sgp4` backend is in use
 ```
@@ -376,7 +376,7 @@ cel.sat_to_sat_windows(pred1, pred2, t, hours=24.0)
   orbit-plane-to-Sun angle.
 - **Propagator:** the bundled pure-Python SGP4/SDP4 matches the Vallado
   *AIAA-2006-6753* reference to ~1 cm at epoch and tracks the reference `sgp4`
-  package to well under a kilometre across a typical LEO pass. For deep-space
+  package to well under a kilometer across a typical LEO pass. For deep-space
   orbits (period ≥ 225 min) install the **`sgp4`** extra for full SDP4 accuracy
   and speed — `deepspace_approximate()` tells you when the approximate model is
   active for a given object.

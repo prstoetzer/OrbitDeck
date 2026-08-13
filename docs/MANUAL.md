@@ -184,12 +184,12 @@ printable OSCARLOCATOR PDF** for the selected satellite from here (see
 <p align="center"><img src="img/globe.png" width="85%" alt="3D Globe"></p>
 
 A rotatable **orthographic "view from space"** of the Earth showing **all your
-favorite satellites at once, live** — each as a coloured dot with its coverage
+favorite satellites at once, live** — each as a colored dot with its coverage
 footprint and a name label — over the day/night terminator and your station. The
 **selected** satellite is emphasized (it carries its ground track and a brighter
 footprint), and the chosen **View** follows it.
 
-- **View** (radio buttons): **follow the satellite** (it stays centred),
+- **View** (radio buttons): **follow the satellite** (it stays centered),
   **over your station**, look straight down the **north** or **south** pole, or
   **Free (drag)** — click and drag anywhere on the globe to spin it to any
   viewpoint and hold it there. (Starting a drag from any other view switches to
@@ -209,15 +209,15 @@ viewpoint) is hidden until it rotates into view. The orange star is your station
 
 <p align="center"><img src="img/skyradar.png" width="85%" alt="Sky Radar"></p>
 
-A polar sky plot (N-up, zenith at centre, rim = horizon) with three modes chosen
+A polar sky plot (N-up, zenith at center, rim = horizon) with three modes chosen
 by the radio buttons:
 
 - **Live (all favorites)** *(default)* — the **current sky position** of every
-  favorite satellite that is **above your horizon right now**, each a coloured
-  labelled dot, updating in **real time** as they move. This is the "what can I
+  favorite satellite that is **above your horizon right now**, each a colored
+  labeled dot, updating in **real time** as they move. This is the "what can I
   hear right now" view.
 - **All-passes radar** — the upcoming passes of the **selected** satellite
-  overlaid on one plot (each arc one pass, colour-coded by order, with a dot at
+  overlaid on one plot (each arc one pass, color-coded by order, with a dot at
   AOS), over a selectable window (6–48 h). Good for "what is my sky doing in the
   next few hours."
 - **Sky-coverage heatmap** — the selected satellite's upcoming passes aggregated
@@ -302,7 +302,7 @@ playbook is generated for that pass's AOS→LOS span.
   downlink the spacecraft is the transmitter. The figures use the **transponder
   you selected on the Track screen** (the two screens stay in sync). For a
   **linear transponder**, a **Passband position** slider lets you choose where in
-  the passband you want to operate (0 % = low edge, 50 % = centre, 100 % = high
+  the passband you want to operate (0 % = low edge, 50 % = center, 100 % = high
   edge). A **Time in pass** slider scrubs the geometry from **AOS to LOS** so you
   can watch range, path loss and Doppler change through the pass; the **TCA**
   button snaps back to closest approach. It's an estimate for "is this pass
@@ -319,7 +319,7 @@ playbook is generated for that pass's AOS→LOS span.
   tells you where you'll hear yourself). The non-fixed leg is **round-trip
   corrected** so you stay on your own signal as the satellite moves. A
   **Passband position** slider builds the table around where you are actually
-  tuned in a linear bird's passband, rather than always the band centre. Export
+  tuned in a linear bird's passband, rather than always the band center. Export
   the table to **CSV** or a **printable PDF sheet**.
 
 ### 3.10 Planning
@@ -333,7 +333,7 @@ Goal-directed planning and element-status, in four tabs:
   upcoming windows (next 72 h) when **both you and the target are inside the
   satellite's footprint** at once — i.e. a contact through the bird is
   geometrically possible. Windows are ranked by start time, with a
-  footprint-margin figure (bigger = both stations nearer the centre
+  footprint-margin figure (bigger = both stations nearer the center
   of coverage). Export the windows to **CSV**.
 - **Visible passes** — the next 5 days of **optically observable** passes: the
   satellite sunlit while you are in darkness and it is high enough to see. Choose
@@ -410,7 +410,7 @@ the mutual-windows report.
 The **Sky tracks** tab shows the pass on a polar sky plot **from each station's
 perspective side by side** — your station on the left, the DX station on the
 right. (In All-favorites mode the detail is built for that window's own
-satellite.) Each plot draws that station's full pass in grey with the
+satellite.) Each plot draws that station's full pass in gray with the
 **mutually-visible portion highlighted in bold orange**, and marks AOS (circle)
 and LOS (square). This makes it easy to see when in the pass the satellite is
 workable from both ends and how high it sits in each sky.
@@ -498,7 +498,7 @@ leaving lab mode.
 north, polar south, or QTH-centered.
 
 Two independent overlay toggles let you show or hide each circle on its own:
-**Show QTH range circle** (the fixed orange circle centred on your station) and
+**Show QTH range circle** (the fixed orange circle centered on your station) and
 **Show satellite footprint** (the satellite's own coverage circle at its current
 sub-point, green dashed).
 
@@ -550,7 +550,7 @@ the effect of whatever you just changed.
 
 Other tools in the editor:
 
-- **Preset orbits** — load a recognisable archetype (ISS-like LEO,
+- **Preset orbits** — load a recognizable archetype (ISS-like LEO,
   sun-synchronous, polar, Molniya, GPS-like MEO, geostationary) in one click,
   then perturb it.
 - **Compare** — tick the box to freeze the current orbit as a faint dashed
@@ -584,7 +584,7 @@ them.
 
 The **Learn** screen gathers OrbitDeck's standalone teaching tools, so they stay
 out of the operating screens. Each reuses the same models as the rest of the
-program, so the numbers match. The tools are organised into five groups, chosen
+program, so the numbers match. The tools are organized into five groups, chosen
 from a category row above the tab strip: **Orbits** (how an orbit works),
 **Geometry** (its shape and reach), **Passes** (observing from the ground),
 **Radio** (working satellites), and **Reference**.
@@ -668,7 +668,7 @@ its elements and watch the coverage and pass geometry change.
   as a single channel.
 - **Doppler** — plots the frequency shift across the next pass. For a linear bird
   it shows **both** the uplink and downlink legs; the higher band swings more, and
-  the tip explains keeping the downlink centred by retuning the uplink (the
+  the tip explains keeping the downlink centered by retuning the uplink (the
   opposite direction on an inverting transponder).
 - **Link budget** — an interactive free-space sandbox: set range, frequency, TX
   power, antenna gains and mode, and read the received power, path loss, and a
@@ -756,10 +756,10 @@ Tracking and analysis for objects beyond satellites, in two tabs:
 - **Bodies** — the live **azimuth/elevation** of the **Sun**, **Moon**, the
   **planets** (Mercury, Venus, Mars, Jupiter, Saturn) and a set of bright
   **cosmic radio sources** (Cassiopeia A, Cygnus A, Taurus A / Crab, Virgo A,
-  Sagittarius A\* at the galactic centre, Orion A, Centaurus A, Fornax A), a
+  Sagittarius A\* at the galactic center, Orion A, Centaurus A, Fornax A), a
   **cold-sky** reference direction, and the **currently selected satellite**
   (drawn as a star). Everything that is above the horizon is plotted on a polar
-  sky map (zenith centre, horizon rim) and listed in a table. Useful for antenna
+  sky map (zenith center, horizon rim) and listed in a table. Useful for antenna
   calibration, sun/moon-noise measurements, and radio astronomy. The table
   exports to **CSV**.
 - **EME** — an **Earth-Moon-Earth (moon-bounce)** analysis panel. Pick a band
@@ -874,7 +874,7 @@ OrbitDeck supports it two ways:
 >    "shrink to fit", and any scaling in the print dialog.
 > 2. Print the **base map** on paper or card; print the **range-circle** and
 >    **path-arc** pages on **transparency film**.
-> 3. **Pin or pivot the overlays through the exact centre** so they rotate about
+> 3. **Pin or pivot the overlays through the exact center** so they rotate about
 >    the same point as the map.
 >
 > A small OrbitDeck credit (and version) is printed in the bottom corner of the
@@ -900,30 +900,30 @@ OrbitDeck supports it two ways:
   separate transparency is needed. It carries the full set of readouts inside the
   circle: **azimuth** spokes and degree labels with N/E/S/W cardinals, **elevation
   rings** (0/10/30/60°, the 0° ring being the footprint edge), and **dashed
-  ground-distance rings labelled in km** out to the footprint edge — so you can
+  ground-distance rings labeled in km** out to the footprint edge — so you can
   read the bearing, elevation, and ground distance to the sub-point directly off
   the one sheet. The footprint circle itself is kept clean — the azimuth labels
   and the elevation rings come from the base map underneath, so they aren't
   repeated on the footprint. Use the path-arc overlay on top to see when the
   satellite enters the circle. The **polar** version of this sheet carries the
-  same elevation and distance rings, drawn as the correct off-centre rings around
+  same elevation and distance rings, drawn as the correct off-center rings around
   your station, and the footprint uses the identical red-circle style. (The
   standalone footprint transparency in the 3-sheet set keeps its own full azimuth
   rose and km labels, since it prints on its own.)
 - **Footprint transparency** — the **range circle**, the radius of the
   satellite's coverage footprint at its **mean orbital altitude**, with distance
-  rings and azimuth radials. Pin it through the centre cross **over your QTH**:
+  rings and azimuth radials. Pin it through the center cross **over your QTH**:
   the satellite is in range whenever its ground track (the path-arc overlay) is
   **inside** this circle, so you read AOS and LOS where the arc crosses it. (When
-  the QTH-centred base map is used, the 0° elevation ring is the same circle, so
+  the QTH-centered base map is used, the 0° elevation ring is the same circle, so
   this transparency is mainly for the polar map.) On the **polar** base map the
   true coverage edge is a slight oval rather than a perfect circle (the polar map
-  is centred on the pole, not your station), so for the polar workflow the circle
+  is centered on the pole, not your station), so for the polar workflow the circle
   is drawn a few percent larger — a single generic size chosen to best fit that
   oval across the latitudes where most operators live. The sheet notes the
-  enlargement. On the QTH-centred map the circle is exact and is left unchanged.
+  enlargement. On the QTH-centered map the circle is exact and is left unchanged.
 - **Path-arc overlay** — the rotatable ground-track transparency, with **minute
-  tick marks** (straight marks across the track; longer, labelled marks every 10
+  tick marks** (straight marks across the track; longer, labeled marks every 10
   minutes), a bold **"EQX (0 min)"** marker showing which radial to line up with
   the equator-crossing longitude on the map, and a per-pass node-advance
   indicator. The track is referenced to the **ascending node** for northern
@@ -936,7 +936,7 @@ The **"Make printable OSCARLOCATOR…"** button (on Track and on the Sim) opens 
 single options dialog where you choose:
 
 - **Base map** — polar (generic, works for any QTH via the equator-crossing list)
-  or QTH-centred (personalised to your station).
+  or QTH-centered (personalised to your station).
 - **Range circle** — a separate transparency (3-page set) or drawn directly on
   the base map at your QTH (2-page set).
 - **Reduced-text transparencies** — an optional clean style. With it on, the base
@@ -945,7 +945,7 @@ single options dialog where you choose:
   kept generic so the set can be reused with any satellite; the range-circle
   transparency just names the satellite unobtrusively inside the circle; and the
   path-arc transparency lists the satellite name, inclination, period, and the
-  per-pass advance inside the circle. (The standard fully-labelled style is
+  per-pass advance inside the circle. (The standard fully-labeled style is
   unchanged — reduced text is a separate choice.)
 
 ### How to use the printed set
@@ -1112,12 +1112,12 @@ the Sun's position, plus a naked-eye-visibility check and an AOS/LOS countdown.
 </p>
 
 **Next Passes** — a scrollable table of upcoming passes (date, AOS / TCA / LOS,
-maximum elevation, and AOS/LOS azimuths). Max elevation is colour-coded by pass
+maximum elevation, and AOS/LOS azimuths). Max elevation is color-coded by pass
 quality. **`e`/`E`** lowers/raises the minimum-elevation filter; **Enter** opens
 the highlighted pass in Pass Detail.
 
 <p align="center">
-  <img src="img/orbitterm_passes.png" width="80%" alt="OrbitTerm Next Passes: pass table with AOS/TCA/LOS, azimuths and quality-coloured max elevation">
+  <img src="img/orbitterm_passes.png" width="80%" alt="OrbitTerm Next Passes: pass table with AOS/TCA/LOS, azimuths and quality-colored max elevation">
 </p>
 
 **Pass Detail** — the AOS/TCA/LOS events for one pass with their azimuths and
@@ -1125,7 +1125,7 @@ elevations, plus an **ASCII elevation profile** of the whole pass that peaks at
 TCA and marks the current time. **`n`** jumps to the next pass.
 
 **Sky Radar** — an ASCII polar sky plot of everything above the horizon right
-now: north up, with elevation rings (the rim is the horizon, the centre is
+now: north up, with elevation rings (the rim is the horizon, the center is
 overhead). Each satellite is a lettered marker keyed to a side list.
 
 **Ground Track** — an ASCII world map showing the selected satellite's sub-point

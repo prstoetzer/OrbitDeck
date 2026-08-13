@@ -1,5 +1,132 @@
 # Changelog
 
+## [0.39.1]
+
+### Fixed
+- **The Moon model was 1–2° out**, carrying only the equation of the center.
+  It now includes the main perturbations — evection, variation, the annual
+  equation and the parallactic terms — and its distance comes from the same
+  solution instead of a separate series. Invisible on a pointing readout,
+  fatal for eclipses, where the whole event spans about half a degree. This
+  improves Sun/Moon, EME and transits as well.
+
+### Added
+- **New-launch transmitter discovery** on both front-ends. Crosses the objects
+  cataloged in the last 30 or 60 days against the SatNOGS transmitter
+  database and presents the intersection as an add-to-favorites list.
+
+  OrbitDeck takes the design's **portable path**: rather than probing
+  candidates one at a time, it reuses the bulk transmitter database the app
+  already caches by NORAD id. Roughly a hundred round-trips become a
+  dictionary lookup, and the probe budget disappears — *every* filtered
+  candidate is checked, not just the newest hundred.
+
+  The noise filter removes rocket bodies, debris and constellation batches, is
+  switchable off with a full rescan, and never filters `TBA` objects — that is
+  exactly the state a freshly launched amateur cubesat occupies for its first
+  weeks. Every result line carries the provenance count (`2 hit / 40 probed,
+  214 cut`), and a negative is worded as "not found among those checked",
+  never as "this has no transmitter": SatNOGS coverage lags a launch by days
+  to weeks.
+
+  Adding keys the object by NORAD from the GP entry already in hand, so its
+  elements refresh with everything else, and caches the transmitter records at
+  the same time — they are already in hand, so adding needs no further network.
+- **Astronomy hub**, from CardSat 0.9.76, on **both front-ends**:
+  - **Meteor showers** — the eleven major annual showers sorted by days to
+    peak, each with the radiant's elevation at 02:00 (meteor-scatter prime
+    time) and the Moon's illumination, because a 150-ZHR shower with the
+    radiant below the horizon is not an opportunity.
+  - **Jupiter decametric** — CML System III and Io phase in the Radio JOVE
+    convention, the Io-A/B/C sources, and windows over the next 48 hours.
+    Only windows with Jupiter above the horizon are listed.
+  - **Aurora** — dipole magnetic latitude against the 66.5 − 2·Kp oval
+    boundary, with separate visual and radio verdicts.
+  - **Twilight** — the −0.833°, −6°, −12° and −18° crossings.
+  - **EME conditions** — distance now against the perigee and apogee of the
+    coming month, and the two-way path-loss penalty that follows.
+  - **Occultations and appulses** — bright zodiacal stars and planets against
+    the Moon, and close planetary pairings, a year ahead. A minimum inside the
+    lunar limb is an occultation; anything wider is labeled a close approach.
+  - **Eclipses** — solar and lunar, two years ahead. Solar eclipses are
+    computed **topocentrically**, because the Moon's roughly one-degree
+    parallax is exactly what makes a solar eclipse local, and are listed only
+    when the Sun is up here; lunar eclipses use geocentric shadow geometry with
+    Danjon's 2% enlarged umbra and are listed with a visibility flag.
+    Validated against the published canon: the 28 August 2026 partial lunar
+    eclipse comes out at **umbral magnitude 0.931 at 04:13 UT** against a
+    published 0.93 at 04:13.
+  - **Eclipse ground track** — the shadow axis intersected with the Earth,
+    plotted on the world map with the observer marked. Split at the date line,
+    because joining those points would draw a stripe across the map. The
+    12 August 2026 greatest eclipse lands at 65.7°N 23.8°W against a published
+    65.2°N 25.2°W. A partial-only eclipse says the axis misses the planet
+    rather than showing an empty map, and a lunar eclipse says it has no
+    ground track at all.
+  - **Comet ephemeris** — elements to RA/Dec, az/el and elongation, with
+    Barker's equation for the parabolic case where Kepler's degenerates.
+
+## [0.39.0]
+
+### Changed
+- **Buttons are named for what they produce.** Two different reports shared the
+  label "Report…": the header's **Satellite report** (analysis, passes and EQX
+  for the selected satellite) and each screen's own report of what is currently
+  displayed, now **Print screen…**. Several screens showed both, with no way to
+  tell which was which. The same applied to five different `Export CSV…`
+  buttons on Planning — now named for what each exports (workable, horizon,
+  visibility, rove plan, LOS windows).
+- **The decay estimate can now be anchored on the element archive.** One
+  element set carries a single fitted n-dot from one epoch, dominated by
+  whatever the atmosphere was doing that week. An archive spanning months
+  measures the actual mean-motion trend, which is what decay depends on — and
+  unlike the other anchors it improves as the record grows. Where an archive
+  exists it is preferred; otherwise the estimate falls back to the element
+  set's own n-dot, then to B*, exactly as before.
+
+  Both Orbital History screens show the estimate and **which anchor it rests
+  on** — in OrbitTerm on all four views, since the analysis and table views are
+  where you go to judge a trend. The desktop says why the archive was not used
+  when it wasn't (too short, not decaying, or a fit outside the physical range).
+
+  Every decay readout in both front-ends now goes through one helper that reads
+  the shared archive cache, so the Orbital Analysis and Orbital History screens
+  cannot report different numbers for the same satellite.
+- **American English throughout.** Roughly 500 British spellings across 80
+  files — in UI strings, comments, docs and identifiers alike. The identifier
+  renames matter most: `analyse_rate` is now `analyze_rate`, `CP_ALUMINIUM` is
+  `CP_ALUMINUM`, and the canvas drawing methods take `color`. A test guards
+  against drift, since spellings creep back one comment at a time.
+
+### Added
+- **Tiny BASIC**, ported from CardSat 0.9.75 and **source-compatible** with it:
+  a program written on the card runs here unchanged, and vice versa. The full
+  dialect — `FOR`/`NEXT`, `GOSUB`/`RETURN`, `IF`/`THEN`, `ON..GOTO`,
+  `DATA`/`READ`/`RESTORE`, the anonymous `@()` array and named `A()`–`Z()`
+  arrays, and the degree-based maths functions.
+
+  Graphics keep the card's **240×135** coordinate space and its ten palette
+  colors, so a picture is identical on both machines — including the clipping
+  at the screen edge. The desktop **scales the display by a whole number of
+  pixels** to fill the panel, so programs are not postage stamps in a desktop
+  window and a one-pixel `PSET` stays a crisp square.
+
+  `INPUT` is collected before the run, as on the card, so the interpreter never
+  re-enters the event loop with a live program on the stack. Runaway programs
+  are bounded by statement and time budgets.
+
+  **Live data is available to programs.** The system names (`SATAZ`, `SATEL`,
+  `SATRNG`, `MYLAT`, `UTCH`, `SFI`, `KP`, `NSAT`, `TXDL` and the rest) read the
+  real catalog, station, clock and space-weather data, and `SATSEL` / `TXSEL`
+  point them at any satellite or transponder. An unavailable value reads 0 with
+  its matching `...OK` flag at 0, so a program branches instead of halting — a
+  catalog scan survives a satellite with a dead element set.
+
+  `FOPEN` / `FPRINT` / `FCLOSE` / `FILES` write to `~/.orbitdeck/basic/`. File
+  names are a single plain name, so a program cannot reach the rest of the disk.
+
+  Not ported to OrbitTerm, by design.
+
 ## [0.38.2]
 
 OrbitTerm parity and legibility.
@@ -22,7 +149,7 @@ OrbitTerm parity and legibility.
 ### Changed
 - **The world map is no longer stretched.** An equirectangular projection needs
   a 2:1 area; the map filled the pane instead, stretching every continent about
-  30% vertically. It now fits the widest 2:1 box and centres it — measured at
+  30% vertically. It now fits the widest 2:1 box and centers it — measured at
   2.04:1 after the fix.
 - **Real coastlines.** The map drew the outline of a coarse land/sea rectangle
   mask, which can only ever produce rectangles, and did. It now draws the same
@@ -34,16 +161,16 @@ OrbitTerm parity and legibility.
   the next few days.
 - OrbitTerm no longer describes itself as a "companion" to the desktop app: it
   ships standalone, in every package and as its own single-file download.
-- On the Satellites screen `/` is now labelled **filter** (it filters the local
-  list) and `s` is **CelesTrak** — labelling `/` "search" made two different
+- On the Satellites screen `/` is now labeled **filter** (it filters the local
+  list) and `s` is **CelesTrak** — labeling `/` "search" made two different
   actions look like one.
 
 ### Changed
-- **Palette legibility.** `CLR_DIM` was blue — the least legible colour on a
+- **Palette legibility.** `CLR_DIM` was blue — the least legible color on a
   dark background, and by far the most-used pair (labels, units, help text).
   It is now white dimmed with `A_DIM`. `CLR_HEADER` was the same yellow as
   `CLR_WARN`, so a column heading and a warning looked identical; headers are
-  now white and bold. Both attributes travel with the colour pair, so they also
+  now white and bold. Both attributes travel with the color pair, so they also
   apply on a monochrome terminal.
 - **Red now means a problem, not a direction.** A receding satellite, an
   eclipse and the negative half of a Doppler curve were all drawn in red as if
@@ -55,7 +182,7 @@ OrbitTerm parity and legibility.
   "sat below horizon" read as the complete value "sat below horiz". Three such
   strings shortened to fit.
 - **Sky Radar objects were plotted at twice the grid radius.** A marker at the
-  horizon belongs 4x`radius` dots from centre; the ring canvas was half that,
+  horizon belongs 4x`radius` dots from center; the ring canvas was half that,
   so anything below about 60 degrees was drawn outside the horizon ring
   entirely. The globe and OSCARLOCATOR discs measured exactly 1.00:1 and were
   already correct.
@@ -105,11 +232,11 @@ propagation models.
   open/fair/weak/shut from 80 m to 6 m, geomagnetic state, aurora-VHF
   likelihood, D-layer absorption, meteor-scatter showers and sporadic-E season.
 - **OSCARLOCATOR simulator** (OrbitTerm) — the paper instrument on the braille
-  canvas, in north-polar and QTH-centred projections, live or manual.
+  canvas, in north-polar and QTH-centered projections, live or manual.
 
 **Orbital History** — four views (value, rate, analysis, table) with time-axis
 zoom and pan, plus rate analysis that reports whether the rate of change has
-itself changed, detects manoeuvre jumps, and splits eras on the *time* axis so a
+itself changed, detects maneuver jumps, and splits eras on the *time* axis so a
 sparse early archive is not swamped by a dense modern one. OrbitTerm fetches the
 Space-Track archive itself.
 
@@ -146,7 +273,7 @@ desktop GUI package to make a web request.
 - **OrbitTerm navigation is a scrollable menu.** The 1–9 + 0 shortcuts reached
   only ten of the screens; TAB now opens a scrolling list with a cursor,
   PageUp/PageDown/Home/End and type-ahead by first letter.
-- **OrbitTerm is normalised to 80×24** and every screen and page is swept for
+- **OrbitTerm is normalized to 80×24** and every screen and page is swept for
   overflow and truncation.
 - **Graphics use the right glyphs for the job**: braille for line art (tracks,
   rings, plots), half-blocks for filled rasters, plain text for labels.
@@ -248,7 +375,7 @@ desktop GUI package to make a web request.
   against trimming without testing every platform's built artifact.
 - **Printed reports no longer overlap the page-footer branding.** In the full
   satellite report, the pass-progression timeline chart printed its "Time of day
-  (UTC hour)" axis label on top of the centred "OrbitDeck — Paul Stoetzer, N8HM"
+  (UTC hour)" axis label on top of the centered "OrbitDeck — Paul Stoetzer, N8HM"
   credit at the foot of the page. Raised that chart's bottom and the content-flow,
   table, polar-grid, and mutual-window row floors so all report content clears the
   branding band. This covers the satellite, favorites, site-comparison, eclipse,
@@ -325,7 +452,7 @@ desktop GUI package to make a web request.
 
 ### Fixed
 - **Readability & consistency: stray label backgrounds removed.** Informational
-  text previously sat on a slightly lighter panel-coloured rectangle that didn't
+  text previously sat on a slightly lighter panel-colored rectangle that didn't
   match the window (most visible behind muted hints and mono read-outs). The
   shared label styles (`Muted`, `Mono`, `Panel`, `PanelH`) and the control
   containers (`Panel.TFrame`, the panel radio/check variants) now use the window
@@ -438,8 +565,8 @@ desktop GUI package to make a web request.
 ### Fixed
 - **OSCARLOCATOR Simulator — the satellite can now be dragged smoothly along the
   pass arc** in manual mode. Previously the marker was moved by mapping the
-  pointer's angle about the disc centre to "minutes after EQX", which broke down
-  badly: near the centre a tiny movement spun the angle wildly and near the rim a
+  pointer's angle about the disc center to "minutes after EQX", which broke down
+  badly: near the center a tiny movement spun the angle wildly and near the rim a
   large movement barely registered, so the dot jumped erratically or refused to
   move. The drag now projects the pointer onto the drawn arc and snaps the marker
   to the nearest point, tracking the cursor cleanly across the whole pass (in the
@@ -543,10 +670,10 @@ desktop GUI package to make a web request.
 
 ### Fixed
 - On the **Sun / Moon sky view**, a body below the horizon was drawn at the
-  zenith centre, where its label collided with the "90" elevation-ring label
+  zenith center, where its label collided with the "90" elevation-ring label
   (e.g. a down Moon rendered as "90oon"). Below-horizon bodies are now parked as
   a faint marker at the **horizon rim in their compass direction** with a clear
-  "▼" label, so the centre label stays readable and you can still see which way
+  "▼" label, so the center label stays readable and you can still see which way
   the Sun or Moon is.
 
 ## [0.33.0]
@@ -611,7 +738,7 @@ desktop GUI package to make a web request.
   the bottom of the sheet, where the explanatory footer text sits) no longer
   overlaps that text. The four cardinal-spoke longitude numbers (0/90/180/270)
   are now omitted, since the **N/E/S/W** letters already mark those spokes —
-  matching how the QTH-centred map already handles its cardinals.
+  matching how the QTH-centered map already handles its cardinals.
 
 ## [0.32.0]
 
@@ -650,7 +777,7 @@ A broad readability, polish, and interaction pass across every screen.
   longer drawn in black; the Sunlight reference-orbit labels (ISS/LEO/MEO/GEO)
   no longer overprint each other; the Transponder UPLINK/DOWNLINK band labels no
   longer crush the passband frequencies; the Duplex-practice x-axis label is no
-  longer clipped; the Grid-squares locator is centred in its square.
+  longer clipped; the Grid-squares locator is centered in its square.
 - The lab satellite mode is now just "Lab satellite" (the "(educational)" tag is
   gone).
 - The Pass Detail screen no longer shows an empty, unstyled plot frame before a
@@ -679,10 +806,10 @@ A broad readability, polish, and interaction pass across every screen.
   (OSCAR-1 to CubeSats).
 
 ### Changed
-- The Learn screen is reorganised into **five groups** — Orbits, Geometry,
+- The Learn screen is reorganized into **five groups** — Orbits, Geometry,
   Passes, Radio, and Reference — to keep each group to one tidy row as the
   teaching set grew to twenty-three tools. (The slant-range tab is now under
-  Geometry, labelled "Slant range".)
+  Geometry, labeled "Slant range".)
 
 ## [0.30.0]
 
@@ -698,7 +825,7 @@ A broad readability, polish, and interaction pass across every screen.
   orbit changes (delta-v).
 
 ### Changed
-- **The Learn screen's tabs are now organised into four groups** — Orbits,
+- **The Learn screen's tabs are now organized into four groups** — Orbits,
   Passes, Radio, and Reference — selected from a category row above the tab
   strip. With nineteen teaching tools this keeps each group to a single tidy row
   instead of a long wrapping strip, so the screen reads like a curriculum.
@@ -764,7 +891,7 @@ A broad readability, polish, and interaction pass across every screen.
 ### Added
 - **Full-duplex tuning practice** (new Learn tab). Scrub through a simulated pass
   and adjust your uplink to keep your own signal on a fixed target downlink, the
-  way you work a linear bird in real life. The round-trip Doppler is modelled
+  way you work a linear bird in real life. The round-trip Doppler is modeled
   exactly (both legs), an "ideal tuning" hint can be shown, and inverting
   transponders correctly require tuning the opposite way.
 - **Lab orbit in the Learn tools.** A "Use a lab orbit" toggle (with an
@@ -791,7 +918,7 @@ A broad readability, polish, and interaction pass across every screen.
     downlink down, shown directly.
   - **Doppler** now plots **both the uplink and downlink** legs across the next
     pass for a linear bird, with guidance on retuning the uplink to keep the
-    downlink centred (the opposite direction on an inverting transponder).
+    downlink centered (the opposite direction on an inverting transponder).
   - **Link budget** gains a **per-mode workable verdict** (FM needs a stronger
     signal than narrow SSB/CW) and a **free-space-loss-by-band** chart, so you
     can see why higher bands need more antenna gain.
@@ -854,7 +981,7 @@ A broad readability, polish, and interaction pass across every screen.
   sun-synchronous means, why eccentricity makes the satellite linger over
   apogee).
 - **Preset orbit gallery.** One-click presets — ISS-like LEO, sun-synchronous,
-  polar, Molniya, GPS-like MEO, and geostationary — to load a recognisable
+  polar, Molniya, GPS-like MEO, and geostationary — to load a recognizable
   archetype and then perturb it.
 - **Side-by-side comparison.** Freeze the current orbit as a faint dashed "ghost"
   and edit a second orbit over it to see a single element's effect directly.
@@ -944,12 +1071,12 @@ A broad readability, polish, and interaction pass across every screen.
 ### Changed
 - **OSCARLOCATOR Sim rim.** The simulator's map now has an outer rim with
   per-degree tick marks (longer every 30 deg) and a ring of longitude labels
-  (polar) or azimuth labels and cardinal letters (QTH-centred), plus latitude and
+  (polar) or azimuth labels and cardinal letters (QTH-centered), plus latitude and
   range-ring labels -- matching the OSCARLOCATOR web simulator so the instrument
   reads like a protractor.
 
 ### Fixed
-- **PDF credit placement.** The OrbitDeck + author credit now appears centred
+- **PDF credit placement.** The OrbitDeck + author credit now appears centered
   along the bottom of **every** printed sheet (base maps, range-circle and
   path-arc overlays, all reports, the Doppler playbook, and the reference-orbit
   sheet) -- the only exception being the clean reduced-text transparencies, which
@@ -962,7 +1089,7 @@ A broad readability, polish, and interaction pass across every screen.
 ### Changed
 - **More accurate polar range-circle transparency.** The standalone range-circle
   overlay is a true circle of constant ground distance from the QTH. On the
-  QTH-centred base map that is exact, but on the generic polar base map (which is
+  QTH-centered base map that is exact, but on the generic polar base map (which is
   azimuthal-equidistant about the pole) the true coverage edge re-projects to a
   slight oval, so a raw footprint-radius circle sits inside it and under-states
   coverage — increasingly so away from the pole. The polar transparency's circle
@@ -970,7 +1097,7 @@ A broad readability, polish, and interaction pass across every screen.
   single *generic* circle (no QTH input, still fully reusable) best fits that oval
   for the majority of operators, cutting the typical mid-latitude error by about
   20% while keeping high-latitude error small. The sheet notes the enlargement.
-  The QTH-centred transparency and the combined map (which already draws the true
+  The QTH-centered transparency and the combined map (which already draws the true
   projected footprint locus) are unchanged.
 
 ## [0.21.0]
@@ -981,7 +1108,7 @@ A broad readability, polish, and interaction pass across every screen.
   actual update failure raised `NameError` instead of showing the intended
   "couldn't fetch, still using the cached catalog" message. The exception is now
   captured correctly. The same pattern was fixed in the Space Wx fetch handler.
-- **Duplicate key in the space-weather colour map** silently dropped a colour for
+- **Duplicate key in the space-weather color map** silently dropped a color for
   the "moderate" level; the map now has one entry per level.
 
 ### Changed
@@ -1049,7 +1176,7 @@ semantic versioning.
 ### Changed
 - **Reduced text applies to every OSCARLOCATOR variant.** Clarified that the
   reduced-text option is an independent modifier: it can be combined with any
-  base-map style (polar or QTH-centred) and either range-circle placement
+  base-map style (polar or QTH-centered) and either range-circle placement
   (separate transparency or drawn on the base map at the QTH), so a cleaner
   transparency set can be produced for all of the original output combinations.
 
@@ -1070,7 +1197,7 @@ semantic versioning.
   markings, so it can be reused with any satellite); the range-circle transparency
   just names the satellite unobtrusively inside the circle; and the path-arc
   transparency lists the satellite name, inclination, period, and per-pass advance
-  inside the circle. The standard (fully-labelled) option is unchanged.
+  inside the circle. The standard (fully-labeled) option is unchanged.
 - **Single OSCARLOCATOR options dialog.** Generating a printable OSCARLOCATOR now
   opens one dialog with all the choices — base-map style, whether the range circle
   is drawn on the QTH map, and the reduced-text option — replacing the previous
@@ -1092,7 +1219,7 @@ semantic versioning.
 ### Added
 - **Per-degree rim ticks on OSCARLOCATOR sheets.** The outer ring of every
   OSCARLOCATOR base map, combined "Map + Footprint at QTH" sheet, and path-arc
-  overlay (both QTH-centred and polar) now carries fine tick marks every degree,
+  overlay (both QTH-centered and polar) now carries fine tick marks every degree,
   with longer marks every 5° and 10°, so the rim reads like a protractor. This
   makes it easy to register stacked overlays and to measure the per-pass arc
   rotation to the degree. (The footprint transparency, whose red circle is its
@@ -1102,7 +1229,7 @@ semantic versioning.
 
 ### Changed
 - **Cleaner OSCARLOCATOR combined maps.** On the "Map + Footprint at QTH" sheets
-  (both the QTH-centred and polar versions) the footprint circle no longer
+  (both the QTH-centered and polar versions) the footprint circle no longer
   repeats the azimuth degree numbers / N-E-S-W letters or the numeric elevation
   labels, since the base map underneath already shows the azimuth spokes/labels
   and elevation rings. The elevation rings themselves are still drawn inside the
@@ -1133,11 +1260,11 @@ semantic versioning.
 - **Distance / azimuth / elevation on the combined OSCARLOCATOR QTH map.** The
   "Map + Footprint at QTH" sheet now carries the same readouts as the standalone
   footprint transparency: azimuth spokes and labels, **elevation rings**, and
-  **dashed ground-distance rings labelled in km** out to the footprint edge, so
+  **dashed ground-distance rings labeled in km** out to the footprint edge, so
   you can read distance, bearing, and elevation to the sub-point directly off the
   one sheet. The elevation and distance rings now also appear on the **polar**
-  version of this sheet (drawn as the correct off-centre rings around your
-  station), not just the QTH-centred one.
+  version of this sheet (drawn as the correct off-center rings around your
+  station), not just the QTH-centered one.
 - **Pass alarms for all favorites.** The top-bar alarm toggle (now **Favorite
   pass alarms**) watches the next pass of *every* favorited satellite, not just
   the selected one, firing AOS / TCA / LOS (and a one-minute warning) for each,
@@ -1153,7 +1280,7 @@ semantic versioning.
   transparency from the 3-sheet set, so the red range circle, azimuth rose and
   km distance rings look identical wherever the footprint appears.
 - **Dark-theme consistency for sliders and scrollbars.** The time-in-pass and
-  passband **scrub bars** were rendering with the light-grey default theme; they
+  passband **scrub bars** were rendering with the light-gray default theme; they
   now use a dark trough with an accent handle. Scrollbar thumbs are more visible
   (with an accent hover), and the combobox drop-down popup is themed dark instead
   of flashing white.
@@ -1202,23 +1329,23 @@ semantic versioning.
   (not just TCA), with a **TCA** snap button, plus range-rate and downlink-Doppler
   readouts. The **Doppler playbook** tab gains its own **passband-position**
   slider, so for a linear transponder the RX/TX table is built around where you
-  are actually tuned rather than always the band centre.
+  are actually tuned rather than always the band center.
 
 ### Fixed
 - **Reversed elevation on several sky-polar plots.** Pass Detail, Track, Sun/Moon,
-  Mutual Windows and the pass/mutual plots in PDF reports labelled the elevation
-  rings backwards (the rim read "90", the centre "0"), so a high-elevation pass
+  Mutual Windows and the pass/mutual plots in PDF reports labeled the elevation
+  rings backwards (the rim read "90", the center "0"), so a high-elevation pass
   looked like it skimmed the horizon. The ring labels now match the radius —
-  zenith reads 90 at the centre, the horizon reads 0 at the rim. (Celestial,
+  zenith reads 90 at the center, the horizon reads 0 at the rim. (Celestial,
   Analytics and the pass card were already correct.)
 - **Day/night terminator on the 3D Globe.** The night shading was built from only
   the visible points of the anti-solar circle, which shaded roughly the wrong
-  hemisphere (a noon-centred globe came out half-dark). (Further corrected in
+  hemisphere (a noon-centered globe came out half-dark). (Further corrected in
   0.19.1 to be robust from every viewpoint.)
 - **OSCARLOCATOR footprint overlay instructions.** The printed footprint
   transparency told you to pin the circle at the satellite's sub-point. It now
   describes the traditional method: pin the range circle over your QTH at the map
-  centre and read AOS/LOS where the path-arc overlay crosses the circle. (The
+  center and read AOS/LOS where the path-arc overlay crosses the circle. (The
   on-screen OSCARLOCATOR Sim already worked this way.)
 
 ## [0.18.5]
@@ -1251,7 +1378,7 @@ semantic versioning.
 ### Fixed
 - The shared tab bar (Radio, Planning, Sites, Celestial, Exports) now matches the
   Orbital Analysis tabs exactly: the tab labels sit on the same subtle
-  panel-coloured strip with the blue underline on the active tab. The previous
+  panel-colored strip with the blue underline on the active tab. The previous
   version placed them on the plain dark background, which read as a different
   style.
 
@@ -1266,7 +1393,7 @@ tidying the navigation.
   pass card…** buttons, instead of being save-only.
 - **Radio passband control.** On the Radio link-budget tab, a linear transponder
   now gets a **Passband position** slider to choose where in the passband to
-  operate (0 % low edge / 50 % centre / 100 % high edge); the displayed
+  operate (0 % low edge / 50 % center / 100 % high edge); the displayed
   downlink/uplink and the link budget update as you slide.
 - **DXCC target** in Planning → Work a target — pick a DXCC entity from a list as
   the target, alongside grid / US state / lat,lon.
@@ -1283,7 +1410,7 @@ tidying the navigation.
   operating tools, sky & space, and catalog & configuration.
 
 ### Fixed
-- Removed a **stray panel-coloured mark** at the bottom of the Settings screen
+- Removed a **stray panel-colored mark** at the bottom of the Settings screen
   (empty status labels were using a panel background on the main background).
 - Widened columns/labels to stop text truncation: the Celestial "Sagittarius A*
   (GC)" body name, and several link-budget / EME / element-trust labels.
@@ -1294,7 +1421,7 @@ tidying the navigation.
 - **Mutual Windows pass detail.** Double-click any co-visibility window to open a
   detail view with the pass drawn on a polar sky plot **from each station's
   perspective side by side** — your station on the left, the DX station on the
-  right. Each plot shows that station's full pass in grey with the
+  right. Each plot shows that station's full pass in gray with the
   **mutually-visible portion highlighted in orange**, plus AOS/LOS markers and
   each station's max elevation.
 - The **mutual-windows PDF report** now includes the same per-window
@@ -1340,8 +1467,8 @@ and rotator control remain out of scope.
 ## [0.17.2]
 
 ### Changed
-- **3D Globe** now shows **all favorite satellites live** — each as a coloured,
-  labelled marker with its coverage footprint — instead of only the selected
+- **3D Globe** now shows **all favorite satellites live** — each as a colored,
+  labeled marker with its coverage footprint — instead of only the selected
   one. The selected satellite stays emphasized (ground track + brighter
   footprint), an **All favorites** checkbox toggles the rest, and at "now" the
   favorites advance in real time. (Favorites on the far side of the globe are
@@ -1357,7 +1484,7 @@ and rotator control remain out of scope.
 - **Doppler playbook PDF sheet:** the intro note no longer runs off the right
   edge (it now wraps within the page margins), and the "Range-rate (km/s)"
   column header now fits on one line inside its (widened) cell instead of
-  bleeding into neighbouring columns.
+  bleeding into neighboring columns.
 - **Per-pass card PNG:** the title now auto-scales its font size for long
   satellite names so it never runs past the card edges.
 
@@ -1421,7 +1548,7 @@ rotator control remain out of scope.
   window, so at a crossing the code lost its node reference and the arc went
   stale (it stopped tracking the new crossing). The window now scales with the
   orbital period (~1.6 periods), and a small forward look-ahead lets a
-  just-happened crossing be recognised immediately, so the arc updates to the
+  just-happened crossing be recognized immediately, so the arc updates to the
   current equator crossing the moment the satellite crosses, at any period.
 
 ## [0.16.18]
@@ -1486,7 +1613,7 @@ rotator control remain out of scope.
   shown sheet).
 
 ### Changed
-- **OSCARLOCATOR printout labelling is less crowded.** The map disc is slightly
+- **OSCARLOCATOR printout labeling is less crowded.** The map disc is slightly
   smaller so the outer azimuth/longitude labels clear the page edge; the
   QTH-map cardinals no longer print a degree number on top of the N/E/S/W letter
   (e.g. “270°” over “W”); polar longitude labels sit clear of the rim; and the
@@ -1507,7 +1634,7 @@ rotator control remain out of scope.
 ## [0.16.13]
 
 ### Added
-- **Elevation rings on the QTH-centred OSCARLOCATOR base map.** The range rings
+- **Elevation rings on the QTH-centered OSCARLOCATOR base map.** The range rings
   are now elevation contours for the selected satellite (horizon / 10° / 30° /
   60°), so an operator reads the satellite's elevation directly off the sheet
   (“the track crosses the 10° ring → 10° elevation”). The horizon ring is the
@@ -1544,7 +1671,7 @@ rotator control remain out of scope.
 ### Changed
 - **The “Make printable OSCARLOCATOR” action on the Simulator screen now behaves
   exactly like the one on the Track screen.** Both prompt for the base-map style
-  (polar/generic vs. QTH-centred) and whether to draw the footprint directly on
+  (polar/generic vs. QTH-centered) and whether to draw the footprint directly on
   the QTH map, use a descriptive filename, and show tailored print instructions.
   The workflow is now defined once and shared by both screens.
 
@@ -1623,12 +1750,12 @@ rotator control remain out of scope.
   * Fixed a retrograde-orbit bug (inclination > 90°, e.g. sun-synchronous
     satellites) where the longitude drift had the wrong sign — the arc could be
     off by up to ~180°. The inclination formula now handles retrograde natively.
-  * Eccentricity is now modelled via Kepler’s equation (the satellite sweeps the
+  * Eccentricity is now modeled via Kepler’s equation (the satellite sweeps the
     orbit non-uniformly) instead of assuming a circular orbit, cutting along-track
     longitude error on eccentric orbits from tens of degrees to a few.
   Verified against SGP4: latitude within ~1° and longitude within ~5° over a full
   orbit for circular, eccentric, prograde and retrograde orbits in the sample
-  catalogue. The simulator now reuses this same corrected track, so its arc and
+  catalog. The simulator now reuses this same corrected track, so its arc and
   the printout match exactly.
 
 ## [0.16.3]
@@ -1644,7 +1771,7 @@ rotator control remain out of scope.
 
 ### Changed
 - In the simulator’s live view the satellite’s actual coverage footprint is now
-  drawn (green dashed) at its current sub-point, alongside the QTH-centred range
+  drawn (green dashed) at its current sub-point, alongside the QTH-centered range
   reticle (orange), so you can see at a glance whether the satellite is within
   range of your station right now.
 
@@ -1652,8 +1779,8 @@ rotator control remain out of scope.
 
 ### Changed
 - **OSCARLOCATOR simulator fixes.**
-  * The footprint circle is now always centred on the QTH (the OSCARLOCATOR range
-    reticle is a fixed station-centred overlay), instead of following the
+  * The footprint circle is now always centered on the QTH (the OSCARLOCATOR range
+    reticle is a fixed station-centered overlay), instead of following the
     satellite sub-point.
   * In manual / next-pass mode the “minutes after EQX” slider now moves the
     satellite marker along the drawn pass-arc line; in live mode the marker
@@ -1669,7 +1796,7 @@ rotator control remain out of scope.
 ### Added
 - **Interactive OSCARLOCATOR simulator** (new “OSCARLOCATOR Sim” screen). Play
   with a virtual OSCARLOCATOR on-screen without printing transparencies: a polar
-  (auto N/S, or forced N/S) or QTH-centred azimuthal-equidistant base map with a
+  (auto N/S, or forced N/S) or QTH-centered azimuthal-equidistant base map with a
   rotatable orbit path-arc overlay, minute ticks, the satellite’s position
   marker and its footprint. Drive it live (current position), manually (EQX-
   longitude and minutes-after-EQX sliders), or seed it to the next pass from your
@@ -1738,7 +1865,7 @@ rotator control remain out of scope.
 - **Pass sky-track report.** A “Print sky tracks (3 days)…” button on the Next
   Passes screen prints a grid of polar az/el sky-track plots — one per pass over
   the next three days — matching the on-screen Pass Detail view (N-up, zenith at
-  centre, green AOS / orange LOS markers), labelled with time, max elevation,
+  center, green AOS / orange LOS markers), labeled with time, max elevation,
   direction and duration.
 - **Comprehensive report now includes graphics.** The per-satellite report
   (“Report…” button) now appends the 3-day sky-track grid, the 60-day
@@ -1759,7 +1886,7 @@ rotator control remain out of scope.
     eclipse (cividis) — so the drifting eclipse band and full-sun seasons read
     the same on paper, with an added per-day eclipse-fraction strip.
   * The pass-progression report now draws one row per UTC day with passes as
-    time-of-day bars coloured by max elevation (green ≥ 45°, blue 20–45°,
+    time-of-day bars colored by max elevation (green ≥ 45°, blue 20–45°,
     dark-blue < 20°), matching the in-app stacked timeline; paginated, with the
     full pass table following.
 - **Favorites pass report is now a single time-ordered list.** All favorites’
@@ -1783,7 +1910,7 @@ rotator control remain out of scope.
   Illumination screen prints a per-orbit sunlit-fraction chart with the mean
   eclipse fraction.
 - **Pass-progression report (30 days).** A “Print 30-day…” button on the
-  Multi-Day Pass Progression screen prints a time-of-day-vs-day scatter coloured
+  Multi-Day Pass Progression screen prints a time-of-day-vs-day scatter colored
   by max elevation, plus a full table of every pass.
 
 ## [0.12.0]
@@ -1792,8 +1919,8 @@ rotator control remain out of scope.
 - **Footprint-on-QTH option for the OSCARLOCATOR export.** A new choice draws the
   satellite footprint directly on the base map at your station, producing a
   2-page set (map+footprint, then the path-arc overlay) instead of three separate
-  sheets. Works for both the QTH-centred and the polar maps; on the polar map the
-  footprint is correctly drawn as the off-centre great-circle locus around the
+  sheets. Works for both the QTH-centered and the polar maps; on the polar map the
+  footprint is correctly drawn as the off-center great-circle locus around the
   QTH. The standard 3-sheet output remains the default.
 - **Printable satellite reports.** A new “Report…” button on every
   satellite-specific screen generates a clean, multi-section PDF covering the
@@ -1804,7 +1931,7 @@ rotator control remain out of scope.
 ### Changed
 - **Bolder, larger OSCARLOCATOR sheets.** Thicker lines for the map graticule,
   rings, spokes, coastlines, ground track and footprint, plus larger, bolder
-  labels and a bigger centre cross, so the printed sheets read clearly —
+  labels and a bigger center cross, so the printed sheets read clearly —
   especially through stacked transparencies. Tunable via style constants at the
   top of `oscarlocator.py`.
 
@@ -1834,7 +1961,7 @@ rotator control remain out of scope.
 ## [0.11.0]
 
 ### Added
-- **Southern-hemisphere OSCARLATOR support.** A new South-pole-centred polar base
+- **Southern-hemisphere OSCARLATOR support.** A new South-pole-centered polar base
   map (mirrored longitude so it reads correctly from the southern side) for
   stations below the equator, with Southern-hemisphere coastlines. The Track
   screen’s polar option now auto-selects north or south from your station
@@ -1852,12 +1979,12 @@ rotator control remain out of scope.
 
 ### Added
 - **Polar base-map option for the OSCARLOCATOR export.** In addition to the
-  QTH-centred azimuthal map, you can now generate a generic **North-pole-centred
+  QTH-centered azimuthal map, you can now generate a generic **North-pole-centered
   polar great-circle map** in the classic PE1RAH OSCARLATOR style — latitude
   rings, longitude spokes, and the satellite drawn as an “overhead” orbit trace.
-  Because it is pole-centred, the same sheet works for any station via the
+  Because it is pole-centered, the same sheet works for any station via the
   equator-crossing (EQX) list. The Track screen now asks which style to produce.
-  The QTH-centred map remains the default, so existing behaviour is unchanged
+  The QTH-centered map remains the default, so existing behavior is unchanged
   (the polar map is purely additive / revertable).
 
 ## [0.10.1]
@@ -1881,13 +2008,13 @@ rotator control remain out of scope.
 - **Printable OSCARLOCATOR PDF export** (Track screen → “Make OSCARLOCATOR
   PDF…”). Generates a 3-page vector PDF for the selected satellite, all drawn
   to the same angular scale so the overlays register:
-  * an **azimuthal-equidistant base map** centred on your station, with range
+  * an **azimuthal-equidistant base map** centered on your station, with range
     rings, azimuth spokes and coastlines (print on paper/card);
   * a **footprint coverage circle** sized for the satellite’s altitude (print on
     transparency); and
   * a **ground-track path arc** for the satellite’s inclination (print on
     transparency).
-  Pin the transparencies through the centre cross over your QTH to build a
+  Pin the transparencies through the center cross over your QTH to build a
   homemade OSCARLOCATOR for any satellite.
 
 ### Fixed
@@ -1909,7 +2036,7 @@ rotator control remain out of scope.
 - **Equatorial Crossings** tab on the Orbital Analysis screen: charts the
   ascending equator-crossing times and longitudes for the selected satellite
   over the next 7 days, for use with an OSCARLocator. The chart shows
-  longitude vs. days-from-now with the soonest crossings labelled by UTC time.
+  longitude vs. days-from-now with the soonest crossings labeled by UTC time.
 - New `Predictor.ascending_nodes(from, to)` engine method that finds ascending
   node crossings (sub-latitude - to +) by coarse scan plus bisection refinement.
 
@@ -2105,7 +2232,7 @@ rotator control remain out of scope.
 - **Orbital Analysis** uses a **tab bar** instead of radio buttons.
 - **Satellite selection** dialog is now a filterable, columned table.
 - **Next Passes** list streamlined: day grouping, fewer columns, high passes
-  colour-coded.
+  color-coded.
 - **Pass Detail** left panel uses aligned key/value columns.
 - **Illumination** raster transposed: days on X, orbital period on Y.
 - **Workable** grids / states / DXCC shown in aligned rows and columns.

@@ -812,7 +812,7 @@ def test_tui_radio_has_a_link_budget():
         assert want in src
     # downlink_center is a method and downlink a value; `a or b` picked up the
     # bound method and compared it as a number
-    assert "callable(centre)" in src
+    assert "callable(center)" in src
 
 
 def test_tui_ao7_shows_fit_diagnostics():
@@ -1021,9 +1021,9 @@ def test_tui_activation_detail_matches_the_desktop():
 
 
 def test_palette_is_legible_and_semantic():
-    """Colour has to carry meaning consistently, and be readable.
+    """Color has to carry meaning consistently, and be readable.
 
-    Three faults: CLR_DIM was BLUE - the least legible colour on a dark
+    Three faults: CLR_DIM was BLUE - the least legible color on a dark
     background and the most-used pair by far; CLR_HEADER was the same yellow as
     CLR_WARN, so a column heading and a warning looked identical; and red was
     used for direction (receding, eclipse) rather than for problems.

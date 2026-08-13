@@ -14,8 +14,8 @@ For a chosen satellite and station, the generator produces a print-ready set of
 sheets, all drawn to the same angular scale so the transparency overlays
 register on top of the base map:
 
-- **Base map** (print on paper/card) — azimuthal-equidistant map centred on your
-  QTH, or a pole-centred polar great-circle map.
+- **Base map** (print on paper/card) — azimuthal-equidistant map centered on your
+  QTH, or a pole-centered polar great-circle map.
 - **Range-circle overlay** (print on transparency) — the satellite's coverage
   circle, with an azimuth rose and km distance rings.
 - **Path-arc overlay** (print on transparency) — the rotatable ground-track arc
@@ -24,7 +24,7 @@ register on top of the base map:
 
 Options:
 
-- **Map projection** — QTH-centred, polar North, polar South, or polar auto-N/S.
+- **Map projection** — QTH-centered, polar North, polar South, or polar auto-N/S.
 - **Range circle on the QTH map** — a two-sheet set with the range circle drawn
   directly at your station (no separate range-circle transparency).
 - **Clean transparencies** — keep the overlay sheets free of text outside their

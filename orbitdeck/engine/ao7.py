@@ -68,7 +68,7 @@ def resolve_api_names(http_get, sat_names, fallback=True):
 
     Returns {MODE_A: name, MODE_B: name}. Falls back to API_NAMES for any mode
     the catalog does not resolve, so a catalog fetch failure degrades to the
-    previous behaviour rather than breaking the fit.
+    previous behavior rather than breaking the fit.
     """
     from . import amsatnames as _an
     from . import amsatstatus as _as

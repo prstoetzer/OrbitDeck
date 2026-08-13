@@ -55,10 +55,10 @@ def test_workable_band_thresholds():
 
 
 def test_quality_buckets():
-    assert M.muf_band_colour_key(5) == "low"
-    assert M.muf_band_colour_key(12) == "fair"
-    assert M.muf_band_colour_key(20) == "good"
-    assert M.muf_band_colour_key(30) == "high"
+    assert M.muf_band_color_key(5) == "low"
+    assert M.muf_band_color_key(12) == "fair"
+    assert M.muf_band_color_key(20) == "good"
+    assert M.muf_band_color_key(30) == "high"
 
 
 def test_minimuf_symmetry_is_reasonable():

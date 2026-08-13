@@ -26,7 +26,7 @@ class EmeScreen(Screen):
         self.header("EME \u2014 moonbounce planning")
         bar = ttk.Frame(self.frame, style="TFrame")
         bar.pack(fill="x", padx=16, pady=4)
-        ttk.Button(bar, text="Report\u2026",
+        ttk.Button(bar, text="Print screen\u2026",
                    command=self._report).pack(side="right", padx=4)
         ttk.Label(bar, text="Band:", style="TLabel").pack(side="left")
         self.band = tk.StringVar(value=BANDS[1][0])

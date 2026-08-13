@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "orbitdeck"
-version = "0.38.2"
+version = "0.39.1"
 description = "Cross-platform desktop satellite tracking and orbital analysis tool for amateur radio operators"
 readme = "README.md"
 requires-python = ">=3.8"
@@ -33,7 +33,7 @@ dependencies = [
 [project.optional-dependencies]
 # High-accuracy SGP4/SDP4 via the C-accelerated pip backend. Without it the app
 # falls back to the bundled pure-Python propagator (sgp4_lite), which is accurate
-# to well under a kilometre for typical LEO passes; install this for the best
+# to well under a kilometer for typical LEO passes; install this for the best
 # deep-space / geostationary accuracy.
 accurate = ["sgp4>=2.20"]
 # High-resolution Natural Earth coastlines via cartopy. Without it the app draws

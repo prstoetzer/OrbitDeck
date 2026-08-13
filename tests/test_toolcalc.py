@@ -24,7 +24,7 @@ def _val(rows, label):
 
 
 # ---- antennas ----
-def _metres(rowval):
+def _meters(rowval):
     """Pull the '(X.XXX m)' metric length out of an antenna row string."""
     return float(rowval.split("(")[1].split()[0])
 
@@ -40,14 +40,14 @@ def test_dipole_2m():
     rows = tc.dipole(146.0)
     # 468/146 = 3.205 ft total in ft-in; check the metric equivalent
     total_ft = 468.0 / 146.0
-    assert abs(_metres(_row(rows, "Total length")) - total_ft * 0.3048) < 0.01
-    assert abs(_metres(_row(rows, "Each leg")) - (total_ft / 2) * 0.3048) < 0.01
+    assert abs(_meters(_row(rows, "Total length")) - total_ft * 0.3048) < 0.01
+    assert abs(_meters(_row(rows, "Each leg")) - (total_ft / 2) * 0.3048) < 0.01
 
 
 def test_vertical_quarter_wave():
     rows = tc.vertical(146.0)
     q_ft = 234.0 / 146.0
-    assert abs(_metres(_row(rows, "1/4-wave")) - q_ft * 0.3048) < 0.01
+    assert abs(_meters(_row(rows, "1/4-wave")) - q_ft * 0.3048) < 0.01
 
 
 def test_yagi_element_count():

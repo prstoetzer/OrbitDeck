@@ -1,7 +1,7 @@
 """learn.py - the "Learn" screen: a home for OrbitDeck's standalone teaching
 tools, grouped as tabs so they don't clutter the operating screens.
 
-Tabs are organised into four groups (a category selector over the tab strip):
+Tabs are organized into four groups (a category selector over the tab strip):
 
   Orbits (how orbits work):
     * Kepler      - equal-areas two-body demonstration
@@ -396,7 +396,7 @@ class LearnScreen(Screen):
         dl0 = tr.downlink
         dl1 = tr.downlink_high if tr.downlink_high > tr.downlink \
             else tr.downlink + 5000
-        # Plot each passband on its OWN normalised 0..1 scale (stacked), so both
+        # Plot each passband on its OWN normalized 0..1 scale (stacked), so both
         # render at a readable width regardless of how far apart the real uplink
         # and downlink frequencies are. Ticks show the true MHz at each end.
         ax.set_xlim(-0.04, 1.04)
@@ -424,7 +424,7 @@ class LearnScreen(Screen):
         invert = bool(tr.invert)
         dl_frac = (1.0 - frac) if invert else frac
         dn_hz = dl0 + dl_frac * (dl1 - dl0)
-        # markers on each normalised band + connector showing the mapping
+        # markers on each normalized band + connector showing the mapping
         ax.plot([frac, frac], [3.0, 3.7], color=COL_WARN, lw=2.5)
         ax.plot([dl_frac, dl_frac], [0.8, 1.5], color=COL_WARN, lw=2.5)
         ax.annotate("", xy=(dl_frac, 1.5), xytext=(frac, 3.0),
@@ -522,7 +522,7 @@ class LearnScreen(Screen):
         ax.set_ylabel("Doppler shift (kHz)", color=COL_MUTED, fontsize=8)
         if up_sh and is_lin:
             tip = ("The higher band swings more (%.1f kHz vs %.1f kHz peak). "
-                   "Keep your downlink centred by retuning the uplink; on an "
+                   "Keep your downlink centered by retuning the uplink; on an "
                    "inverting bird the correction goes the opposite way."
                    % (max(abs(min(up_sh)), abs(max(up_sh))) / 1000.0,
                       max(abs(min(dn_sh)), abs(max(dn_sh))) / 1000.0))
@@ -734,7 +734,7 @@ class LearnScreen(Screen):
             "set and shows when it's worth refreshing."),
             style="MutedBg.TLabel", wraplength=720,
             justify="left").pack(anchor="w", padx=10, pady=(8, 4))
-        ttk.Button(parent, text="Analyse current element set",
+        ttk.Button(parent, text="Analyze current element set",
                    command=self._render_diff).pack(anchor="w", padx=10)
         self.diff_kv = KVPanel(parent, label_width=16)
         self.diff_kv.pack(anchor="w", fill="x", padx=10, pady=6)
@@ -781,7 +781,7 @@ class LearnScreen(Screen):
             "while you transmit, and you keep it on one spot by retuning the "
             "UPLINK as the satellite moves. Scrub through a simulated pass and "
             "adjust your uplink to keep your signal on the target downlink. The "
-            "round-trip Doppler is modelled exactly \u2014 on an inverting "
+            "round-trip Doppler is modeled exactly \u2014 on an inverting "
             "transponder the correction goes the opposite way."),
             style="MutedBg.TLabel", wraplength=760,
             justify="left").pack(anchor="w", padx=10, pady=(8, 4))
@@ -887,7 +887,7 @@ class LearnScreen(Screen):
         dl_satframe_target = dl_c / (1.0 - beta)
         u_heard_target = ul_c + sign * (dl_satframe_target - dl_c)
         ideal_ul = u_heard_target / (1.0 - beta)
-        # the user's actual uplink = nominal uplink centre + their kHz offset
+        # the user's actual uplink = nominal uplink center + their kHz offset
         user_ul = ul_c + self._dx_uoff.get() * 1000.0
         # where the USER's signal actually lands on the downlink we hear:
         u_heard = user_ul * (1.0 - beta)
@@ -898,7 +898,7 @@ class LearnScreen(Screen):
         ax = self.dx_plot.ax
         ax.clear()
         self.dx_plot._style_axes()
-        # a downlink passband window +/- 12 kHz around centre
+        # a downlink passband window +/- 12 kHz around center
         ax.axvspan(-12, 12, color=COL_ACCENT, alpha=0.10)
         ax.axvline(0, color=COL_ACCENT, lw=1.4)           # target (fixed)
         ax.axvline(err_khz, color=COL_WARN, lw=2.4)        # your signal
@@ -1628,7 +1628,7 @@ class LearnScreen(Screen):
         # highlight the square the point falls in
         sq_lon = field_lon + int((lon - field_lon) / 2.0) * 2.0
         sq_lat = field_lat + int((lat - field_lat) / 1.0) * 1.0
-        # centre the view on the highlighted square (with margin) so the label
+        # center the view on the highlighted square (with margin) so the label
         # sits in the middle of the view rather than against the field edge
         cx, cy = sq_lon + 1.0, sq_lat + 0.5
         ax.set_xlim(cx - 7.0, cx + 7.0)
@@ -1687,7 +1687,7 @@ class LearnScreen(Screen):
         self.pt_plot._style_axes()
         ax.set_theta_zero_location("N")
         ax.set_theta_direction(-1)
-        ax.set_rlim(90, 0)              # zenith at centre, horizon at rim
+        ax.set_rlim(90, 0)              # zenith at center, horizon at rim
         ax.set_rgrids([0, 30, 60, 90], labels=["0", "30", "60", "90"],
                       color=COL_MUTED, fontsize=7)
         ax.set_thetagrids(range(0, 360, 45),
@@ -1759,7 +1759,7 @@ class LearnScreen(Screen):
         ax.set_theta_direction(-1)
         # plot relative to boresight, floored so the lobe shape is visible
         rel = [g - gain for g in gains]
-        rr = [max(r + 30.0, 0.0) for r in rel]     # shift so -30 dB = centre
+        rr = [max(r + 30.0, 0.0) for r in rel]     # shift so -30 dB = center
         th = [math.radians(t) for t in thetas]
         ax.plot(th, rr, color=COL_ACCENT, lw=1.8)
         ax.fill(th, rr, color=COL_ACCENT, alpha=0.15)

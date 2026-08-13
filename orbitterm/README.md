@@ -39,7 +39,7 @@ preference, selected satellite, favorites and the cached GP catalog all live in
 | 1 | Home | Station, catalog status, the selected satellite's live look, next pass, and everything currently above the horizon |
 | 2 | Satellites | Searchable catalog (`/` filters, `f` favorites); live up/down status per satellite |
 | 3 | Track | Full live look: az/el with bar, range, range-rate, sub-point, altitude, sunlit, sun geometry, visibility, AOS/LOS countdown |
-| 4 | Next Passes | Scrollable pass table (date, AOS/TCA/LOS, colour-coded max elevation, AOS/LOS azimuth); `e`/`E` adjusts minimum elevation |
+| 4 | Next Passes | Scrollable pass table (date, AOS/TCA/LOS, color-coded max elevation, AOS/LOS azimuth); `e`/`E` adjusts minimum elevation |
 | 5 | Pass Detail | One pass in full: braille sky curve, elevation profile and the numbers for AOS, TCA and LOS |
 | 6 | Sky Radar | Everything above the horizon on a braille polar plot, with the active satellite's sub-point and altitude |
 | 7 | Ground Track | World map with coastline outlines, the ground track past and future, footprint ring and your station |
@@ -66,7 +66,8 @@ preference, selected satellite, favorites and the cached GP catalog all live in
 | 28 | Propagation | HF and 6 m outlook: MUF, per-band day/night states, aurora, absorption, meteor scatter and Es season |
 | 29 | Space Wx | Solar and geomagnetic indices with band labels and a plain-language outlook |
 | 30 | Celestial | Radio-source az/el for alignment and sun-noise work |
-| 31 | Activations | Upcoming hams.at activations; `w` checks whether you can work it, then windows and DX Doppler |
+| 31 | Astronomy | Meteor showers, Jupiter decametric windows, aurora, twilight, EME conditions, and lunar/planetary events (`a` cycles the view) |
+| 32 | Activations | Upcoming hams.at activations; `w` checks whether you can work it, then windows and DX Doppler |
 | 32 | AMSAT Status | Community status board; `m` matches the active satellite to its API name |
 | 33 | Sites | Saved observer locations |
 | 34 | Exports | CSV and report output |

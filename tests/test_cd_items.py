@@ -51,13 +51,13 @@ def test_dxcc_lookup_finds_entities_and_reports_no_zone():
 
 def test_state_vector_diagnostics_catch_unit_mistakes():
     """A converged-looking element set from a bad vector is the dangerous case;
-    metres-for-kilometres is the classic way to get plausible garbage."""
+    meters-for-kilometers is the classic way to get plausible garbage."""
     good = SV.fit_diagnostics((6800, 0, 0), (0, 7.66, 0))
     assert good["plausible"]
     assert abs(good["speed_ratio"] - 1.0) < 0.01
-    metres = SV.fit_diagnostics((6800000, 0, 0), (0, 7660, 0))
-    assert not metres["plausible"]
-    assert any("unit" in n or "metres" in n for n in metres["notes"])
+    meters = SV.fit_diagnostics((6800000, 0, 0), (0, 7660, 0))
+    assert not meters["plausible"]
+    assert any("unit" in n or "meters" in n for n in meters["notes"])
     inside = SV.fit_diagnostics((3000, 0, 0), (0, 7.66, 0))
     assert not inside["plausible"]
     slow = SV.fit_diagnostics((6800, 0, 0), (0, 0.1, 0))

@@ -1,7 +1,7 @@
 """oscarsim.py - an interactive on-screen OSCARLOCATOR.
 
 Lets the user play with a virtual OSCARLOCATOR without printing transparencies:
-a polar (or QTH-centred) azimuthal-equidistant base map with a rotatable orbit
+a polar (or QTH-centered) azimuthal-equidistant base map with a rotatable orbit
 path-arc overlay and the satellite footprint. The overlay can be driven these
 ways:
 
@@ -43,7 +43,7 @@ class OscarSimScreen(Screen):
         # interactive "drag the disc to rotate the arc" state (replaces the EQX /
         # minutes sliders): a press remembers where the drag began and the EQX
         # longitude at that moment, so motion rotates the whole ground track
-        # east-west by the angular sweep of the pointer about the map centre.
+        # east-west by the angular sweep of the pointer about the map center.
         self._drag_eqx0 = None         # EQX longitude at button-press
         self._drag_ang0 = None         # pointer angle (rad) at button-press
         self._drag_kind = None         # "arc" (rotate) or "minute" (slide marker)
@@ -53,7 +53,7 @@ class OscarSimScreen(Screen):
         # following the live sub-point. This lets BOTH catalog and lab satellites
         # be swept by hand; "Go live" clears it.
         self._manual_arc = False
-        # two independent overlays: the QTH range circle (fixed, centred on the
+        # two independent overlays: the QTH range circle (fixed, centered on the
         # station) and the satellite's own footprint (its instantaneous coverage
         # circle at its current sub-point)
         self._show_range = tk.BooleanVar(value=True)
@@ -100,7 +100,7 @@ class OscarSimScreen(Screen):
         for txt, val in (("Polar (auto N/S)", "polar-auto"),
                          ("Polar North", "polar"),
                          ("Polar South", "polar-south"),
-                         ("QTH-centred", "qth")):
+                         ("QTH-centered", "qth")):
             ttk.Radiobutton(ctrl, text=txt, value=val,
                             variable=self._proj_mode,
                             style="Panel.TRadiobutton",
@@ -368,7 +368,7 @@ class OscarSimScreen(Screen):
         self._on_mode()
 
     def _pointer_angle(self, event):
-        """Pointer angle (radians) about the map centre, or None if off-axes.
+        """Pointer angle (radians) about the map center, or None if off-axes.
         The polar axes already report event.xdata as theta, which is exactly the
         on-screen angle we want for rotating the arc."""
         if event.inaxes is not self.map.ax or event.xdata is None:
@@ -409,8 +409,8 @@ class OscarSimScreen(Screen):
             return
         if self._drag_kind == "minute":
             # Slide the satellite ALONG the arc by snapping to the arc sample
-            # nearest the pointer. (Mapping the pointer's angle about the centre
-            # to minutes fails badly: near the centre a tiny move spins the angle
+            # nearest the pointer. (Mapping the pointer's angle about the center
+            # to minutes fails badly: near the center a tiny move spins the angle
             # wildly, and near the rim a big move barely changes it -- so the dot
             # would jump or refuse to move. Projecting onto the arc tracks the
             # pointer smoothly the whole way across the pass.)
@@ -543,7 +543,7 @@ class OscarSimScreen(Screen):
         the drag slides the marker along the arc instead of rotating the whole
         arc. Compared in Cartesian screen space so the target is an even disc at
         any radius (an angular tolerance would shrink to nothing near the
-        centre, making the dot impossible to grab there)."""
+        center, making the dot impossible to grab there)."""
         dot = getattr(self, "_minute_dot_rt", None)
         if dot is None or event.xdata is None or event.ydata is None:
             return False
@@ -834,7 +834,7 @@ class OscarSimScreen(Screen):
         """Return (display_time, eqx_lon, minute) for the active mode.
 
         ``view_mode`` is the resolved projection ("polar", "polar-south", or a
-        QTH-centred mode). The EQX node is chosen to MATCH the view so the arc
+        QTH-centered mode). The EQX node is chosen to MATCH the view so the arc
         and the live satellite share one reference: the south sheet uses
         descending nodes, every other view ascending nodes.
 
@@ -1176,8 +1176,8 @@ class OscarSimScreen(Screen):
     def _draw_satellite(self, ax, mode, rmax, s, t, eqx_lon, minute, live):
         """Draw the satellite marker. In live mode it follows the true current
         sub-point; in manual / next-pass mode it slides along the drawn arc as
-        the 'minutes after EQX' changes. The footprint is ALWAYS centred on the
-        QTH (the OSCARLOCATOR range reticle is a fixed QTH-centred overlay)."""
+        the 'minutes after EQX' changes. The footprint is ALWAYS centered on the
+        QTH (the OSCARLOCATOR range reticle is a fixed QTH-centered overlay)."""
         pred = self.pred()
         is_south = (mode == "polar-south")
         if live:

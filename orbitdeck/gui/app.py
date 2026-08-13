@@ -53,6 +53,7 @@ NAV_ITEMS = [
     ("AO-7 Mode", "ao7"),
     ("Mutual Windows", "mutual"),
     ("Sun/Moon Transits", "transits"),
+    ("Astronomy", "astronomy"),
     ("Sky Map", "skymap"),
     ("Conjunctions", "conjunction"),
     ("Workable", "grids"),
@@ -61,6 +62,7 @@ NAV_ITEMS = [
     ("Planning", "planning"),
     ("Tools", "tools"),
     ("Graphing Calc", "graphcalc"),
+    ("Tiny BASIC", "tinybasic"),
     ("Activations / QRZ", "datafeeds"),
     ("AMSAT Status", "amsatstatus"),
     ("OSCARLOCATOR Sim", "oscarsim"),
@@ -76,6 +78,7 @@ NAV_ITEMS = [
     ("Propagation", "propagation"),
     # catalog & configuration
     ("Satellites", "satellites"),
+    ("New Launches", "newlaunch"),
     ("Sites", "sites"),
     ("Settings", "location"),
 ]
@@ -145,7 +148,7 @@ class OrbitDeckApp:
             pass
         st.configure(".", background=COL_BG, foreground=COL_TEXT, font=FONT)
         st.configure("TFrame", background=COL_BG)
-        # Panel.TFrame historically used a slightly lighter panel colour, which
+        # Panel.TFrame historically used a slightly lighter panel color, which
         # left informational text sitting on a stray darker rectangle that
         # differed from the window. Flatten control containers to the window
         # background so text (other than buttons) never has its own background.
@@ -224,7 +227,7 @@ class OrbitDeckApp:
                                ("pressed", COL_ACCENT)])
         # "Panel" radio/check variants now sit on the window background too (the
         # containers they live on were flattened); the indicator reads against
-        # the panel colour for contrast.
+        # the panel color for contrast.
         st.configure("Panel.TRadiobutton", background=COL_BG,
                      foreground=COL_TEXT, indicatorcolor=COL_PANEL,
                      focuscolor=COL_ACCENT)
@@ -243,7 +246,7 @@ class OrbitDeckApp:
                                ("pressed", COL_ACCENT)])
 
         # --- scrollbars: match the panels rather than OS default light gray ---
-        # The thumb uses the grid colour so it reads as a raised handle against
+        # The thumb uses the grid color so it reads as a raised handle against
         # the darker trough, with an accent hover; arrows are hidden for a clean
         # modern look (the trough + thumb carry the affordance).
         for _orient in ("Vertical.TScrollbar", "Horizontal.TScrollbar"):
@@ -257,7 +260,7 @@ class OrbitDeckApp:
 
         # --- scale / scrub bars: dark trough with an accent slider handle so the
         # time-in-pass and passband sliders match the theme instead of the clam
-        # default light grey ---
+        # default light gray ---
         for _sc in ("Horizontal.TScale", "Vertical.TScale"):
             st.configure(_sc, background=COL_BG, troughcolor=COL_PANEL,
                          bordercolor=COL_GRID, lightcolor=COL_GRID,
@@ -265,9 +268,9 @@ class OrbitDeckApp:
             st.map(_sc,
                    background=[("active", COL_BG)],
                    troughcolor=[("active", COL_PANEL)])
-        # the slider handle itself is drawn with the "slider" element colour,
+        # the slider handle itself is drawn with the "slider" element color,
         # which clam takes from `background`; give the Scale a dedicated style so
-        # the handle is accent-coloured and clearly grabbable
+        # the handle is accent-colored and clearly grabbable
         st.configure("Accent.Horizontal.TScale", background=COL_ACCENT,
                      troughcolor=COL_PANEL, bordercolor=COL_GRID,
                      lightcolor=COL_ACCENT, darkcolor=COL_ACCENT,

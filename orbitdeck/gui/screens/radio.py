@@ -157,13 +157,13 @@ class RadioScreen(Screen):
         self.kv.pack(fill="both", expand=True)
 
     def _snap_tca(self):
-        # re-centre the scrubber on closest approach
+        # re-center the scrubber on closest approach
         self._t_frac.set(-1.0)
         self._render_link()
 
     def _show_pbbar(self, show):
         # keep the bar in place (preserving layout order); just enable/disable
-        # the scale, and grey the label, when there's no linear passband
+        # the scale, and gray the label, when there's no linear passband
         state = "normal" if show else "disabled"
         try:
             self._pb_scale.configure(state=state)
@@ -312,7 +312,7 @@ class RadioScreen(Screen):
                    command=self._print_sheet).pack(side="right", padx=2)
 
         # passband-position control for linear transponders: the playbook is
-        # built around the chosen spot in the passband, not just band centre, so
+        # built around the chosen spot in the passband, not just band center, so
         # the RX/TX columns match where the operator is actually listening.
         self._pbbar2 = ttk.Frame(parent, style="TFrame")
         self._pbbar2.pack(fill="x", padx=8, pady=(0, 2))
@@ -412,7 +412,7 @@ class RadioScreen(Screen):
         invert = bool(tp and tp.invert)
         # For a linear transponder, build the table around the selected spot in
         # the passband (so RX/TX match where you're actually tuned). For an FM
-        # bird the passband control is meaningless, so fall back to the centre.
+        # bird the passband control is meaningless, so fall back to the center.
         if tp and is_lin and tp.bandwidth() > 0:
             frac = max(0.0, min(1.0, self._pb_frac2.get() / 100.0))
             off = int(frac * tp.bandwidth())

@@ -167,7 +167,7 @@ def test_http_get_reports_403_and_404_clearly():
 
 
 def test_report_content_clears_branding_footer():
-    """Regression: printed reports must not draw content on top of the centred
+    """Regression: printed reports must not draw content on top of the centered
     branding credit at the foot of each page (which sits at y=0.045). The full
     satellite report's pass-progression timeline chart previously printed its
     x-axis label over the branding. Assert the flow floor and the timeline chart
@@ -251,7 +251,7 @@ def test_rove_sheet_paginates_and_keeps_full_dxcc_names():
 
 
 def test_predictor_observer_cache_matches_recompute():
-    """The cached observer ECEF/latitude trig (a speed optimisation) must exactly
+    """The cached observer ECEF/latitude trig (a speed optimization) must exactly
     equal the on-the-fly computation, and must refresh when the site changes."""
     import math
     from orbitdeck.engine import Observer, Predictor

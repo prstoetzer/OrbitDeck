@@ -43,7 +43,7 @@ class GridsScreen(Screen):
         ttk.Radiobutton(bar, text="Across next pass", value="pass",
                         variable=self.mode, command=self._recompute).pack(
             side="left", padx=6)
-        ttk.Button(bar, text="Report\u2026",
+        ttk.Button(bar, text="Print screen\u2026",
 
                    command=self._report).pack(side="right", padx=4)
         ttk.Button(bar, text="Export CSV\u2026",

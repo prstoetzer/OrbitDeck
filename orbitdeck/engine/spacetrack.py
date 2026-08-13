@@ -3,7 +3,7 @@
 Fetches a satellite's *historical* mean elements from space-track.org and turns
 them into a time series you can plot: semi-major axis, eccentricity,
 inclination, period, apogee, perigee and B*. That shows an orbit's whole life -
-launch, drift, manoeuvres, drag decay - against its current elements.
+launch, drift, maneuvers, drag decay - against its current elements.
 
 Ported from CardSat 0.9.73-0.9.75, with one deliberate difference: CardSat
 decimates the CSV into 120-240 time bins because the ESP32 has ~31 KB of
@@ -317,7 +317,7 @@ class SpaceTrackClient:
 # Derived views (ported from CardSat 0.9.75's SCR_STHIST)
 # ---------------------------------------------------------------------------
 # The archive is more useful differentiated than raw: the *rate* of change shows
-# drag and manoeuvres directly, and asking whether the rate itself has changed
+# drag and maneuvers directly, and asking whether the rate itself has changed
 # is what separates "decaying steadily" from "something happened in 2019".
 
 def rate_series(samples, column, per="year"):
@@ -344,7 +344,7 @@ def _median(values):
     return s[len(s) // 2] if s else 0.0
 
 
-def analyse_rate(samples, column, per="year"):
+def analyze_rate(samples, column, per="year"):
     """Has the rate of change itself changed? Returns a dict, or None.
 
     Splits the record at the **midpoint of the time axis**, not of the sample
@@ -377,7 +377,7 @@ def analyse_rate(samples, column, per="year"):
     mean_abs = sum(abs_r) / n
     # A satellite that sat perfectly still for years has a median |rate| of
     # zero, which would disable the detector at exactly the moment its one big
-    # manoeuvre arrived. Fall back to the mean.
+    # maneuver arrived. Fall back to the mean.
     base = med_abs if med_abs > 1e-12 else mean_abs
     jumps = [(t, r) for t, r in zip(ts, rr)
              if base > 1e-12 and abs(r) > 5.0 * base]

@@ -12,7 +12,7 @@ tolerant rules. This is that ladder, ported:
 
   1. **parenthesised designator** - ``AO-7`` matches ``AO-7 (OSCAR 7)`` via the
      token in brackets, which is the usual CelesTrak-name bridge;
-  2. **whole-name equality** on the normalised form;
+  2. **whole-name equality** on the normalized form;
   3. **delimited-token containment** - the API name appears as a whole word;
   4. **legacy prefix base** - ``AO-07`` and ``AO-7`` collapse to the same stem;
   5. **known alias table** for designators with no lexical bridge at all

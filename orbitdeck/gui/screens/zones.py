@@ -5,7 +5,7 @@ inner and outer radiation belts, the polar caps and eclipse. Shows the current
 verdict (with L shell and B/B0 for the belts), the upcoming entry/exit windows,
 and the dwell time per day.
 
-Belt classification uses a tilted centred-dipole field, not IGRF - see
+Belt classification uses a tilted centered-dipole field, not IGRF - see
 ``engine.zones`` - so belt verdicts are indicative rather than dosimetric. The
 SAA, polar and eclipse zones are geometric and exact.
 """

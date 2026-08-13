@@ -10,7 +10,7 @@ SATS = ["ISS (ZARYA)", "AO-7 (OSCAR 7)", "SO-50 (SAUDISAT 1C)",
         "LILACSAT-2", "GREENCUBE", "LUSAT (LO-19)", "AO-91 (RADFXSAT)"]
 
 
-def test_normalisation_helpers():
+def test_normalization_helpers():
     assert AN.norm("AO-7 (OSCAR 7)") == "AO-7 OSCAR 7"
     assert AN.collapse("AO-7") == AN.collapse("AO 7") == AN.collapse("AO7")
     assert AN.base_call("AO-07_[V/a]") == "AO-7"

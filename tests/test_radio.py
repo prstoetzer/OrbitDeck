@@ -623,7 +623,7 @@ def test_dx_doppler_home_station_doppler_is_resolved():
 
     # a Hz-resolution dial format keeps consecutive distinct values distinct,
     # whereas a 3-decimal-MHz (kHz) format can collapse them. Verify the engine
-    # output has neighbouring rows that a kHz format WOULD collapse but a Hz
+    # output has neighboring rows that a kHz format WOULD collapse but a Hz
     # format keeps separate -- i.e. there is genuine sub-kHz structure to show.
     def khz(hz):
         return "%.3f" % (hz / 1e6)

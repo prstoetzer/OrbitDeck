@@ -177,13 +177,13 @@ def test_oscarlocator_polar_projection():
     rho, br = p.project(60.0, 45.0)
     assert abs(rho - 30.0) < 1e-9
     assert abs(br - 45.0) < 1e-9
-    # the North Pole maps to the centre
+    # the North Pole maps to the center
     rho0, _ = p.project(90.0, 123.0)
     assert abs(rho0) < 1e-9
     # qth projection still works and is the default
     q = _Projection("qth", 40.0, -75.0)
     rho_q, _ = q.project(40.0, -75.0)
-    assert abs(rho_q) < 1e-6                 # station maps to its own centre
+    assert abs(rho_q) < 1e-6                 # station maps to its own center
 
     st = Store()
     s = st.db.sats[0]
@@ -207,7 +207,7 @@ def test_oscarlocator_southern_projection():
     # a point at lat -60 -> rho 30 (colatitude from south pole)
     rho, _br = p.project(-60.0, 45.0)
     assert abs(rho - 30.0) < 1e-9
-    # South Pole maps to centre
+    # South Pole maps to center
     rho0, _ = p.project(-90.0, 12.0)
     assert abs(rho0) < 1e-9
     # bearing is now plain longitude (handedness handled by the axes
@@ -545,7 +545,7 @@ def test_oscarsim_drag_rotates_arc_and_works_in_lab():
 
     # dragging near the minute dot slides the marker ALONG THE ARC: the drag
     # now projects the pointer onto the arc via _minute_for_pointer (rather than
-    # mapping the pointer's angle about the centre, which jumped near the centre)
+    # mapping the pointer's angle about the center, which jumped near the center)
     sim._resolve_proj = lambda: "polar"
     sim._drag_kind = "minute"
     sim._minute.set(0.0)
@@ -566,7 +566,7 @@ def test_oscarsim_drag_rotates_arc_and_works_in_lab():
 def test_oscarsim_minute_drag_projects_onto_arc():
     """The satellite marker slides along the FULL arc as the pointer moves:
     _minute_for_pointer returns the minute of the arc point nearest the pointer,
-    so dragging tracks smoothly even through the centre of the disc (where the
+    so dragging tracks smoothly even through the center of the disc (where the
     old angle-based mapping jumped)."""
     import math
     import tkinter as tk
@@ -598,7 +598,7 @@ def test_oscarsim_minute_drag_projects_onto_arc():
 
     # for several target minutes, put the pointer exactly on that arc point and
     # confirm the projection recovers (close to) that minute -- including near
-    # the centre of the disc, which the old mapping handled badly
+    # the center of the disc, which the old mapping handled badly
     for target in (5.0, 20.0, 30.0, 45.0, 60.0):
         lat, lon = sim._track_point(sat, sim._eqx_lon.get(), target, False)
         rho, theta = sim._to_polar("polar", lat, lon)
@@ -693,7 +693,7 @@ def test_canonical_track_matches_sgp4_groundtrack():
             continue
         mlat, mlon = r
         # latitude should track tightly; longitude within ~8 deg even for the
-        # more eccentric / retrograde cases in the sample catalogue
+        # more eccentric / retrograde cases in the sample catalog
         assert mlat < 2.5, "%s lat err %.1f" % (s.name, mlat)
         assert mlon < 8.0, "%s lon err %.1f" % (s.name, mlon)
         tested += 1
@@ -870,8 +870,8 @@ def test_oscarlocator_footer_wraps_to_margin():
     edge, so it does not run off the page."""
     from orbitdeck.gui.oscarlocator import _wrap_to_width
     note = ("Print on transparency at 100%. Lay over the polar base map with "
-            "centres aligned and the ascending node at the EQX longitude, then "
-            "rotate the whole sheet about the centre for each successive pass.")
+            "centers aligned and the ascending node at the EQX longitude, then "
+            "rotate the whole sheet about the center for each successive pass.")
     wrapped = _wrap_to_width(note, 9)
     assert "\n" in wrapped               # it actually wrapped
     # no single line is absurdly long
@@ -924,7 +924,7 @@ def test_oscarlocator_qth_map_has_elevation_rings():
                          text=True).stdout
     assert s.name in txt
     assert "elevation" in txt.lower()
-    # rings are labelled with explicit elevation angles; the 0 deg ring is the
+    # rings are labeled with explicit elevation angles; the 0 deg ring is the
     # footprint edge (no more "horizon" wording)
     assert "0\u00b0 el" in txt or "0 el" in txt
     assert "horizon" not in txt.lower()
@@ -1123,7 +1123,7 @@ def test_oscarsim_live_arc_advances_for_long_period_sat():
 
     st = Store()
     st.obs = Observer(lat=38.9, lon=-77.0, alt_m=10, valid=True)
-    # find RS-44 (or any sat with period > 2 h) in the bundled catalogue
+    # find RS-44 (or any sat with period > 2 h) in the bundled catalog
     rs = next((x for x in st.db.sats if x.norad == 44909), None)
     if rs is None:
         rs = next((x for x in st.db.sats if x.period_min > 120.0), None)
@@ -1409,7 +1409,7 @@ def test_oscarlocator_rim_ticks_drawn():
 
 def test_oscarlocator_combined_map_renders_both_projections():
     """The combined map+footprint page renders for both the QTH and polar
-    projections without error, and the polar variant draws QTH-centred elevation
+    projections without error, and the polar variant draws QTH-centered elevation
     rings (the projected-ring helper is exercised)."""
     import os
     import tempfile
@@ -1446,8 +1446,8 @@ def test_oscarlocator_combined_map_renders_both_projections():
 
 def test_polar_range_circle_inflation():
     """The standalone polar range-circle transparency is enlarged by the fixed
-    population-optimised factor (so a single generic circle best fits the polar
-    map's oval distortion), while the QTH-centred transparency is left exact."""
+    population-optimized factor (so a single generic circle best fits the polar
+    map's oval distortion), while the QTH-centered transparency is left exact."""
     from orbitdeck.gui.oscarlocator import (_polar_range_circle_deg,
                                             POLAR_RANGE_CIRCLE_INFLATION)
     # factor is the agreed generic optimum and is a mild enlargement
@@ -1460,9 +1460,9 @@ def test_polar_range_circle_inflation():
 
 
 def test_polar_range_circle_reduces_population_weighted_error():
-    """Sanity check on the optimisation itself: enlarging the circle by the
+    """Sanity check on the optimization itself: enlarging the circle by the
     chosen factor lowers the population-weighted worst-case error versus the raw
-    footprint circle on the polar (pole-centred azimuthal-equidistant) sheet."""
+    footprint circle on the polar (pole-centered azimuthal-equidistant) sheet."""
     import math
     from orbitdeck.gui.oscarlocator import POLAR_RANGE_CIRCLE_INFLATION
 

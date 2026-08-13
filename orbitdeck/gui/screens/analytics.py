@@ -18,7 +18,7 @@ from ...engine import planning as PL
 DEG = math.pi / 180.0
 RE_KM = 6378.135
 
-# distinct marker colours for favorite satellites on the globe / radar
+# distinct marker colors for favorite satellites on the globe / radar
 PALETTE = ["#3fb950", "#2f81f7", "#d29922", "#db61a2", "#39c5cf",
            "#f0883e", "#a371f7", "#7ee787", "#ff7b72", "#79c0ff"]
 
@@ -28,7 +28,7 @@ PALETTE = ["#3fb950", "#2f81f7", "#d29922", "#db61a2", "#39c5cf",
 # ===========================================================================
 
 class GlobeScreen(Screen):
-    """An orthographic 'view from space' globe centred on a chosen viewpoint,
+    """An orthographic 'view from space' globe centered on a chosen viewpoint,
     showing the satellite, its ground track, footprint, the day/night
     terminator, and the station -- with a time scrubber to fly forward/back."""
 
@@ -77,7 +77,7 @@ class GlobeScreen(Screen):
 
         self.panel = MplPanel(self.frame, figsize=(6.4, 6.0))
         self.panel.pack(fill="both", expand=True, padx=16, pady=10)
-        # free-drag viewpoint state: centre lat/lon the user can spin to
+        # free-drag viewpoint state: center lat/lon the user can spin to
         self._drag_lat = 20.0
         self._drag_lon = 0.0
         self._drag_active = None        # (x, y, lat, lon) at button-press
@@ -187,7 +187,7 @@ class GlobeScreen(Screen):
         pred = self.pred()
         sub = pred.subpoint_at(t)
         sub_lat, sub_lon, alt = sub[0], sub[1], sub[2]
-        # choose viewpoint (centre of orthographic projection)
+        # choose viewpoint (center of orthographic projection)
         view = self._view.get()
         if view == "sat":
             clat, clon = sub_lat, sub_lon
@@ -214,7 +214,7 @@ class GlobeScreen(Screen):
             % (s.name, sub_lat, sub_lon, alt, az, el, fmt_utc(t), extra))
 
     def _ortho(self, lat, lon, clat, clon):
-        """Orthographic projection of (lat,lon) for a globe centred at
+        """Orthographic projection of (lat,lon) for a globe centered at
         (clat,clon). Returns (x, y, visible)."""
         la, lo = lat * DEG, lon * DEG
         cla, clo = clat * DEG, clon * DEG
@@ -329,8 +329,8 @@ class GlobeScreen(Screen):
         sun = (math.cos(sla) * math.cos(slo),
                math.cos(sla) * math.sin(slo),
                math.sin(sla))
-        # orthographic basis at the view centre: east (e) and north (nth) unit
-        # vectors in ECEF, plus the outward centre normal (cen).
+        # orthographic basis at the view center: east (e) and north (nth) unit
+        # vectors in ECEF, plus the outward center normal (cen).
         cen = (math.cos(cla) * math.cos(clo),
                math.cos(cla) * math.sin(clo),
                math.sin(cla))
@@ -523,7 +523,7 @@ class RadarScreen(Screen):
             up += 1
         if up:
             self.info.set("%d of %d favorite%s above the horizon now (live; "
-                          "centre = zenith, rim = horizon)."
+                          "center = zenith, rim = horizon)."
                           % (up, len(favs), "" if len(favs) == 1 else "s"))
         else:
             self.info.set("None of your %d favorite%s is above the horizon "

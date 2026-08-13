@@ -1,4 +1,4 @@
-"""GUI behaviour tests (scrollbars, alarms, dialogs, widgets).
+"""GUI behavior tests (scrollbars, alarms, dialogs, widgets).
 
 Part of the OrbitDeck test suite (split from the original monolithic
 test_engine.py). Shared fixtures live in conftest.py.
@@ -267,7 +267,7 @@ def test_whos_up_scan(iss_predictor):
 
 def test_polar_elevation_labels_match_radius():
     """Regression for the reversed-elevation bug: on the shared sky-polar
-    convention (rlim 90->0, zenith at centre), each ring's label must equal its
+    convention (rlim 90->0, zenith at center), each ring's label must equal its
     radius so a high-elevation pass reads as high, not horizon-skimming."""
     import matplotlib
     matplotlib.use("Agg")
@@ -278,16 +278,16 @@ def test_polar_elevation_labels_match_radius():
     ax.set_rlim(90, 0)
     ax.set_rgrids([0, 30, 60, 90], labels=["0", "30", "60", "90"])
     fig.canvas.draw()
-    # the centre (zenith) must carry the "90" label, the rim "0"
+    # the center (zenith) must carry the "90" label, the rim "0"
     p_r90 = ax.transData.transform((0, 90))
     p_r0 = ax.transData.transform((0, 0))
     cx, cy = ax.transAxes.transform((0.5, 0.5))
 
     def dist(a, b):
         return _m.hypot(a[0] - b[0], a[1] - b[1])
-    # r=90 maps to the centre under rlim(90,0); its label text is "90"
+    # r=90 maps to the center under rlim(90,0); its label text is "90"
     assert dist(p_r90, (cx, cy)) < dist(p_r0, (cx, cy))
-    # and a high-elevation point sits near the centre
+    # and a high-elevation point sits near the center
     p80 = ax.transData.transform((0, 80))
     frac = dist(p80, p_r90) / dist(p_r90, p_r0)
     assert frac < 0.2
@@ -501,7 +501,7 @@ def test_globe_terminator_daynight_matches_spherical_truth():
     assert rendered_night(-90.0, 0.0) is True
 
 def test_satellite_category_classification():
-    """satellite_category buckets by best transponder kind, prioritising
+    """satellite_category buckets by best transponder kind, prioritizing
     linear over FM over digital; no transponders -> 'No transponder data'."""
     from orbitdeck.engine.satdb import (satellite_category, CATEGORIES,
                                         SatEntry, Transponder)

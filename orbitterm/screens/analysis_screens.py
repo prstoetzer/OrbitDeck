@@ -175,7 +175,9 @@ class OrbitalAnalysisScreen(Screen):
             # predicts about a fifth of the true remaining life.
             from orbitdeck.engine import decay as DK
             nd = getattr(sat, "ndot", 0.0) or 0.0
-            d_now, src = DK.estimate_decay_days(mm, sat.ecc, sat.bstar, nd)
+            # Use the archive when one is cached, so this agrees with the
+            # Orbital History screen instead of quietly disagreeing.
+            d_now, src = DK.estimate_for_sat(sat)
             d_short, _ = DK.estimate_decay_days(mm, sat.ecc, sat.bstar, nd,
                                                 solar="high")
             d_long, _ = DK.estimate_decay_days(mm, sat.ecc, sat.bstar, nd,
@@ -183,7 +185,7 @@ class OrbitalAnalysisScreen(Screen):
             rows.append(("Decay est.", DK.fmt_decay(d_now)))
             rows.append(("Decay from", DK.SRC_NAMES.get(src, "")))
             # The solar range is only meaningful on the B* path: anchoring on
-            # the observed n-dot cancels the density normalisation and the
+            # the observed n-dot cancels the density normalization and the
             # solar scale by construction, so low/high would print the same
             # number twice and imply a confidence interval that is not there.
             if src == DK.SRC_BSTAR:
@@ -255,8 +257,7 @@ class OrbitalAnalysisScreen(Screen):
             ltan = None
         # Recalibrated model, as on the anomaly page and the desktop screen.
         from orbitdeck.engine import decay as DK
-        decay, _decay_src = DK.estimate_decay_days(
-            mm, sat.ecc, sat.bstar, getattr(sat, "ndot", 0.0) or 0.0)
+        decay, _decay_src = DK.estimate_for_sat(sat)
 
         # Two columns only when both fit. At 80x24 the nav leaves ~61 columns
         # of content, and a hardcoded 40-column split pushed the right-hand
@@ -382,7 +383,7 @@ class GroundTrackScreen(Screen):
         # 180 of latitude). Braille dots are square - 2 per cell across, 4 down,
         # against a roughly 1:2 cell - but the PANE is not 2:1, so filling it
         # stretched every continent about 30% vertically. Fit the widest 2:1
-        # box that fits and centre it instead.
+        # box that fits and center it instead.
         _dw, _dh = mw * 2, mh * 4
         if _dw < 2 * _dh:
             _dh = _dw // 2
@@ -428,11 +429,11 @@ class GroundTrackScreen(Screen):
             la, lo, _ = pred.subpoint_at(t)
             px, py = to_px(la, lo)
             past = t <= now
-            colour = cp(CLR_DIM) if past else cp(CLR_ACCENT)
+            color = cp(CLR_DIM) if past else cp(CLR_ACCENT)
             if prev is not None and abs(px - prev[0]) < cv.width * 0.5:
-                cv.line(prev[0], prev[1], px, py, colour)
+                cv.line(prev[0], prev[1], px, py, color)
             else:
-                cv.plot(px, py, colour)
+                cv.plot(px, py, color)
             prev = (px, py)
             prev_past = past
         _ = prev_past

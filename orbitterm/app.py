@@ -16,7 +16,8 @@ from .ui import (CLR_TITLE, CLR_NAV, CLR_NAV_SEL, CLR_HEADER, CLR_DIM,
 
 from .screens.live import HomeScreen, TrackScreen
 from .screens.passes import PassesScreen, PassDetailScreen
-from .screens.catalog import SatellitesScreen, RadarScreen
+from .screens.catalog import (SatellitesScreen, RadarScreen,
+                              NewLaunchScreen)
 from .screens.analysis_screens import OrbitalAnalysisScreen, GroundTrackScreen
 from .screens.progression import ProgressionScreen
 from .screens.illumination import IlluminationScreen
@@ -31,7 +32,7 @@ from .screens.analysis3 import (MutualScreen, TransitsScreen,
 from .screens.analysis4 import (PlanningScreen, ActivationsScreen,
                                 AmsatStatusScreen, CelestialScreen,
                                 ExportsScreen, PropagationScreen,
-                                QrzScreen)
+                                QrzScreen, AstronomyScreen)
 from .screens.graphics import (SkyGlanceScreen, GraphCalcScreen,
                                SkyMapScreen, OrbitHistoryScreen)
 from .screens.globe import GlobeScreen
@@ -43,6 +44,7 @@ from .screens.oscarsim import OscarSimScreen
 NAV = [
     ("home", HomeScreen),
     ("satellites", SatellitesScreen),
+    ("newlaunch", NewLaunchScreen),
     ("track", TrackScreen),
     ("passes", PassesScreen),
     ("passdetail", PassDetailScreen),
@@ -71,6 +73,7 @@ NAV = [
     ("propagation", PropagationScreen),
     ("spacewx", SpaceWxScreen),
     ("celestial", CelestialScreen),
+    ("astronomy", AstronomyScreen),
     ("activations", ActivationsScreen),
     ("qrz", QrzScreen),
     ("amsatstatus", AmsatStatusScreen),

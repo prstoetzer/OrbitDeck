@@ -36,7 +36,7 @@ PAGE_LABELS = {
 
 def normalize(name):
     """Return a valid page-size key for ``name`` (case-insensitive), falling
-    back to the default for anything unrecognised or missing."""
+    back to the default for anything unrecognized or missing."""
     if not name:
         return DEFAULT_PAGE
     key = str(name).strip().lower()

@@ -2,7 +2,7 @@
 
 Plots a satellite's historical mean elements (semi-major axis, eccentricity,
 inclination, period, apogee/perigee, B*) from Space-Track's gp_history archive,
-so you can see an orbit's whole life: launch, drift, manoeuvres and drag decay.
+so you can see an orbit's whole life: launch, drift, maneuvers and drag decay.
 
 Unlike CardSat - which decimates into 120-240 bins to fit the ESP32's heap -
 this keeps every row at full resolution. Binning is offered only as a display
@@ -35,7 +35,7 @@ class OrbitHistoryScreen(Screen):
         self.fetchbtn = ttk.Button(bar, text="Fetch history",
                                    command=self._fetch)
         self.fetchbtn.pack(side="left")
-        ttk.Button(bar, text="Report\u2026",
+        ttk.Button(bar, text="Print screen\u2026",
 
                    command=self._report).pack(side="right", padx=4)
         ttk.Button(bar, text="Space-Track credentials\u2026",
@@ -55,6 +55,13 @@ class OrbitHistoryScreen(Screen):
         self.info = tk.StringVar(value="No history loaded.")
         ttk.Label(bar, textvariable=self.info, style="Muted.TLabel", wraplength=760).pack(
             side="left", padx=10)
+
+        # The archive measures the actual mean-motion trend over months, which
+        # is a far better decay anchor than one element set's own n-dot - and
+        # it is the only anchor that improves as the record grows.
+        self.decay = tk.StringVar(value="")
+        ttk.Label(self.frame, textvariable=self.decay, style="Muted.TLabel",
+                  wraplength=900).pack(anchor="w", padx=16, pady=(0, 2))
 
         # zoom is a window over the TIME axis; the value/rate/table views all
         # honour it, the analysis view deliberately does not - its question is
@@ -177,6 +184,7 @@ class OrbitHistoryScreen(Screen):
                               % sat.name)
         self._redraw()
         self._fill_table()
+        self._update_decay()
 
     # ---- fetch ----
     def _fetch(self):
@@ -222,6 +230,7 @@ class OrbitHistoryScreen(Screen):
                       % (len(samples), span))
         self._redraw()
         self._fill_table()
+        self._update_decay()
 
     # ---- rendering ----
     def _zoom(self, cmd):
@@ -251,6 +260,7 @@ class OrbitHistoryScreen(Screen):
                        % (self.zoom[0] * 100, self.zoom[1] * 100))
         self._redraw()
         self._fill_table()
+        self._update_decay()
 
     def _visible(self):
         return ST.window(self.samples, *self.zoom)
@@ -284,12 +294,12 @@ class OrbitHistoryScreen(Screen):
         if self.showboth.get() and col in ("APOAPSIS", "PERIAPSIS"):
             pairs = [("APOAPSIS", COL_ACCENT2), ("PERIAPSIS", COL_ACCENT)]
         vis = self._visible()
-        for c, colour in pairs:
+        for c, color in pairs:
             ts, vs = ST.series(vis, c)
             if not vs:
                 continue
             xs = [dt.datetime.fromtimestamp(t, dt.timezone.utc) for t in ts]
-            ax.plot(xs, vs, "-", color=colour, lw=1.0,
+            ax.plot(xs, vs, "-", color=color, lw=1.0,
                     label=ST.COLUMN_LABELS[c][0])
         label, unit = ST.COLUMN_LABELS[col]
         ax.set_ylabel(("%s (%s)" % (label, unit)) if unit else label,
@@ -304,7 +314,7 @@ class OrbitHistoryScreen(Screen):
         self.panel.canvas.draw_idle()
 
     def _draw_rate(self, col):
-        """Rate of change: drag and manoeuvres read directly off this."""
+        """Rate of change: drag and maneuvers read directly off this."""
         import datetime as dt
         self.ratepanel.fig.clf()
         ax = self.ratepanel.fig.add_subplot(111)
@@ -331,7 +341,7 @@ class OrbitHistoryScreen(Screen):
 
     def _draw_analysis(self, col):
         """Has the rate itself changed? Whole record, ignoring the zoom."""
-        a = ST.analyse_rate(self.samples, col)
+        a = ST.analyze_rate(self.samples, col)
         label, unit = ST.COLUMN_LABELS[col]
         if a is None:
             self.antext.set("%s\n\nNot enough data for analysis "
@@ -365,9 +375,35 @@ class OrbitHistoryScreen(Screen):
                     fmt_utc(t, "%Y-%m-%d"), r, per))
             lines.append("")
             lines.append("  A jump is a rate far above this object's own "
-                         "normal - a manoeuvre, a drag event, or an element-set "
+                         "normal - a maneuver, a drag event, or an element-set "
                          "discontinuity.")
         self.antext.set("\n".join(lines))
+
+    def _update_decay(self):
+        """Decay estimate from the archive, with what it rests on."""
+        from ...engine import decay as DK
+        sat = self.store.selected_sat()
+        if sat is None or not self.samples:
+            self.decay.set("")
+            return
+        days, src = DK.estimate_decay_with_history(
+            sat.mean_motion, sat.ecc, sat.bstar,
+            getattr(sat, "ndot", 0.0) or 0.0, self.samples)
+        text = "Decay estimate  %s  \u2014 from the %s" % (
+            DK.fmt_decay(days), DK.SRC_NAMES.get(src, "?"))
+        if src == DK.SRC_HISTORY:
+            span = (self.samples[-1]["epoch"] - self.samples[0]["epoch"])
+            text += " (%d sets over %.1f years)" % (
+                len(self.samples), span / 86400.0 / 365.25)
+        else:
+            # Say why the archive was not used rather than leaving the
+            # operator to wonder whether it was.
+            fitted = DK.ndot_from_history(self.samples)
+            if fitted is None:
+                text += "; the archive is too short or not decaying to anchor"
+            else:
+                text += "; the archive fit fell outside the physical range"
+        self.decay.set(text)
 
     def _fill_table(self):
         self.tree.delete(*self.tree.get_children())

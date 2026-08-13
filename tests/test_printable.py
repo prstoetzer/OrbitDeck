@@ -295,3 +295,69 @@ def test_no_desktop_label_is_clipped():
             root.destroy()
         except Exception:
             pass
+
+
+def test_no_screen_shows_two_buttons_with_the_same_label():
+    """Two different reports used to share the label "Report...": the base
+    header's SATELLITE report (analysis + passes + EQX) and each screen's own
+    report of what is displayed. Same word, different output, no way to tell
+    them apart. Buttons are now named for what they produce.
+    """
+    import time as _t
+    import tkinter as tk
+    try:
+        root = tk.Tk()
+    except Exception:
+        return
+    root.geometry("1280x800")
+    try:
+        from orbitdeck.gui.app import OrbitDeckApp, NAV_ITEMS
+        app = OrbitDeckApp(root)
+
+        def settle(n=8):
+            for _ in range(n):
+                root.update_idletasks()
+                root.update()
+                _t.sleep(0.01)
+        settle(16)
+        offenders = []
+
+        def walk(w, out):
+            for c in w.winfo_children():
+                if c.winfo_class() == "TButton":
+                    try:
+                        out.append(str(c.cget("text")))
+                    except Exception:
+                        pass
+                walk(c, out)
+        for _label, key in NAV_ITEMS:
+            app.show(key)
+            settle(5)
+            labels = []
+            walk(app.current.frame, labels)
+            dupes = sorted({x for x in labels if labels.count(x) > 1})
+            # buttons on different tabs of one screen are fine - only one tab
+            # is ever visible - so allow a known pair there
+            dupes = [d for d in dupes
+                     if not (key == "satellites" and "double-click" in d)]
+            if dupes:
+                offenders.append((key, dupes))
+        assert not offenders, offenders
+    finally:
+        try:
+            root.destroy()
+        except Exception:
+            pass
+
+
+def test_the_two_report_actions_are_named_for_their_output():
+    import pathlib
+    base = pathlib.Path("orbitdeck/gui/screens/__init__.py").read_text()
+    assert 'text="Satellite report' in base
+    assert 'text="Report\\u2026",\n                   command=self.make_report' not in base
+    # screen-level reports say they print the screen
+    hits = 0
+    for p in pathlib.Path("orbitdeck/gui/screens").glob("*.py"):
+        if "Print screen" in p.read_text():
+            hits += 1
+    assert hits >= 15

@@ -448,13 +448,13 @@ class SpaceWxScreen(Screen):
                    cp(CLR_WARN))
             return
         from orbitdeck.engine import spacewx_interp as SI
-        colours = {0: cp(CLR_DIM), 1: 0, 2: cp(CLR_OK), 3: cp(CLR_WARN),
+        colors = {0: cp(CLR_DIM), 1: 0, 2: cp(CLR_OK), 3: cp(CLR_WARN),
                    4: cp(CLR_WARN)}
         y = y0 + 3
         for label, value, sev in SI.rows(d):
             if y >= y0 + h - 4:
                 break
-            _kv(win, y, x0, w, label, value, colours.get(sev, 0))
+            _kv(win, y, x0, w, label, value, colors.get(sev, 0))
             y += 1
         y += 1
         if y < y0 + h - 1:

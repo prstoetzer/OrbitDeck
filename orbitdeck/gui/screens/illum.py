@@ -42,7 +42,7 @@ class IllumScreen(Screen):
             self._render_eclipse()
 
     # ------------------------------------------------------------------
-    # Tab 1: illumination raster (unchanged behaviour)
+    # Tab 1: illumination raster (unchanged behavior)
     # ------------------------------------------------------------------
     def _build_raster(self, parent):
         bar = ttk.Frame(parent, style="TFrame")

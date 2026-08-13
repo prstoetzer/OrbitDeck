@@ -1,12 +1,12 @@
 """orbitterm/ui.py - small curses toolkit shared by all OrbitTerm screens.
 
-Provides colour-pair setup, safe drawing helpers that never raise at the screen
+Provides color-pair setup, safe drawing helpers that never raise at the screen
 edge, a Screen base class, and a reusable scrolling-list mixin. Pure stdlib.
 """
 
 import curses
 
-# colour pair ids
+# color pair ids
 CLR_DEFAULT = 0
 CLR_TITLE = 1
 CLR_NAV = 2
@@ -41,7 +41,7 @@ def init_colors():
     curses.init_pair(CLR_OK, curses.COLOR_GREEN, bg)
     curses.init_pair(CLR_WARN, curses.COLOR_YELLOW, bg)
     curses.init_pair(CLR_BAD, curses.COLOR_RED, bg)
-    # DIM was blue - the least legible colour on a dark background, and by far
+    # DIM was blue - the least legible color on a dark background, and by far
     # the most-used pair (labels, units, help text). White dimmed with A_DIM
     # keeps it recessive without being hard to read.
     curses.init_pair(CLR_DIM, curses.COLOR_WHITE, bg)
@@ -53,14 +53,14 @@ def init_colors():
     curses.init_pair(CLR_VIS, curses.COLOR_BLACK, curses.COLOR_GREEN)
 
 
-# Attributes carried with a colour pair, so intent lives in one place rather
+# Attributes carried with a color pair, so intent lives in one place rather
 # than every call site remembering to add A_DIM or A_BOLD.
 _PAIR_ATTR = {}
 
 
 def cp(pair):
     if not curses.has_colors():
-        # Without colour, structure still has to read: bold headers, dim
+        # Without color, structure still has to read: bold headers, dim
         # labels. A monochrome terminal is not a broken one.
         return _PAIR_ATTR.get(pair, 0)
     return curses.color_pair(pair) | _PAIR_ATTR.get(pair, 0)

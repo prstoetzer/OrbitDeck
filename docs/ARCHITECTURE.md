@@ -56,7 +56,7 @@ orbitdeck/
   class. A screen builds its widgets into `self.frame`, reads state via
   `self.store` / `self.sat()` / `self.pred()`, and uses shared helpers from
   `screens/__init__.py` (`KVPanel`, `TabBar`, `MplPanel`, `make_scrolled_tree`,
-  `autohide_scrollbar`, the theme colour constants, …). To add a screen: create
+  `autohide_scrollbar`, the theme color constants, …). To add a screen: create
   the module, register it in `make_screen`, and add it to `NAV_ITEMS`.
 - **`oscarlocator.py`**, **`reports.py`**, **`doppler_sheet.py`**,
   **`passcard.py`**, **`exports.py`** — printable/exportable output (PDF, CSV,
@@ -69,7 +69,7 @@ orbitdeck/
   probed at import time with a `try/except` and a `have_*()` helper; the app must
   work without them. A CI job runs the suite with them absent to keep the
   fallbacks honest.
-- **Theme colours** are module constants in `app.py` (`COL_BG`, `COL_PANEL`,
+- **Theme colors** are module constants in `app.py` (`COL_BG`, `COL_PANEL`,
   `COL_ACCENT`, …) re-exported through `screens/__init__.py`; use them rather than
   hard-coded hex so the dark theme stays consistent.
 - **Deep-space accuracy** is surfaced, not hidden: when the bundled propagator is

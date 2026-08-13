@@ -31,7 +31,7 @@ def test_dxcc_has_340_entities():
 def test_dxcc_workable_api():
     from orbitdeck.data.dxcc import workable_dxcc
     # a footprint over the central US should include the United States
-    # (its reference point is the geographic centre ~39N, 98W)
+    # (its reference point is the geographic center ~39N, 98W)
     def infp(lat, lon):
         return 30 < lat < 45 and -105 < lon < -90
     hits = {nm for _pfx, nm in workable_dxcc(infp)}

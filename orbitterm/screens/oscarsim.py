@@ -12,7 +12,7 @@ Projection conventions match the printable OSCARLOCATOR and the desktop screen:
 
   * polar (north): rho = 90 - lat, theta = longitude, 0 deg at the bottom,
     east counter-clockwise
-  * QTH-centred: rho = great-circle distance in degrees, theta = bearing,
+  * QTH-centered: rho = great-circle distance in degrees, theta = bearing,
     north at the top, clockwise
 
 Modes: LIVE follows the satellite's real current position and EQX; MANUAL lets
@@ -146,7 +146,7 @@ class OscarSimScreen(Screen):
         rmax = 90.0 if kind == "polar" else 90.0
         addstr(win, y0, x0, clip(
             "OSCARLOCATOR \u2014 %s map \u2014 %s" % (
-                "north polar" if kind == "polar" else "QTH centred",
+                "north polar" if kind == "polar" else "QTH centered",
                 "LIVE" if self.live else "MANUAL"), w), cp(CLR_TITLE))
 
         rows = max(4, h - 3)

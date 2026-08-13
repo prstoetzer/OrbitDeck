@@ -230,7 +230,9 @@ class OrbitScreen(Screen):
         # for its mass/area/Cd input form.
         from ...engine import decay as DK
         _nd = getattr(s, "ndot", 0.0) or 0.0
-        decay, decay_src = DK.estimate_decay_days(mm, s.ecc, s.bstar, _nd)
+        # Prefer the cached element archive, so this screen and Orbital
+        # History cannot report different numbers for the same satellite.
+        decay, decay_src = DK.estimate_for_sat(s)
         # solar-activity bracket: high density (solar max) -> shortest life;
         # low density (solar min) -> longest. CardSat shows the same range.
         decay_short, _ = DK.estimate_decay_days(mm, s.ecc, s.bstar, _nd,
@@ -278,7 +280,7 @@ class OrbitScreen(Screen):
         k.row("Decay est.", DK.fmt_decay(decay),
               COL_WARN if (0 <= decay < 3650) else COL_TEXT)
         # The solar range is only meaningful on the B* path: anchoring on the
-        # observed n-dot cancels the density normalisation and the solar scale
+        # observed n-dot cancels the density normalization and the solar scale
         # by construction, so low/high would print the same number twice and
         # imply a confidence interval that is not there.
         if 0 <= decay < 36500 and decay_src == DK.SRC_BSTAR:
