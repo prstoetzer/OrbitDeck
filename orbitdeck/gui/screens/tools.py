@@ -37,8 +37,6 @@ class ToolsScreen(Screen):
         left = tk.Frame(body, bg=COL_PANEL, width=330)
         left.pack(side="left", fill="y", padx=(0, 10))
         left.pack_propagate(False)
-        ttk.Button(left, text="Print screen\u2026",
-                   command=self._report).pack(side="right", padx=4)
         tk.Label(left, text="TOOLS", bg=COL_PANEL, fg=COL_ACCENT,
                  font=("DejaVu Sans", 9, "bold"), anchor="w").pack(
             fill="x", padx=8, pady=(6, 2))

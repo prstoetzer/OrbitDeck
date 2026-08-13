@@ -69,6 +69,10 @@ install -Dm644 packaging/io.github.prstoetzer.OrbitDeck.metainfo.xml \
 %{_metainfodir}/io.github.prstoetzer.OrbitDeck.metainfo.xml
 
 %changelog
+* Thu Aug 13 2026 Paul Stoetzer, N8HM - 0.39.2-1
+- Fix unreachable astronomy tabs, drop the fictional last-60-days group,
+  and put "Print screen" in one consistent place
+
 * Thu Aug 13 2026 Paul Stoetzer, N8HM - 0.39.1-1
 - Astronomy hub from CardSat 0.9.76 on both front-ends
 

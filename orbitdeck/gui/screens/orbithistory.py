@@ -35,9 +35,6 @@ class OrbitHistoryScreen(Screen):
         self.fetchbtn = ttk.Button(bar, text="Fetch history",
                                    command=self._fetch)
         self.fetchbtn.pack(side="left")
-        ttk.Button(bar, text="Print screen\u2026",
-
-                   command=self._report).pack(side="right", padx=4)
         ttk.Button(bar, text="Space-Track credentials\u2026",
                    command=self._creds).pack(side="left", padx=8)
         ttk.Label(bar, text="Plot:", style="TLabel").pack(side="left",

@@ -1,8 +1,26 @@
 # Changelog
 
-## [0.39.1]
+## [0.39.2]
 
 ### Fixed
+- **"Print screen" now sits in the same place on every screen.** A bulk pass
+  had added it to whatever container it found first, so it landed in sidebars,
+  tab pages and one bare parent — under the calculator list on Tools, halfway
+  down the form on Location. It now comes from the shared header, which is what
+  makes the position consistent; a test checks all 41 screens agree.
+- **The Astronomy tab strip was never built.** `TabBar` takes `add()` per page
+  with an `on_change` callback; the label list was passed as that callback, so
+  no tabs were created and **none** of the eight views — Eclipses included —
+  could be reached by clicking. Only direct calls in tests had exercised them.
+- **Removed the 60-day new-launch scan.** CelesTrak publishes exactly one
+  recency group, `last-30-days`. A request for a 60-day group returns an empty
+  list rather than an error, which reads like a quiet two months. A wider
+  window now has to come from the international designator, which *is* in the
+  GP data.
+- **`launch_year` read the first two characters** of a 4-digit designator and
+  turned `1998-067A` into 2019. It now delegates to the existing
+  `cospar_launch_year`, which already handled both forms — a duplicate of
+  working code, written wrong.
 - **The Moon model was 1–2° out**, carrying only the equation of the center.
   It now includes the main perturbations — evection, variation, the annual
   equation and the parallactic terms — and its distance comes from the same

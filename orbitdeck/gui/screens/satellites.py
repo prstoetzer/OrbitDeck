@@ -66,9 +66,6 @@ class SatellitesScreen(Screen):
 
         btns = ttk.Frame(parent, style="TFrame")
         btns.pack(fill="x", padx=4, pady=(0, 8))
-        ttk.Button(btns, text="Print screen\u2026",
-
-                   command=self._report).pack(side="right", padx=4)
         ttk.Button(btns, text="Select (double-click)",
                    command=self._select).pack(side="left")
         ttk.Button(btns, text="Toggle favorite (space)",

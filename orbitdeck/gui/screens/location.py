@@ -30,8 +30,6 @@ class LocationScreen(Screen):
 
     def _build_settings(self, parent):
         self._parent = parent
-        ttk.Button(parent, text="Print screen\u2026",
-                   command=self._report).pack(side="right", padx=4)
         ttk.Label(parent, text="Observer site", style="TLabel",
                   font=("DejaVu Sans", 12, "bold")).pack(
             anchor="w", padx=16, pady=(10, 2))

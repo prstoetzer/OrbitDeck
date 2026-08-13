@@ -33,9 +33,6 @@ class DataFeedsScreen(Screen):
     def _build_acts(self, parent):
         bar = ttk.Frame(parent, style="TFrame")
         bar.pack(fill="x", padx=4, pady=6)
-        ttk.Button(bar, text="Print screen\u2026",
-
-                   command=self._report).pack(side="right", padx=4)
         ttk.Button(bar, text="Refresh feed",
                    command=self._fetch_acts).pack(side="left")
         ttk.Button(bar, text="Can I work it?\u2026",

@@ -42,9 +42,6 @@ class SkyGlanceScreen(Screen):
             ttk.Radiobutton(bar, text="%d\u00b0" % v, value=v,
                             variable=self.minel,
                             command=self._reload).pack(side="left")
-        ttk.Button(bar, text="Print screen\u2026",
-
-                   command=self._report).pack(side="right", padx=4)
         ttk.Button(bar, text="Refresh", command=self._reload).pack(side="left",
                                                                     padx=10)
         self.info = tk.StringVar(value="")

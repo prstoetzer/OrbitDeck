@@ -74,8 +74,6 @@ class SunMoonScreen(Screen):
         self.header("Sun / Moon \u2014 sky view")
         bar = ttk.Frame(self.frame, style="TFrame")
         bar.pack(fill="x", padx=16, pady=(0, 4))
-        ttk.Button(bar, text="Print screen\u2026",
-                   command=self._report).pack(side="right", padx=4)
 
         body = ttk.Frame(self.frame, style="TFrame")
         body.pack(fill="both", expand=True, padx=12, pady=4)

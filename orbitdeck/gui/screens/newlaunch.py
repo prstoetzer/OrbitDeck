@@ -17,7 +17,8 @@ from ..store import _http_get
 from ...engine import newlaunch as NL
 
 IDLE_TEXT = (
-    "Fetches the objects cataloged in the last 30 days, sets aside the rocket "
+    "Fetches the objects cataloged in the last 30 days \u2014 the only "
+    "recency window CelesTrak publishes \u2014 sets aside the rocket "
     "bodies, debris and constellation batches, and checks what remains "
     "against the SatNOGS transmitter database. What comes back is the handful "
     "of new objects with a transmitter someone has documented \u2014 the ones "
@@ -37,12 +38,12 @@ class NewLaunchScreen(Screen):
 
         bar = ttk.Frame(self.frame, style="TFrame")
         bar.pack(fill="x", padx=16, pady=(0, 4))
+        # CelesTrak publishes only a 30-day recency group; there is no 60-day
+        # one, and asking for it returns an empty list that reads like a quiet
+        # two months.
         self.scan_btn = ttk.Button(bar, text="Scan last 30 days",
                                    command=self._scan)
         self.scan_btn.pack(side="left")
-        ttk.Button(bar, text="Scan last 60 days",
-                   command=lambda: self._scan(days=60)).pack(side="left",
-                                                             padx=6)
         self.filter_var = tk.BooleanVar(value=True)
         ttk.Checkbutton(bar, text="Filter rocket bodies, debris "
                                   "and constellations",
@@ -51,8 +52,6 @@ class NewLaunchScreen(Screen):
         self.add_btn = ttk.Button(bar, text="Add to my satellites",
                                   command=self._add, state="disabled")
         self.add_btn.pack(side="right", padx=4)
-        ttk.Button(bar, text="Print screen\u2026",
-                   command=self._report).pack(side="right", padx=4)
 
         self.info = tk.StringVar(value="")
         ttk.Label(self.frame, textvariable=self.info, style="Muted.TLabel",
@@ -82,13 +81,13 @@ class NewLaunchScreen(Screen):
         self.info.set(IDLE_TEXT)
 
     # ---- scanning --------------------------------------------------------
-    def _scan(self, days=30):
+    def _scan(self):
         if self._busy:
             return
         self._busy = True
         self.scan_btn.configure(state="disabled")
-        self.info.set("Fetching the last %d days from CelesTrak\u2026" % days)
-        url = NL.LAST_60_URL if days == 60 else NL.LAST_30_URL
+        self.info.set("Fetching the last 30 days from CelesTrak\u2026")
+        url = NL.LAST_30_URL
 
         def work():
             try:

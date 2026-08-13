@@ -48,8 +48,6 @@ class TinyBasicScreen(Screen):
         ttk.Button(bar, text="Save\u2026", command=self._save).pack(side="left")
         ttk.Button(bar, text="Sample",
                    command=self._sample).pack(side="left", padx=6)
-        ttk.Button(bar, text="Print screen\u2026",
-                   command=self._report).pack(side="right", padx=4)
         self.info = tk.StringVar(value="")
         ttk.Label(bar, textvariable=self.info, style="Muted.TLabel",
                   wraplength=520).pack(side="left", padx=12)

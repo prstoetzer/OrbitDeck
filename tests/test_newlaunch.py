@@ -165,3 +165,77 @@ def test_the_feature_is_on_both_front_ends():
     assert "def on_show" not in src
     assert "add_extra_sat" in src           # adds stay auto-updating
     assert "cache_transmitters" in src
+
+
+def test_there_is_no_sixty_day_group():
+    """CelesTrak publishes exactly one recency group. Asking for a 60-day one
+    returns an empty list rather than an error - which reads like a quiet two
+    months and is the worst kind of wrong."""
+    assert not hasattr(NL, "LAST_60_URL")
+    assert "last-30-days" in NL.LAST_30_URL
+    import pathlib
+    for f in ("orbitdeck/gui/screens/newlaunch.py",
+              "orbitterm/screens/catalog.py"):
+        assert "last-60-days" not in pathlib.Path(f).read_text()
+
+
+def test_launch_year_handles_both_designator_forms():
+    """The GP JSON uses the 4-digit form; TLEs use 2-digit with a 1957 pivot.
+    A first cut read the leading two characters and turned 1998 into 2019."""
+    assert NL.launch_year("1998-067A") == 1998
+    assert NL.launch_year("2017-073E") == 2017
+    assert NL.launch_year("57-001A") == 1957
+    assert NL.launch_year("98-067A") == 1998
+    assert NL.launch_year("") is None
+    assert NL.launch_year("bogus") is None
+    entries = NL.parse_gp(json.dumps([
+        {"NORAD_CAT_ID": 1, "OBJECT_NAME": "A", "OBJECT_ID": "2026-001A"},
+        {"NORAD_CAT_ID": 2, "OBJECT_NAME": "B", "OBJECT_ID": "2025-090B"}]))
+    assert [e["name"] for e in NL.filter_by_launch_year(entries, 2026)] == ["A"]
+
+
+def test_the_bulk_transmitter_fetch_keeps_every_record(tmp_path,
+                                                       monkeypatch):
+    """The feature rests on having the WHOLE SatNOGS database cached, so a
+    parser that quietly drops records would silently shrink the results."""
+    import os
+    os.environ["ORBITDECK_TEST"] = "1"
+    import orbitdeck.gui.store as store_mod
+    payload = [
+        {"uuid": "a", "norad_cat_id": 25544, "downlink_low": 145800000,
+         "mode": "FM"},
+        {"uuid": "b", "norad_cat_id": 25544, "mode": "SSTV"},
+        {"uuid": "c", "norad_cat_id": 43017, "downlink_low": 145960000,
+         "mode": "FM"},
+        {"uuid": "d", "norad_cat_id": None},          # no id: not cacheable
+    ]
+    monkeypatch.setattr(store_mod, "TX_CACHE",
+                        str(tmp_path / "transmitters.json"))
+    monkeypatch.setattr(store_mod, "_http_get",
+                        lambda url, timeout=20: json.dumps(payload))
+    st = store_mod.Store()
+    st.update_transponders_online()
+    cache = st.load_tx_cache()
+    assert set(cache) == {"25544", "43017"}
+    assert len(cache["25544"]) == 2
+    # every record carrying a NORAD id survives the grouping
+    kept = sum(len(v) for v in cache.values())
+    assert kept == sum(1 for r in payload if r.get("norad_cat_id") is not None)
+
+
+def test_every_astronomy_feature_is_reachable_from_the_ui():
+    """The tab strip was never built: TabBar takes add() per page with an
+    on_change callback, and the label list was passed as that callback. Every
+    tab - Eclipses included - had no way to be reached by clicking."""
+    import inspect
+    from orbitdeck.gui.screens import astronomy as scr
+    src = inspect.getsource(scr.AstronomyScreen.build)
+    assert "self.tabs.add(name)" in src
+    assert "on_change=self._on_tab" in src
+    # a handler exists for every tab
+    for i in range(len(scr.TABS)):
+        assert hasattr(scr.AstronomyScreen, "_tab_%d" % i), i
+    from orbitterm.screens.analysis4 import AstronomyScreen as T
+    assert len(T.VIEWS) == 8
+    for v in T.VIEWS:
+        assert hasattr(T, "_v_" + v), v

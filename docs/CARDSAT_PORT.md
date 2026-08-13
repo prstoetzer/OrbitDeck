@@ -2122,3 +2122,52 @@ wrote to the real `~/.orbitdeck/transmitters.json`, which overwrote the ISS's
 sample transponders and broke an unrelated transponder test. My own test had
 the same fault - it took a `tmp_path` and never used it. Both fixed; the test
 now redirects `TX_CACHE` with `monkeypatch`.
+
+
+## Three faults found by being asked to check
+
+**The Astronomy tab strip did not exist.** `TabBar`'s API is `add()` per page
+with an `on_change` callback; I passed the label list as the second positional
+argument, which made it the callback. No tabs were created, so not one of the
+eight views could be reached by clicking - Eclipses was simply the one noticed.
+My own tests had called `_on_tab()` directly and so exercised the content while
+never touching the navigation, which is exactly the gap that let this ship.
+
+**There is no `last-60-days` CelesTrak group.** I took it from the design
+document's "wider windows" note without checking. The failure mode is the worst
+kind: the request succeeds and returns an empty list, so it reads as a quiet two
+months rather than an error. Removed; a wider window has to come from the
+international designator, which is the only launch information the GP response
+carries.
+
+**`launch_year` was a wrong duplicate of working code.** It read the first two
+characters of the designator, turning `1998-067A` into 2019. `cospar_launch_year`
+in `analysis.py` had handled both the 4-digit GP form and the 2-digit TLE form
+with its 1957 pivot since 0.38.0. Now delegated.
+
+**The SatNOGS side checked out.** Verified against the real API response
+(3.5 MB): 5003 transmitter records, all 5003 carrying a NORAD id, grouped into
+2623 satellites, with every record preserved - the ISS alone has 50. OrbitTerm
+reads the same cache, so both front-ends have the whole database. A test pins
+that the grouping drops nothing.
+
+## Print buttons, and why they wandered
+
+Reported as awkward placement, and the cause was structural rather than
+cosmetic. The bulk pass that added printing to twenty screens dropped the
+button into whatever container it found first. On most screens that happened to
+be the top action bar; on six it was not:
+
+- **Tools** and **References** - the sidebar, so the button sat under the
+  calculator or table list;
+- **Celestial** - a left column;
+- **Satellites** and **Location** - a form frame partway down the page;
+- **Conjunctions** - a tab page rather than the screen.
+
+Fixing them one at a time would have left the same trap for the next screen
+added, so the button now comes from `header()` and `sat_header()` and the
+per-screen copies are gone. All 41 screens now place it on the same header row
+(y=86) on the right, and a test walks every screen asserting exactly one button,
+on one shared row, right-aligned.
+
+Retagged as **v0.39.2**.

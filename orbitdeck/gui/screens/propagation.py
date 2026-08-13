@@ -24,8 +24,6 @@ class PropagationScreen(Screen):
         bar.pack(fill="x", padx=16, pady=4)
         ttk.Button(bar, text="Refresh",
                    command=self._reload).pack(side="left")
-        ttk.Button(bar, text="Print screen\u2026",
-                   command=self._report).pack(side="left", padx=6)
         self.summary = tk.StringVar(value="")
         ttk.Label(bar, textvariable=self.summary, style="Muted.TLabel",
                   wraplength=760).pack(side="left", padx=10)

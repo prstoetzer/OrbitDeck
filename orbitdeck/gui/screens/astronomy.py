@@ -31,15 +31,17 @@ class AstronomyScreen(Screen):
         bar.pack(fill="x", padx=16, pady=(0, 4))
         ttk.Button(bar, text="Refresh",
                    command=self._render).pack(side="left")
-        ttk.Button(bar, text="Print screen\u2026",
-                   command=self._report).pack(side="right", padx=4)
         self.info = tk.StringVar(value="")
         ttk.Label(bar, textvariable=self.info, style="Muted.TLabel",
                   wraplength=780).pack(side="left", padx=12)
 
-        self.tabs = TabBar(self.frame, TABS, self._on_tab)
-        self.body = ttk.Frame(self.frame, style="TFrame")
-        self.body.pack(fill="both", expand=True, padx=16, pady=(0, 8))
+        # TabBar's API is add() per page with an on_change callback - passing
+        # the label list as the second positional argument made it the
+        # callback, so no tab strip was built at all and the Eclipses tab (and
+        # every other) had no way to be reached from the UI.
+        self.tabs = TabBar(self.frame, on_change=self._on_tab, wrap=True)
+        self.pages = [self.tabs.add(name) for name in TABS]
+        self.tabs.pack(fill="both", expand=True, padx=16, pady=(0, 8))
         self._tab = 0
         self._rows = []
         self._render()
@@ -50,6 +52,10 @@ class AstronomyScreen(Screen):
     def _on_tab(self, idx):
         self._tab = idx
         self._render()
+
+    @property
+    def body(self):
+        return self.pages[self._tab]
 
     def _clear(self):
         for w in self.body.winfo_children():

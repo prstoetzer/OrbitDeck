@@ -355,9 +355,67 @@ def test_the_two_report_actions_are_named_for_their_output():
     base = pathlib.Path("orbitdeck/gui/screens/__init__.py").read_text()
     assert 'text="Satellite report' in base
     assert 'text="Report\\u2026",\n                   command=self.make_report' not in base
-    # screen-level reports say they print the screen
-    hits = 0
-    for p in pathlib.Path("orbitdeck/gui/screens").glob("*.py"):
-        if "Print screen" in p.read_text():
-            hits += 1
-    assert hits >= 15
+    # The screen-level button now comes from header()/sat_header() rather than
+    # being repeated per screen, so counting files is the wrong measure - what
+    # matters is that both headers offer it and that it is not duplicated back
+    # into individual screens.
+    assert base.count('text="Print screen') == 2
+    strays = [p.name for p in pathlib.Path("orbitdeck/gui/screens").glob("*.py")
+              if p.name != "__init__.py" and "Print screen" in p.read_text()]
+    assert not strays, strays
+
+
+def test_print_screen_sits_in_the_same_place_on_every_screen():
+    """A bulk pass had added the button to whatever container it found first,
+    so it landed in sidebars, tab pages and one bare parent - under the
+    calculator list on Tools, halfway down the form on Location. It now comes
+    from the header, which is what makes the position consistent."""
+    import time as _t
+    import tkinter as tk
+    try:
+        root = tk.Tk()
+    except Exception:
+        return
+    root.geometry("1280x800")
+    try:
+        from orbitdeck.gui.app import OrbitDeckApp, NAV_ITEMS
+        app = OrbitDeckApp(root)
+
+        def settle(n=8):
+            for _ in range(n):
+                root.update_idletasks()
+                root.update()
+                _t.sleep(0.01)
+        settle(16)
+
+        def find(w, out):
+            for c in w.winfo_children():
+                if c.winfo_class() == "TButton":
+                    try:
+                        if "Print screen" in str(c.cget("text")):
+                            out.append((c.winfo_rooty(), c.winfo_rootx()))
+                    except Exception:
+                        pass
+                find(c, out)
+        missing, dupes, ys = [], [], []
+        for _label, key in NAV_ITEMS:
+            app.show(key)
+            settle(4)
+            found = []
+            find(app.current.frame, found)
+            if not found:
+                missing.append(key)
+                continue
+            if len(found) > 1:
+                dupes.append(key)
+            ys.append((key, found[0][0], found[0][1]))
+        assert not missing, missing
+        assert not dupes, dupes
+        # every one on the same header row, over on the right
+        assert len({y for _k, y, _x in ys}) == 1, sorted(ys)
+        assert all(x > 850 for _k, _y, x in ys), sorted(ys)
+    finally:
+        try:
+            root.destroy()
+        except Exception:
+            pass

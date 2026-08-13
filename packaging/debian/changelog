@@ -1,3 +1,11 @@
+orbitdeck (0.39.2-1) unstable; urgency=medium
+
+  * Astronomy tab strip was never constructed, leaving every tab unreachable.
+  * Remove the non-existent CelesTrak last-60-days group.
+  * "Print screen" moved to the shared header so it is in one place.
+
+ -- Paul Stoetzer, N8HM <n8hm@arrl.net>  Thu, 13 Aug 2026 16:00:00 +0000
+
 orbitdeck (0.39.1-1) unstable; urgency=medium
 
   * Add the astronomy hub from CardSat 0.9.76 to both front-ends: meteor

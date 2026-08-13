@@ -440,14 +440,14 @@ class NewLaunchScreen(Screen):
         self.status = "s scans the last 30 days"
         self.busy = False
 
-    def _scan(self, days=30):
+    def _scan(self):
         from orbitdeck.engine import newlaunch as NL
         from orbitdeck.netio import http_get
         self.busy = True
-        self.status = "fetching the last %d days\u2026" % days
+        self.status = "fetching the last 30 days\u2026"
         try:
-            url = NL.LAST_60_URL if days == 60 else NL.LAST_30_URL
-            self.entries = NL.parse_gp(http_get(url, 60))
+            # CelesTrak publishes only a 30-day recency group.
+            self.entries = NL.parse_gp(http_get(NL.LAST_30_URL, 60))
             self.tx = self.state.store.load_tx_cache()
             if not self.tx:
                 self.status = "fetching the SatNOGS transmitter database\u2026"
@@ -480,7 +480,7 @@ class NewLaunchScreen(Screen):
                     "aside rocket bodies, debris and constellation batches,",
                     "and checks the rest against SatNOGS.",
                     "",
-                    "s  scan 30 days      S  scan 60 days",
+                    "s  scan (30 days, CelesTrak's only window)",
                     "f  toggle the filter (currently %s)"
                     % ("on" if self.filter_on else "off"),
                     "",
@@ -548,11 +548,8 @@ class NewLaunchScreen(Screen):
 
     def handle_key(self, ch):
         import curses
-        if ch == ord("s"):
-            self._scan(30)
-            return True
-        if ch == ord("S"):
-            self._scan(60)
+        if ch in (ord("s"), ord("S")):
+            self._scan()
             return True
         if ch == ord("f"):
             self.filter_on = not self.filter_on

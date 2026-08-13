@@ -21,8 +21,36 @@ import json
 
 LAST_30_URL = ("https://celestrak.org/NORAD/elements/gp.php"
                "?GROUP=last-30-days&FORMAT=JSON")
-LAST_60_URL = ("https://celestrak.org/NORAD/elements/gp.php"
-               "?GROUP=last-60-days&FORMAT=JSON")
+
+# CelesTrak publishes exactly ONE recency group: last-30-days. There is no
+# last-60-days group - a request for it returns an empty result rather than an
+# error, which is the worst kind of wrong: it looks like a quiet two months.
+# A wider window has to come from the international designator instead, which
+# IS in the GP data.
+LAUNCH_YEAR_URL = ("https://celestrak.org/NORAD/elements/gp.php"
+                   "?INTDES=%s&FORMAT=JSON")
+
+
+def launch_year(intl_des):
+    """Launch year from an international designator, or None.
+
+    Delegates to :func:`analysis.cospar_launch_year`, which already handles
+    both the 4-digit form the GP JSON uses ("1998-067A") and the 2-digit TLE
+    form with its 1957 pivot. My first version read the first two characters
+    and turned 1998 into 2019 - a duplicate of working code, written wrong.
+    """
+    from .analysis import cospar_launch_year
+    return cospar_launch_year(intl_des)
+
+
+def filter_by_launch_year(entries, year):
+    """Candidates whose international designator names ``year``."""
+    out = []
+    for e in entries:
+        des = (e.get("omm") or {}).get("OBJECT_ID") or ""
+        if launch_year(des) == year:
+            out.append(e)
+    return out
 
 # ---------------------------------------------------------------------------
 # The noise filter

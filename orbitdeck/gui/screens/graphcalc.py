@@ -52,9 +52,6 @@ class GraphCalcScreen(Screen):
         e2.pack(side="left", padx=4)
         for e in (e1, e2):
             e.bind("<Return>", lambda _ev: self._redraw())
-        ttk.Button(bar, text="Print screen\u2026",
-
-                   command=self._report).pack(side="right", padx=4)
         ttk.Button(bar, text="Plot", command=self._redraw).pack(side="left",
                                                                  padx=8)
 

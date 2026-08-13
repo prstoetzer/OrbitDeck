@@ -326,8 +326,21 @@ class Screen:
 
     # helpers
     def header(self, text):
-        h = ttk.Label(self.frame, text=text, style="H.TLabel")
-        h.pack(side="top", anchor="w", padx=16, pady=(14, 6))
+        """Screen title, with "Print screen..." pinned to the right.
+
+        Placing it here rather than per screen is what makes it land in the
+        same spot every time. A bulk pass that added the button to whatever
+        container it found first put it in sidebars, tab pages and one bare
+        parent - so on Tools it sat under the calculator list and on Location
+        halfway down the form.
+        """
+        bar = ttk.Frame(self.frame, style="TFrame")
+        bar.pack(side="top", anchor="w", fill="x", padx=16, pady=(14, 6))
+        h = ttk.Label(bar, text=text, style="H.TLabel")
+        h.pack(side="left")
+        if callable(getattr(self, "_report", None)):
+            ttk.Button(bar, text="Print screen\u2026",
+                       command=self._report).pack(side="right", padx=(0, 4))
         return h
 
     def sat_header(self, text):
@@ -354,6 +367,9 @@ class Screen:
         # output - so they are named for what they produce.
         ttk.Button(bar, text="Satellite report\u2026",
                    command=self.make_report).pack(side="right", padx=(0, 4))
+        if callable(getattr(self, "_report", None)):
+            ttk.Button(bar, text="Print screen\u2026",
+                       command=self._report).pack(side="right", padx=(0, 6))
         self.refresh_sat_header()
         return bar
 

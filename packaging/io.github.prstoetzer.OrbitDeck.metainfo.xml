@@ -30,6 +30,7 @@
     <category>HamRadio</category>
   </categories>
   <releases>
+    <release version="0.39.2" date="2026-08-13"/>
     <release version="0.39.1" date="2026-08-13"/>
     <release version="0.39.0" date="2026-08-12"/>
     <release version="0.38.2" date="2026-08-12"/>

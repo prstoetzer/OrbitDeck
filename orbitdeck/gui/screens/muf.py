@@ -30,9 +30,6 @@ class MufScreen(Screen):
         ent = ttk.Entry(bar, textvariable=self.ssn, width=7)
         ent.pack(side="left", padx=6)
         ent.bind("<Return>", lambda _e: self._compute())
-        ttk.Button(bar, text="Print screen\u2026",
-
-                   command=self._report).pack(side="right", padx=4)
         ttk.Button(bar, text="Compute",
                    command=self._compute).pack(side="left", padx=6)
         self.sortvar = tk.StringVar(value="region")

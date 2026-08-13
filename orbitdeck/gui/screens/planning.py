@@ -88,9 +88,6 @@ class PlanningScreen(Screen):
         self._find_btn = ttk.Button(bar, text="Find windows",
                                     command=self._render_work)
         self._find_btn.pack(side="left", padx=8)
-        ttk.Button(bar, text="Print screen\u2026",
-
-                   command=self._report).pack(side="right", padx=4)
         ttk.Button(bar, text="Export workable CSV…",
                    command=self._export_work).pack(side="right", padx=2)
         cols = ("start", "dur", "margin")

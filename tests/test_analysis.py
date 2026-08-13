@@ -384,4 +384,4 @@ def test_listing_visible_only_filters(iss_predictor):
 def test_version_is_0_37_0():
     """The package version was bumped for this release."""
     import orbitdeck
-    assert orbitdeck.__version__ == "0.39.1"
+    assert orbitdeck.__version__ == "0.39.2"

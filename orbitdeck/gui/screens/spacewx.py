@@ -25,9 +25,6 @@ class SpaceWxScreen(Screen):
         self.header("Space Weather \u2014 solar & geomagnetic indices")
         bar = ttk.Frame(self.frame, style="TFrame")
         bar.pack(fill="x", padx=16, pady=(0, 4))
-        ttk.Button(bar, text="Print screen\u2026",
-
-                   command=self._report).pack(side="right", padx=4)
         ttk.Button(bar, text="Refresh",
                    command=self._refresh).pack(side="left")
         self.status = tk.StringVar(value="")

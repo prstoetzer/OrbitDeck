@@ -21,8 +21,6 @@ class SkyMapScreen(Screen):
         bar = ttk.Frame(self.frame, style="TFrame")
         bar.pack(fill="x", padx=16, pady=2)
         self.showcon = tk.BooleanVar(value=True)
-        ttk.Button(bar, text="Print screen\u2026",
-                   command=self._report).pack(side="right", padx=4)
         ttk.Checkbutton(bar, text="Constellation lines", variable=self.showcon,
                         command=self._redraw).pack(side="left")
         self.showfav = tk.BooleanVar(value=True)
