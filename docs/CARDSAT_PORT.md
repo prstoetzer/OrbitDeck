@@ -2191,3 +2191,28 @@ horizon, and 48 hours frequently contains no overlap - measured 20 samples with
 a source active and 170 with Jupiter up, and zero coinciding. Over a fortnight
 there were nine. The search now spans 14 days and, when nothing lines up, says
 that rather than leaving a blank table that reads as a fault.
+
+
+## Switching the active satellite from anywhere
+
+The capability half-existed: a "Select Satellite..." button in the top bar, plus
+`[`/`]`, `Ctrl+,`/`Ctrl+.`, `Ctrl+F` and `/`. Cycling was verified to work from
+all 41 screens. What was missing was **visibility** - every route was either a
+modal or a shortcut you had to already know, and the satellite name in the top
+bar was inert text.
+
+Now the name sits between a prev and next button and is itself clickable,
+opening the picker. The thing you are looking at and the way to change it are
+in one place.
+
+Checking the request properly turned up a real bug behind it. **AMSAT Status
+resolved the API name only when the field was empty** (`if sat and not
+self.apiname.get()`), so switching satellites left the previous one's name and
+the screen reported the wrong satellite's status without saying so. It now
+re-resolves when the NORAD id changes, tracked separately from a name the
+operator typed - that one survives, since it is theirs.
+
+Worth noting what the sweep for this found and did **not** find: 17 screens do
+not change when the satellite does, but most legitimately should not - Tools,
+References, Space Wx, MUF, Propagation and the rest are not satellite-scoped.
+Only AMSAT Status was actually wrong.

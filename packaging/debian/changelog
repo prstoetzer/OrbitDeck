@@ -1,3 +1,10 @@
+orbitdeck (0.39.4-1) unstable; urgency=medium
+
+  * Persistent satellite switcher in the top bar, usable from any screen.
+  * AMSAT Status no longer keeps the previous satellite's API name.
+
+ -- Paul Stoetzer, N8HM <n8hm@arrl.net>  Thu, 13 Aug 2026 20:00:00 +0000
+
 orbitdeck (0.39.3-1) unstable; urgency=medium
 
   * Jupiter, Aurora and EME conditions rendered blank: KVPanel rows were never

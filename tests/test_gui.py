@@ -612,3 +612,99 @@ def test_nav_is_scrollable_for_all_items():
             root.destroy()
         except Exception:
             pass
+
+
+def test_the_satellite_switcher_is_on_every_screen():
+    """Switching the active satellite should not depend on knowing a shortcut
+    or on which screen you happen to be looking at."""
+    import time as _t
+    import tkinter as tk
+    try:
+        root = tk.Tk()
+    except Exception:
+        return
+    root.geometry("1280x800")
+    try:
+        from orbitdeck.gui.app import OrbitDeckApp, NAV_ITEMS
+        app = OrbitDeckApp(root)
+
+        def settle(n=6):
+            for _ in range(n):
+                root.update_idletasks()
+                root.update()
+                _t.sleep(0.01)
+        settle(12)
+
+        def arrows(w, out):
+            for c in w.winfo_children():
+                if c.winfo_class() == "TButton":
+                    try:
+                        if str(c.cget("text")) in ("\u25c0", "\u25b6"):
+                            out.append(c.winfo_ismapped())
+                    except Exception:
+                        pass
+                arrows(c, out)
+        missing = []
+        for _label, key in NAV_ITEMS:
+            app.show(key)
+            settle(2)
+            found = []
+            arrows(root, found)
+            if len([x for x in found if x]) < 2:
+                missing.append(key)
+        assert not missing, missing
+        # and it actually changes the selection
+        before = app.store.selected_norad
+        app._cycle_sat(1)
+        settle(2)
+        assert app.store.selected_norad != before
+        app._cycle_sat(-1)
+        settle(2)
+        assert app.store.selected_norad == before
+    finally:
+        try:
+            root.destroy()
+        except Exception:
+            pass
+
+
+def test_amsat_status_follows_the_selected_satellite():
+    """It only resolved the API name when the box was EMPTY, so switching
+    satellites left the previous one's name and the screen quietly reported
+    the wrong satellite's status."""
+    import time as _t
+    import tkinter as tk
+    try:
+        root = tk.Tk()
+    except Exception:
+        return
+    try:
+        from orbitdeck.gui.app import OrbitDeckApp
+        app = OrbitDeckApp(root)
+
+        def settle(n=5):
+            for _ in range(n):
+                root.update_idletasks()
+                root.update()
+                _t.sleep(0.01)
+        settle(10)
+        app.show("amsatstatus")
+        settle(4)
+        scr = app.current
+        scr.apiname.set("ISS_[FM]")
+        scr._resolved_for = app.store.selected_norad
+        settle(2)
+        app._cycle_sat(1)
+        settle(4)
+        assert scr.apiname.get() != "ISS_[FM]"
+        # a name the operator typed is theirs, and survives the change
+        scr._user_edited = True
+        scr.apiname.set("MY-CHOICE")
+        app._cycle_sat(1)
+        settle(3)
+        assert scr.apiname.get() == "MY-CHOICE"
+    finally:
+        try:
+            root.destroy()
+        except Exception:
+            pass

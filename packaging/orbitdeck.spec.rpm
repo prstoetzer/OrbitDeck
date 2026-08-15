@@ -69,6 +69,9 @@ install -Dm644 packaging/io.github.prstoetzer.OrbitDeck.metainfo.xml \
 %{_metainfodir}/io.github.prstoetzer.OrbitDeck.metainfo.xml
 
 %changelog
+* Thu Aug 13 2026 Paul Stoetzer, N8HM - 0.39.4-1
+- Persistent satellite switcher in the top bar; fix stale AMSAT Status name
+
 * Thu Aug 13 2026 Paul Stoetzer, N8HM - 0.39.3-1
 - Fix blank Jupiter, Aurora and EME astronomy tabs; widen the Io window search
 

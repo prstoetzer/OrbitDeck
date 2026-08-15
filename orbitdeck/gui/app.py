@@ -297,8 +297,20 @@ class OrbitDeckApp:
         ttk.Label(top, text="  OrbitDeck", style="Panel.TLabel",
                   font=("DejaVu Sans", 15, "bold")).pack(side="left", pady=8)
         self.sat_var = tk.StringVar(value="\u2014")
-        ttk.Label(top, textvariable=self.sat_var, style="Mono.TLabel").pack(
-            side="left", padx=16)
+        # An always-visible switcher, so changing the active satellite does
+        # not depend on knowing a shortcut or on which screen you happen to be.
+        # The name itself opens the picker; the arrows step through the list
+        # with favorites first.
+        satbox = ttk.Frame(top, style="TFrame")
+        satbox.pack(side="left", padx=16)
+        ttk.Button(satbox, text="\u25c0", width=2,
+                   command=lambda: self._cycle_sat(-1)).pack(side="left")
+        _satlbl = ttk.Label(satbox, textvariable=self.sat_var,
+                            style="Mono.TLabel", cursor="hand2")
+        _satlbl.pack(side="left", padx=6)
+        _satlbl.bind("<Button-1>", lambda _e: self._quick_select())
+        ttk.Button(satbox, text="\u25b6", width=2,
+                   command=lambda: self._cycle_sat(1)).pack(side="left")
         self.clock_var = tk.StringVar(value="")
         ttk.Label(top, textvariable=self.clock_var, style="Mono.TLabel").pack(
             side="right", padx=16)

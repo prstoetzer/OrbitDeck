@@ -82,8 +82,15 @@ class AmsatStatusScreen(Screen):
         bar.pack(fill="x", padx=4, pady=6)
         ttk.Label(bar, text="AMSAT name:", style="TLabel").pack(side="left")
         self.apiname = tk.StringVar(value="")
-        ttk.Entry(bar, textvariable=self.apiname, width=18).pack(side="left",
-                                                                 padx=6)
+        self._user_edited = False
+        self._resolved_for = None
+        _ent = ttk.Entry(bar, textvariable=self.apiname, width=18)
+        # A name the operator typed themselves survives a satellite change;
+        # one we resolved does not. Bound to the KEY event, not the variable,
+        # so our own programmatic sets do not look like an edit.
+        _ent.bind("<KeyRelease>",
+                  lambda _e: setattr(self, "_user_edited", True))
+        _ent.pack(side="left", padx=6)
         ttk.Label(bar, text="Status:", style="TLabel").pack(side="left",
                                                              padx=(10, 2))
         self.status = tk.StringVar(value=AS.STATUSES[0])
@@ -116,6 +123,16 @@ class AmsatStatusScreen(Screen):
 
     def on_show(self):
         sat = self.store.selected_sat()
+        # Re-resolve when the SATELLITE changes, not only when the box is
+        # empty: switching birds used to leave the previous one's API name in
+        # place, so the screen quietly reported the wrong satellite's status.
+        # A name the operator typed themselves is still respected.
+        changed = sat is not None and getattr(sat, "norad", None) != \
+            getattr(self, "_resolved_for", None)
+        if changed and not getattr(self, "_user_edited", False):
+            self.apiname.set("")
+        if sat is not None:
+            self._resolved_for = getattr(sat, "norad", None)
         if sat and not self.apiname.get():
             # A catalog name is not an API name ("ISS (ZARYA)" is "ISS_[FM]"),
             # so resolve it through the API's own catalog. Falls back to the

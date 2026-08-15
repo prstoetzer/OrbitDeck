@@ -1,5 +1,22 @@
 # Changelog
 
+## [0.39.4]
+
+### Added
+- **The active satellite can be switched from any screen.** The top bar now
+  carries a persistent switcher: ◀ and ▶ step through the list (favorites
+  first), and clicking the satellite name opens the full picker. Both sit
+  beside the name that was already there, so what you are looking at and how
+  to change it are in the same place. The existing shortcuts still work —
+  `[` / `]`, `Ctrl+,` / `Ctrl+.`, `Ctrl+F` and `/`.
+
+### Fixed
+- **AMSAT Status kept the previous satellite's API name.** It resolved the
+  name only when the box was empty, so switching satellites left the old one
+  in place and the screen quietly reported the wrong satellite's status. It
+  now re-resolves when the satellite changes — while still respecting a name
+  the operator typed themselves.
+
 ## [0.39.3]
 
 ### Fixed
